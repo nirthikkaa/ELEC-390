@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootScroll"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status: Idle"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvPitchConn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Pitch glove: DISCONNECTED" />
+
+        <TextView
+            android:id="@+id/tvVolConn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Volume glove: DISCONNECTED" />
+
+        <TextView
+            android:id="@+id/tvAudio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Audio: STOPPED" />
+
+        <!-- Top controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnScanConnect"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Scan + Connect" />
+
+            <Button
+                android:id="@+id/btnDisconnectAll"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Disconnect All" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnAudioStart"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Start Audio" />
+
+            <Button
+                android:id="@+id/btnAudioStop"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Stop Audio" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnDefaults"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Reset Mapping Defaults" />
+
+        <!-- Glove commands -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Glove Commands"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <Button
+                android:id="@+id/btnNeutralPitch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Pitch N" />
+
+            <Button
+                android:id="@+id/btnDirectionPitch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Pitch D" />
+
+            <Button
+                android:id="@+id/btnHelpPitch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Pitch H" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="6dp">
+
+            <Button
+                android:id="@+id/btnNeutralVol"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Volume N" />
+
+            <Button
+                android:id="@+id/btnDirectionVol"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Volume D" />
+
+            <Button
+                android:id="@+id/btnHelpVol"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Volume H" />
+        </LinearLayout>
+
+        <!-- Mapping -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="App Mapping (Sliders + Tap Numbers)"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Tap the value to enter a number manually." />
+
+        <!-- Pitch angle min -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Pitch Angle Min (deg) → Frequency Min" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvPitchAngleMinVal"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="0.0°"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+            <SeekBar
+                android:id="@+id/sbPitchAngleMin"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Pitch angle max -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pitch Angle Max (deg) → Frequency Max" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvPitchAngleMaxVal"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="45.0°"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+            <SeekBar
+                android:id="@+id/sbPitchAngleMax"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Freq min -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Frequency Min (Hz)" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvFreqMinVal"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="523.3 Hz"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+            <SeekBar
+                android:id="@+id/sbFreqMin"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Freq max -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Frequency Max (Hz)" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvFreqMaxVal"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="880.0 Hz"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+            <SeekBar
+                android:id="@+id/sbFreqMax"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Volume angle min -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Volume Angle Min (deg) → 0%" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvVolAngleMinVal"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="0.0°"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+            <SeekBar
+                android:id="@+id/sbVolAngleMin"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Volume angle max -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Volume Angle Max (deg) → 100%" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvVolAngleMaxVal"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:text="45.0°"
+                android:textStyle="bold"
+                android:padding="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true" />
+            <SeekBar
+                android:id="@+id/sbVolAngleMax"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <!-- Live values -->
+        <TextView
+            android:id="@+id/tvPitchValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Pitch ACTIVE_DELTA_DEG = 0.00°" />
+
+        <TextView
+            android:id="@+id/tvVolValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Volume ACTIVE_DELTA_DEG = 0.00°" />
+
+        <TextView
+            android:id="@+id/tvToneValue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mapped tone: 523.3 Hz | Volume 0%" />
+
+        <TextView
+            android:id="@+id/tvPitchLast"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Pitch last packet: (none)"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tvVolLast"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Volume last packet: (none)"
+            android:textSize="12sp" />
+
+        <!-- Log -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Log"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="-"
+            android:textSize="12sp"
+            android:typeface="monospace" />
+
+    </LinearLayout>
+</ScrollView>
