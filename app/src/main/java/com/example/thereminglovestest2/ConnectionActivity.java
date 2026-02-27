@@ -4,7 +4,13 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
@@ -25,6 +31,9 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+
 @SuppressLint("SetTextI18n")
 
 public class ConnectionActivity extends AppCompatActivity {
@@ -32,6 +41,16 @@ public class ConnectionActivity extends AppCompatActivity {
     // BLE device names (must match Arduino)
     private static final String PITCH_DEVICE_NAME = "ThereminGlove";
     private static final String VOLUME_DEVICE_NAME = "ThereminGloveVol";
+    
+    // BLE UUIDs (must match Arduino)
+    private static final UUID SERVICE_UUID = 
+            UUID.fromString("12345678-1234-1234-1234-1234567890ab");
+    private static final UUID TX_CHAR_UUID = 
+            UUID.fromString("12345678-1234-1234-1234-1234567890ac");
+    private static final UUID RX_CHAR_UUID = 
+            UUID.fromString("12345678-1234-1234-1234-1234567890ad");
+    private static final UUID CCCD_UUID = 
+            UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
     
     private static final int REQ_PERMS = 1001;
     private static final long SCAN_TIMEOUT_MS = 12000;
@@ -51,11 +70,9 @@ public class ConnectionActivity extends AppCompatActivity {
     private boolean isScanning = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
-    // Device state
-    private BluetoothDevice pitchDevice = null;
-    private BluetoothDevice volumeDevice = null;
-    private boolean isPitchConnected = false;
-    private boolean isVolumeConnected = false;
+    // Real BLE glove clients
+    private final GloveClient pitchGlove = new GloveClient("PITCH", PITCH_DEVICE_NAME);
+    private final GloveClient volumeGlove = new GloveClient("VOLUME", VOLUME_DEVICE_NAME);
 
     // Connection states
     private enum ConnectionState {
@@ -123,8 +140,14 @@ public class ConnectionActivity extends AppCompatActivity {
             }
         });
 
-        btnConnectPitchConfirm.setOnClickListener(v -> connectDevice(pitchDevice, true));
-        btnConnectVolumeConfirm.setOnClickListener(v -> connectDevice(volumeDevice, false));
+        btnConnectPitchConfirm.setOnClickListener(v -> {
+            // Connection happens automatically during scan
+            Toast.makeText(this, "Connection handled automatically during scan", Toast.LENGTH_SHORT).show();
+        });
+        btnConnectVolumeConfirm.setOnClickListener(v -> {
+            // Connection happens automatically during scan  
+            Toast.makeText(this, "Connection handled automatically during scan", Toast.LENGTH_SHORT).show();
+        });
         
         btnContinue.setOnClickListener(v -> {
             // Navigate to MainActivity with connection established
@@ -137,6 +160,7 @@ public class ConnectionActivity extends AppCompatActivity {
 
     private void startScanning() {
         if (!checkPermissions()) {
+            requestRequiredPermissions();
             return;
         }
 
@@ -151,14 +175,14 @@ public class ConnectionActivity extends AppCompatActivity {
             return;
         }
 
+        // Reset glove scan state
+        pitchGlove.seenDuringCurrentScan = false;
+        volumeGlove.seenDuringCurrentScan = false;
+
         isScanning = true;
         btnScanDevices.setText("Stop Scanning");
         tvPitchScanStatus.setText("Scanning...");
         tvVolumeScanStatus.setText("Scanning...");
-
-        // Reset found devices
-        pitchDevice = null;
-        volumeDevice = null;
         updateUI();
 
         try {
@@ -196,37 +220,34 @@ public class ConnectionActivity extends AppCompatActivity {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             BluetoothDevice device = result.getDevice();
-            
-            try {
-                String deviceName = device.getName();
-                if (deviceName == null) return;
+            String name = safeDeviceName(device);
+            if (name == null) return;
 
-                if (PITCH_DEVICE_NAME.equals(deviceName) && pitchDevice == null) {
-                    pitchDevice = device;
-                    runOnUiThread(() -> {
-                        tvPitchDeviceName.setText(deviceName);
-                        tvPitchDeviceName.setVisibility(View.VISIBLE);
-                        tvPitchFound.setVisibility(View.VISIBLE);
-                        btnConnectPitchConfirm.setEnabled(true);
-                        updateUI();
-                    });
-                } else if (VOLUME_DEVICE_NAME.equals(deviceName) && volumeDevice == null) {
-                    volumeDevice = device;
-                    runOnUiThread(() -> {
-                        tvVolumeDeviceName.setText(deviceName);
-                        tvVolumeDeviceName.setVisibility(View.VISIBLE);
-                        tvVolumeFound.setVisibility(View.VISIBLE);
-                        btnConnectVolumeConfirm.setEnabled(true);
-                        updateUI();
-                    });
-                }
+            if (PITCH_DEVICE_NAME.equals(name)) {
+                pitchGlove.seenDuringCurrentScan = true;
+                runOnUiThread(() -> {
+                    tvPitchDeviceName.setText(name);
+                    tvPitchDeviceName.setVisibility(View.VISIBLE);
+                    tvPitchFound.setVisibility(View.VISIBLE);
+                    btnConnectPitchConfirm.setEnabled(true);
+                    updateUI();
+                });
+                maybeConnectToGloveDevice(pitchGlove, device);
+            } else if (VOLUME_DEVICE_NAME.equals(name)) {
+                volumeGlove.seenDuringCurrentScan = true;
+                runOnUiThread(() -> {
+                    tvVolumeDeviceName.setText(name);
+                    tvVolumeDeviceName.setVisibility(View.VISIBLE);
+                    tvVolumeFound.setVisibility(View.VISIBLE);
+                    btnConnectVolumeConfirm.setEnabled(true);
+                    updateUI();
+                });
+                maybeConnectToGloveDevice(volumeGlove, device);
+            }
 
-                // Auto-stop scanning if both devices found
-                if (pitchDevice != null && volumeDevice != null) {
-                    stopScanning();
-                }
-            } catch (SecurityException e) {
-                // Handle permission issues silently
+            // Auto-stop scanning if both devices are connected
+            if (pitchGlove.connected && volumeGlove.connected) {
+                stopScanning();
             }
         }
 
@@ -240,39 +261,27 @@ public class ConnectionActivity extends AppCompatActivity {
     };
 
     private void connectDevice(BluetoothDevice device, boolean isPitchGlove) {
-        if (device == null) return;
-
-        // Update UI to show connecting state
-        if (isPitchGlove) {
-            pitchState = ConnectionState.CONNECTING;
-        } else {
-            volumeState = ConnectionState.CONNECTING;
-        }
-        updateUI();
-
-        // Mock connection for now - in real implementation this would use BluetoothGatt
-        mainHandler.postDelayed(() -> {
-            // Simulate successful connection
-            if (isPitchGlove) {
-                pitchState = ConnectionState.CONNECTED;
-                isPitchConnected = true;
-            } else {
-                volumeState = ConnectionState.CONNECTED;
-                isVolumeConnected = true;
-            }
-            updateUI();
-        }, 2000);
+        // This is now handled automatically by the scan callback
+        // when devices are discovered, they connect immediately
     }
 
     private void updateUI() {
+        // Update pitch glove state based on real connection
+        pitchState = pitchGlove.connected ? ConnectionState.CONNECTED : 
+                    (pitchGlove.connecting ? ConnectionState.CONNECTING : ConnectionState.DISCONNECTED);
+        
+        // Update volume glove state based on real connection
+        volumeState = volumeGlove.connected ? ConnectionState.CONNECTED : 
+                     (volumeGlove.connecting ? ConnectionState.CONNECTING : ConnectionState.DISCONNECTED);
+
         // Update pitch glove buttons
         switch (pitchState) {
             case DISCONNECTED:
                 btnConnectPitch.setText("Connect?");
-                btnConnectPitch.setTextColor(pitchDevice != null ? 
+                btnConnectPitch.setTextColor(pitchGlove.seenDuringCurrentScan ? 
                     getColor(android.R.color.black) : getColor(android.R.color.darker_gray));
                 btnConnectPitchConfirm.setText("Connect");
-                btnConnectPitchConfirm.setEnabled(pitchDevice != null);
+                btnConnectPitchConfirm.setEnabled(pitchGlove.seenDuringCurrentScan);
                 break;
             case CONNECTING:
                 btnConnectPitch.setText("Connecting...");
@@ -292,10 +301,10 @@ public class ConnectionActivity extends AppCompatActivity {
         switch (volumeState) {
             case DISCONNECTED:
                 btnConnectVolume.setText("Connect?");
-                btnConnectVolume.setTextColor(volumeDevice != null ? 
+                btnConnectVolume.setTextColor(volumeGlove.seenDuringCurrentScan ? 
                     getColor(android.R.color.black) : getColor(android.R.color.darker_gray));
                 btnConnectVolumeConfirm.setText("Connect");
-                btnConnectVolumeConfirm.setEnabled(volumeDevice != null);
+                btnConnectVolumeConfirm.setEnabled(volumeGlove.seenDuringCurrentScan);
                 break;
             case CONNECTING:
                 btnConnectVolume.setText("Connecting...");
@@ -312,7 +321,7 @@ public class ConnectionActivity extends AppCompatActivity {
         }
 
         // Show continue button if both gloves are connected
-        if (isPitchConnected && isVolumeConnected) {
+        if (pitchGlove.connected && volumeGlove.connected) {
             btnContinue.setVisibility(View.VISIBLE);
         } else {
             btnContinue.setVisibility(View.GONE);
@@ -320,29 +329,35 @@ public class ConnectionActivity extends AppCompatActivity {
     }
 
     private boolean checkPermissions() {
-        String[] permissions;
-        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions = new String[]{
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            };
+            return hasPermission(Manifest.permission.BLUETOOTH_SCAN)
+                    && hasPermission(Manifest.permission.BLUETOOTH_CONNECT);
         } else {
-            permissions = new String[]{
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.BLUETOOTH_ADMIN,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            };
+            return hasPermission(Manifest.permission.ACCESS_FINE_LOCATION);
         }
+    }
 
-        for (String permission : permissions) {
-            if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, permissions, REQ_PERMS);
-                return false;
-            }
+    private boolean hasPermission(String perm) {
+        return ActivityCompat.checkSelfPermission(this, perm) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void requestRequiredPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT
+                    },
+                    REQ_PERMS
+            );
+        } else {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    REQ_PERMS
+            );
         }
-        return true;
     }
 
     @Override
@@ -359,13 +374,197 @@ public class ConnectionActivity extends AppCompatActivity {
             
             if (!allGranted) {
                 Toast.makeText(this, "Bluetooth permissions required", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "Permissions granted - starting scan", Toast.LENGTH_SHORT).show();
+                startScanning();
             }
         }
+    }
+
+    @SuppressLint("MissingPermission")  
+    private void maybeConnectToGloveDevice(GloveClient glove, BluetoothDevice device) {
+        if (glove.connected || glove.connecting) return;
+        if (glove.gatt != null) return;
+
+        glove.connecting = true;
+        glove.lastDeviceAddress = device.getAddress();
+        updateUI();
+
+        BluetoothGattCallback callback = createGattCallback(glove);
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                glove.gatt = device.connectGatt(this, false, callback, BluetoothDevice.TRANSPORT_LE);
+            } else {
+                glove.gatt = device.connectGatt(this, false, callback);
+            }
+        } catch (SecurityException e) {
+            glove.connecting = false;
+            glove.gatt = null;
+            Toast.makeText(this, glove.roleLabel + ": connect permission error", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private BluetoothGattCallback createGattCallback(GloveClient glove) {
+        return new BluetoothGattCallback() {
+            @Override
+            public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    glove.connecting = false;
+                    glove.connected = true;
+                    runOnUiThread(() -> {
+                        Toast.makeText(ConnectionActivity.this, glove.roleLabel + " connected!", Toast.LENGTH_SHORT).show();
+                        updateUI();
+                    });
+                    try {
+                        gatt.discoverServices();
+                    } catch (SecurityException e) {
+                        // Handle permission error
+                    }
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    glove.connecting = false;
+                    glove.connected = false;
+                    glove.notificationsEnabled = false;
+                    glove.txChar = null;
+                    glove.rxChar = null;
+
+                    try { gatt.close(); } catch (Exception ignored) {}
+                    if (glove.gatt == gatt) glove.gatt = null;
+
+                    runOnUiThread(() -> {
+                        Toast.makeText(ConnectionActivity.this, glove.roleLabel + " disconnected", Toast.LENGTH_SHORT).show();
+                        updateUI();
+                    });
+                }
+            }
+
+            @Override
+            public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    return;
+                }
+
+                BluetoothGattService service = gatt.getService(SERVICE_UUID);
+                if (service == null) {
+                    return;
+                }
+
+                glove.txChar = service.getCharacteristic(TX_CHAR_UUID);
+                glove.rxChar = service.getCharacteristic(RX_CHAR_UUID);
+
+                if (glove.txChar != null) {
+                    enableNotifications(glove, gatt, glove.txChar);
+                }
+            }
+
+            @Override
+            public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+                glove.notificationsEnabled = (status == BluetoothGatt.GATT_SUCCESS);
+            }
+
+            @Override
+            public void onCharacteristicChanged(BluetoothGatt gatt,
+                                                BluetoothGattCharacteristic characteristic,
+                                                byte[] value) {
+                handleGloveNotification(glove, characteristic, value);
+            }
+
+            @Override
+            public void onCharacteristicChanged(BluetoothGatt gatt,
+                                                BluetoothGattCharacteristic characteristic) {
+                handleGloveNotification(glove, characteristic, characteristic.getValue());
+            }
+        };
+    }
+
+    @SuppressLint("MissingPermission")
+    private void enableNotifications(GloveClient glove, BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        try {
+            boolean localOk = gatt.setCharacteristicNotification(characteristic, true);
+
+            BluetoothGattDescriptor cccd = characteristic.getDescriptor(CCCD_UUID);
+            if (cccd == null) {
+                return;
+            }
+
+            cccd.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+            gatt.writeDescriptor(cccd);
+        } catch (SecurityException e) {
+            // Handle permission error
+        }
+    }
+
+    private void handleGloveNotification(GloveClient glove,
+                                         BluetoothGattCharacteristic characteristic,
+                                         byte[] value) {
+        if (characteristic == null || value == null) return;
+        if (!TX_CHAR_UUID.equals(characteristic.getUuid())) return;
+
+        String line = new String(value, StandardCharsets.UTF_8).trim();
+        glove.lastPacket = line;
+
+        // Update UI on main thread for any received data
+        runOnUiThread(() -> {
+            Toast.makeText(ConnectionActivity.this, 
+                glove.roleLabel + ": " + line, Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private String safeDeviceName(BluetoothDevice device) {
+        if (device == null) return null;
+        try {
+            return device.getName();
+        } catch (SecurityException e) {
+            return null;
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void disconnectGlove(GloveClient glove) {
+        glove.connecting = false;
+        glove.connected = false;
+        glove.notificationsEnabled = false;
+
+        if (glove.gatt != null) {
+            try { glove.gatt.disconnect(); } catch (Exception ignored) {}
+            try { glove.gatt.close(); } catch (Exception ignored) {}
+        }
+
+        glove.gatt = null;
+        glove.txChar = null;
+        glove.rxChar = null;
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         stopScanning();
+        disconnectGlove(pitchGlove);
+        disconnectGlove(volumeGlove);
+    }
+
+    // =========================================================
+    // GloveClient - BLE connection holder
+    // =========================================================
+    private static class GloveClient {
+        final String roleLabel;
+        final String targetDeviceName;
+
+        BluetoothGatt gatt;
+        BluetoothGattCharacteristic txChar;
+        BluetoothGattCharacteristic rxChar;
+
+        boolean connecting = false;
+        boolean connected = false;
+        boolean notificationsEnabled = false;
+        boolean seenDuringCurrentScan = false;
+
+        String lastDeviceAddress = "";
+        String lastPacket = "(none)";
+
+        GloveClient(String roleLabel, String targetDeviceName) {
+            this.roleLabel = roleLabel;
+            this.targetDeviceName = targetDeviceName;
+        }
     }
 }
