@@ -1,11 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
     <!-- BLE hardware -->
     <uses-feature
         android:name="android.hardware.bluetooth_le"
-        android:required="true" />
-
-    <!-- Android 11 and lower -->
+        android:required="true" /> <!-- Android 11 and lower -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
@@ -14,9 +12,7 @@
         android:maxSdkVersion="30" />
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="30" />
-
-    <!-- Android 12+ -->
+        android:maxSdkVersion="30" /> <!-- Android 12+ -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
@@ -27,20 +23,50 @@
         android:label="Theremin Gloves Dual"
         android:supportsRtl="true"
         android:theme="@style/Theme.Material3.DayNight.NoActionBar">
-
-        <!-- Launcher activity MUST be exported=true -->
+        <activity
+            android:name=".AppSettings"
+            android:exported="false" />
+        <activity
+            android:name=".AppSettingsRepository"
+            android:exported="false" />
+        <activity
+            android:name=".AppSettingsDbHelper"
+            android:exported="false" />
+        <activity
+            android:name=".BottomNavBarView"
+            android:exported="false" />
+        <activity
+            android:name=".BaseNavPlaceholderActivity"
+            android:exported="false" />
+        <activity
+            android:name=".NavFiveButtonsView"
+            android:exported="false" />
+        <activity
+            android:name=".InsetAwareScrollView"
+            android:exported="false" />
         <activity
             android:name=".LaunchActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <!-- Internal only -->
+        </activity> <!-- Play / Live -->
         <activity
             android:name=".MainActivity"
+            android:exported="false" /> <!-- Placeholder screens (safe navigation shell step) -->
+        <activity
+            android:name=".ConnectGlovesActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CalibrationActivity"
+            android:exported="false" />
+        <activity
+            android:name=".LibraryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SettingsActivity"
             android:exported="false" />
     </application>
 

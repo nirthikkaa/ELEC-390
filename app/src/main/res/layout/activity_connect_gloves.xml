@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/connectScreenRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- Scrollable content area -->
+    <com.example.thereminglovestest2.InsetAwareScrollView
+        android:id="@+id/rootScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Top bar -->
+            <com.example.thereminglovestest2.TopNavBarView
+                android:id="@+id/topNavBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <!-- Big status -->
+            <TextView
+                android:id="@+id/tvBigStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Status: —"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <!-- Host note: shown only if MainActivity isn't alive yet -->
+            <TextView
+                android:id="@+id/tvHostNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="(host note)"
+                android:visibility="gone" />
+
+            <!-- Glove connection lines -->
+            <TextView
+                android:id="@+id/tvPitchConn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Pitch (ThereminGlove): —" />
+
+            <TextView
+                android:id="@+id/tvVolConn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Volume (ThereminGloveVol): —" />
+
+            <TextView
+                android:id="@+id/tvPitchLast"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Pitch last: —" />
+
+            <TextView
+                android:id="@+id/tvVolLast"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Volume last: —" />
+
+            <!-- Primary BLE control -->
+            <Button
+                android:id="@+id/btnConnectToggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="CONNECT" />
+
+            <!-- Only visible if the BLE host isn't alive yet -->
+            <Button
+                android:id="@+id/btnOpenPlay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Open Play to Initialize BLE"
+                android:visibility="gone" />
+
+            <!-- Small hint -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Note: In this MVP step, BLE engine still lives in Play (MainActivity). This screen is the UI façade. Next step: move BLE engine to a dedicated manager/service."
+                android:textSize="12sp" />
+
+        </LinearLayout>
+    </com.example.thereminglovestest2.InsetAwareScrollView>
+
+    <!-- Persistent bottom navigation bar -->
+    <com.example.thereminglovestest2.BottomNavBarView
+        android:id="@+id/bottomNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+</LinearLayout>

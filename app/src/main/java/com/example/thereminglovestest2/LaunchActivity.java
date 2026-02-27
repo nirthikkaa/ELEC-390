@@ -21,6 +21,20 @@ public class LaunchActivity extends AppCompatActivity {
         }
 
         btnTapToStart.setOnClickListener(v -> goToMain());
+
+        Button btnOpenMenu = findViewById(R.id.btnOpenMenu);
+        if (btnOpenMenu != null) {
+            btnOpenMenu.setOnClickListener(v -> goToHome());
+        }
+    }
+
+    private void goToHome() {
+        if (started) return;
+        started = true;
+
+        Intent intent = new Intent(this, HomeActivity.class);
+        startActivity(intent);
+        finish();
     }
 
     private void goToMain() {
