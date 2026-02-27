@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="32dp"
+    android:background="#FFFFFF">
+
+    <!-- Main Content Area -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/font"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:fontFamily="casual"
+            android:text="THEREMIN"
+            android:textColor="#333333"
+            android:textSize="60sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="80dp"
+            android:fontFamily="casual"
+            android:text="GLOVES"
+            android:textColor="#333333"
+            android:textSize="60sp"
+            android:textStyle="bold" />
+
+        <!-- Start Button -->
+        <Button
+            android:id="@+id/btnTapToStart"
+            android:layout_width="300dp"
+            android:layout_height="90dp"
+            android:layout_marginTop="40dp"
+            android:background="@color/white"
+            android:backgroundTint="#856464"
+            android:text="Tap to Start"
+            android:textColor="#E5E5E5"
+            android:textColorLink="#DBDBDB"
+            android:textSize="27sp"
+            app:rippleColor="@color/black" />
+
+    </LinearLayout>
+
+    <!-- Bottom Icons Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="24dp">
+
+        <!-- Bluetooth Icon -->
+
+        <!-- Settings Icon -->
+
+        <!-- Volume Icon -->
+        <ImageView
+            android:id="@+id/iconBluetooth"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_marginEnd="40dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="12dp"
+            android:src="@android:drawable/stat_sys_data_bluetooth"
+            android:tint="#555555" />
+
+        <ImageView
+            android:id="@+id/iconSettings"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:layout_marginEnd="40dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="12dp"
+            android:src="@drawable/ic_cog"
+            android:tint="#555555" />
+
+        <ImageView
+            android:id="@+id/iconVolume"
+            android:layout_width="90dp"
+            android:layout_height="90dp"
+            android:src="@android:drawable/ic_lock_silent_mode_off"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:padding="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:tint="#555555" />
+
+    </LinearLayout>
+
+</LinearLayout>
