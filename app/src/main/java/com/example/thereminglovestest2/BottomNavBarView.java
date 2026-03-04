@@ -3,7 +3,6 @@ package com.example.thereminglovestest2;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -27,6 +26,7 @@ public class BottomNavBarView extends LinearLayout {
     private int colorSurface;
     private int colorPrimary;
     private int colorOnSurfaceVariant;
+    private int colorActiveBackground;
 
     public BottomNavBarView(Context context) {
         super(context);
@@ -47,11 +47,13 @@ public class BottomNavBarView extends LinearLayout {
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
 
-        colorSurface = resolveThemeColor(android.R.attr.colorBackground, Color.BLACK);
-        colorPrimary = resolveThemeColor(android.R.attr.colorAccent, 0xFFB39DDB);
-        colorOnSurfaceVariant = resolveThemeColor(android.R.attr.textColorSecondary, 0xFFAAAAAA);
+        colorSurface = ContextCompat.getColor(context, R.color.app_surface);
+        colorPrimary = ContextCompat.getColor(context, R.color.app_primary);
+        colorOnSurfaceVariant = ContextCompat.getColor(context, R.color.app_on_surface_variant);
+        colorActiveBackground = withAlpha(colorPrimary, 46);
 
-        setBackgroundColor(colorSurface);
+        // Plain translucent fill only. Lowered alpha for more transparency.
+        setBackgroundColor(withAlpha(colorSurface, 90));
         setElevation(dp(8));
 
         int hPad = dp(4);
@@ -96,7 +98,7 @@ public class BottomNavBarView extends LinearLayout {
         item.setBackgroundResource(getSelectableItemBackgroundResId());
 
         if (isActive) {
-            item.setBackgroundColor(withAlpha(colorPrimary, 28));
+            item.setBackgroundColor(colorActiveBackground);
         }
 
         ImageView icon = new ImageView(context);
@@ -159,26 +161,6 @@ public class BottomNavBarView extends LinearLayout {
                 android.R.attr.selectableItemBackground, tv, true
         );
         return ok ? tv.resourceId : android.R.color.transparent;
-    }
-
-    private int resolveThemeColor(int attr, int fallback) {
-        TypedValue tv = new TypedValue();
-        boolean found = getContext().getTheme().resolveAttribute(attr, tv, true);
-        if (!found) return fallback;
-
-        if (tv.type >= TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= TypedValue.TYPE_LAST_COLOR_INT) {
-            return tv.data;
-        }
-
-        if (tv.resourceId != 0) {
-            try {
-                return ContextCompat.getColor(getContext(), tv.resourceId);
-            } catch (Exception ignored) {
-                return fallback;
-            }
-        }
-
-        return fallback;
     }
 
     private static int withAlpha(int color, int alpha255) {

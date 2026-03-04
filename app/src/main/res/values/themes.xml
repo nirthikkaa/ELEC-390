@@ -1,8 +1,30 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+
     <style name="Base.Theme.ThereminGlovestest2" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/app_primary</item>
+        <item name="colorOnPrimary">@color/app_on_primary</item>
+
+        <item name="colorSecondary">@color/app_secondary</item>
+        <item name="colorOnSecondary">@color/app_on_secondary</item>
+
+        <item name="colorTertiary">@color/app_tertiary</item>
+        <item name="colorOnTertiary">@color/app_on_tertiary</item>
+
+        <item name="android:colorBackground">@color/app_background</item>
+
+        <item name="colorSurface">@color/app_surface</item>
+        <item name="colorOnSurface">@color/app_on_surface</item>
+        <item name="colorSurfaceVariant">@color/app_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/app_on_surface_variant</item>
+
+        <item name="colorOutline">@color/app_outline</item>
+        <item name="android:textColorPrimary">@color/app_on_surface</item>
+        <item name="android:textColorSecondary">@color/app_on_surface_variant</item>
+
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/app_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
     <style name="Theme.ThereminGlovestest2" parent="Base.Theme.ThereminGlovestest2" />

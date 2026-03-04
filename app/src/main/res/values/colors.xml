@@ -2,4 +2,46 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Global app palette -->
+    <color name="app_primary">#B78CFF</color>
+    <color name="app_on_primary">#201133</color>
+
+    <color name="app_secondary">#43E5FF</color>
+    <color name="app_on_secondary">#082633</color>
+
+    <color name="app_tertiary">#FF63C6</color>
+    <color name="app_on_tertiary">#371028</color>
+
+    <color name="app_background">#090714</color>
+    <color name="app_on_background">#F4EEFF</color>
+
+    <color name="app_surface">#120E25</color>
+    <color name="app_surface_variant">#221B40</color>
+    <color name="app_on_surface">#F6F1FF</color>
+    <color name="app_on_surface_variant">#CBBEF8</color>
+
+    <color name="app_outline">#4C4080</color>
+    <color name="app_nav_active_bg">#33B78CFF</color>
+
+    <!-- Launch / branded surfaces -->
+    <color name="launch_primary">#B78CFF</color>
+    <color name="launch_primary_bright">#D0B1FF</color>
+    <color name="launch_cyan">#43E5FF</color>
+
+    <color name="launch_bg_top">#090714</color>
+    <color name="launch_bg_bottom">#181132</color>
+
+    <color name="launch_card">#CC17122E</color>
+    <color name="launch_floating_card">#E0221A40</color>
+    <color name="launch_card_stroke">#33FFFFFF</color>
+    <color name="launch_text_secondary">#D5CCFF</color>
+    <color name="launch_outline">#66C8B2FF</color>
+
+    <color name="launch_stage_top">#241C4B</color>
+    <color name="launch_stage_bottom">#10142D</color>
+    <color name="launch_pill">#24FFFFFF</color>
+
+    <!-- Compatibility with earlier drawables/layouts -->
+    <color name="launch_row">#18FFFFFF</color>
 </resources>

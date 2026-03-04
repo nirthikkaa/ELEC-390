@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/app_background"
     android:orientation="vertical">
 
-    <!-- Scrollable content area -->
+    <com.example.thereminglovestest2.TopNavBarView
+        android:id="@+id/topNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
     <com.example.thereminglovestest2.InsetAwareScrollView
         android:id="@+id/rootScroll"
         android:layout_width="match_parent"
@@ -17,411 +23,685 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="12dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="12dp">
 
-            <!-- Top bar (inside content area; status bar-safe via InsetAwareScrollView) -->
-            <com.example.thereminglovestest2.TopNavBarView
-                android:id="@+id/topNavBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:id="@+id/tvStatus"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardPlayHero"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Status: Idle"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
 
-            <TextView
-                android:id="@+id/tvPitchConn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Pitch glove: DISCONNECTED" />
-
-            <TextView
-                android:id="@+id/tvVolConn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Volume glove: DISCONNECTED" />
-
-            <TextView
-                android:id="@+id/tvAudio"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="Audio: STOPPED" />
-
-            <!-- Center live representation -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:gravity="center"
-                android:orientation="vertical">
-
-                <com.example.thereminglovestest2.ThereminVisualizerView
-                    android:id="@+id/thereminVisualizerView"
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="220dp" />
-            </LinearLayout>
-
-            <!-- Top controls -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnScanConnect"
-                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Scan + Connect" />
+                    android:orientation="vertical"
+                    android:padding="14dp">
 
-                <Button
-                    android:id="@+id/btnDisconnectAll"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:text="Disconnect All" />
-            </LinearLayout>
+                    <TextView
+                        android:id="@+id/tvStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Looking for gloves"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="horizontal">
+                    <TextView
+                        android:id="@+id/tvAudio"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Turn on both gloves to begin playing."
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="13sp" />
 
-                <Button
-                    android:id="@+id/btnAudioStart"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Start Audio" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
 
-                <Button
-                    android:id="@+id/btnAudioStop"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:text="Stop Audio" />
-            </LinearLayout>
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            app:cardBackgroundColor="@color/app_surface_variant"
+                            app:cardCornerRadius="18dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/app_outline"
+                            app:strokeWidth="1dp">
 
-            <Button
-                android:id="@+id/btnDefaults"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Reset Mapping Defaults" />
+                            <com.example.thereminglovestest2.ConnectionStatusTextView
+                                android:id="@+id/tvVolConn"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:minHeight="58dp"
+                                android:paddingStart="12dp"
+                                android:paddingTop="9dp"
+                                android:paddingEnd="12dp"
+                                android:paddingBottom="9dp"
+                                android:text="Volume glove&#10;Waiting"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                        </com.google.android.material.card.MaterialCardView>
 
-            <!-- Glove commands -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Glove Commands"
-                android:textStyle="bold" />
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            app:cardBackgroundColor="@color/app_surface_variant"
+                            app:cardCornerRadius="18dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/app_outline"
+                            app:strokeWidth="1dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
+                            <com.example.thereminglovestest2.ConnectionStatusTextView
+                                android:id="@+id/tvPitchConn"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:minHeight="58dp"
+                                android:paddingStart="12dp"
+                                android:paddingTop="9dp"
+                                android:paddingEnd="12dp"
+                                android:paddingBottom="9dp"
+                                android:text="Pitch glove&#10;Waiting"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                <Button
-                    android:id="@+id/btnNeutralPitch"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Pitch N" />
-
-                <Button
-                    android:id="@+id/btnDirectionPitch"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:text="Pitch D" />
-
-                <Button
-                    android:id="@+id/btnHelpPitch"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:text="Pitch H" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnNeutralVol"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Volume N" />
-
-                <Button
-                    android:id="@+id/btnDirectionVol"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:text="Volume D" />
-
-                <Button
-                    android:id="@+id/btnHelpVol"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:text="Volume H" />
-            </LinearLayout>
-
-            <!-- Mapping -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:text="App Mapping (Sliders + Tap Numbers)"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="Tap the value to enter a number manually." />
-
-            <!-- Pitch angle min -->
-            <TextView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:text="Pitch Angle Min (deg) → Frequency Min" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/tvPitchAngleMinVal"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:text="0.0°"
-                    android:textStyle="bold" />
-                <SeekBar
-                    android:id="@+id/sbPitchAngleMin"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-            </LinearLayout>
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
 
-            <!-- Pitch angle max -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Pitch Angle Max (deg) → Frequency Max" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/tvPitchAngleMaxVal"
-                    android:layout_width="100dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:text="45.0°"
-                    android:textStyle="bold" />
-                <SeekBar
-                    android:id="@+id/sbPitchAngleMax"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-            </LinearLayout>
+                    android:orientation="vertical"
+                    android:padding="10dp">
 
-            <!-- Freq min -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Frequency Min (Hz)" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/tvFreqMinVal"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:text="523.3 Hz"
-                    android:textStyle="bold" />
-                <SeekBar
-                    android:id="@+id/sbFreqMin"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-            </LinearLayout>
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:cardBackgroundColor="@color/app_surface_variant"
+                        app:cardCornerRadius="18dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/app_outline"
+                        app:strokeWidth="1dp">
 
-            <!-- Freq max -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Frequency Max (Hz)" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/tvFreqMaxVal"
-                    android:layout_width="100dp"
-                    android:layout_height="wrap_content"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:text="880.0 Hz"
-                    android:textStyle="bold" />
-                <SeekBar
-                    android:id="@+id/sbFreqMax"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-            </LinearLayout>
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="10dp">
 
-            <!-- Volume angle min -->
-            <TextView
+                            <com.example.thereminglovestest2.ThereminVisualizerView
+                                android:id="@+id/thereminVisualizerView"
+                                android:layout_width="match_parent"
+                                android:layout_height="180dp" />
+
+                            <TextView
+                                android:id="@+id/tvToneValue"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:gravity="center"
+                                android:text="Live tone preview • 523.3 Hz • 0% volume"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:text="Volume Angle Min (deg) → 0%" />
-            <LinearLayout
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="220dp"
+                    android:padding="14dp">
+
+                    <View
+                        android:layout_width="92dp"
+                        android:layout_height="92dp"
+                        android:layout_gravity="center"
+                        android:background="@drawable/bg_launch_ring"
+                        android:alpha="0.35" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAudioStart"
+                        android:layout_width="132dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="top|center_horizontal"
+                        android:text="Play Tone"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_on_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@color/app_primary"
+                        app:cornerRadius="18dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnScanConnect"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="132dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="start|center_vertical"
+                        android:text="Reconnect"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_secondary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="18dp"
+                        app:strokeColor="@color/app_secondary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAudioStop"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="132dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="end|center_vertical"
+                        android:text="Background Audio"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="18dp"
+                        app:strokeColor="@color/app_secondary" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOpenCalibration"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="132dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="bottom|center_horizontal"
+                        android:text="Calibrate"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_secondary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="18dp"
+                        app:strokeColor="@color/app_secondary" />
+
+                    <Button
+                        android:id="@+id/btnDisconnectAll"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Disconnect All"
+                        android:visibility="gone" />
+                </FrameLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardLiveTelemetry"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/tvVolAngleMinVal"
-                    android:layout_width="100dp"
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="@color/app_surface_variant"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:text="0.0°"
-                    android:textStyle="bold" />
-                <SeekBar
-                    android:id="@+id/sbVolAngleMin"
-                    android:layout_width="0dp"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:id="@+id/tvPitchValue"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Pitch gesture: 0.00°"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvVolValue"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Volume gesture: 0.00°"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvPitchLast"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Pitch last: (none)"
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvVolLast"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Volume last: (none)"
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Hidden for now so Play stays focused on playing.
+                 IDs remain in layout so MainActivity keeps working safely. -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardGloveCommands"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-            </LinearLayout>
+                    android:orientation="vertical"
+                    android:padding="14dp">
 
-            <!-- Volume angle max -->
-            <TextView
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Glove Commands"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Manual commands for troubleshooting and setup."
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Pitch Glove"
+                        android:textColor="@color/app_on_surface"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnNeutralPitch"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Neutral" />
+
+                        <Button
+                            android:id="@+id/btnDirectionPitch"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="Direction" />
+
+                        <Button
+                            android:id="@+id/btnHelpPitch"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="Info" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="Volume Glove"
+                        android:textColor="@color/app_on_surface"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnNeutralVol"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Neutral" />
+
+                        <Button
+                            android:id="@+id/btnDirectionVol"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="Direction" />
+
+                        <Button
+                            android:id="@+id/btnHelpVol"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="Info" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardPlayMapping"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Volume Angle Max (deg) → 100%" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/tvVolAngleMaxVal"
-                    android:layout_width="100dp"
+                android:layout_marginTop="10dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="?android:attr/selectableItemBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:padding="8dp"
-                    android:text="45.0°"
-                    android:textStyle="bold" />
-                <SeekBar
-                    android:id="@+id/sbVolAngleMax"
-                    android:layout_width="0dp"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Advanced Mapping"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Tap any value to type it manually."
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btnDefaults"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Reset Mapping Defaults" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="Pitch Angle Min (deg) → Frequency Min"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvPitchAngleMinVal"
+                            android:layout_width="100dp"
+                            android:layout_height="wrap_content"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="8dp"
+                            android:text="-31.5°"
+                            android:textColor="@color/app_on_surface"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/sbPitchAngleMin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Pitch Angle Max (deg) → Frequency Max"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvPitchAngleMaxVal"
+                            android:layout_width="100dp"
+                            android:layout_height="wrap_content"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="8dp"
+                            android:text="23.0°"
+                            android:textColor="@color/app_on_surface"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/sbPitchAngleMax"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Frequency Min (Hz)"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvFreqMinVal"
+                            android:layout_width="100dp"
+                            android:layout_height="wrap_content"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="8dp"
+                            android:text="684.0 Hz"
+                            android:textColor="@color/app_on_surface"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/sbFreqMin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Frequency Max (Hz)"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvFreqMaxVal"
+                            android:layout_width="100dp"
+                            android:layout_height="wrap_content"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="8dp"
+                            android:text="2000.0 Hz"
+                            android:textColor="@color/app_on_surface"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/sbFreqMax"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Volume Angle Min (deg) → 0%"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvVolAngleMinVal"
+                            android:layout_width="100dp"
+                            android:layout_height="wrap_content"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="8dp"
+                            android:text="-20.0°"
+                            android:textColor="@color/app_on_surface"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/sbVolAngleMin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Volume Angle Max (deg) → 100%"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvVolAngleMaxVal"
+                            android:layout_width="100dp"
+                            android:layout_height="wrap_content"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:padding="8dp"
+                            android:text="35.0°"
+                            android:textColor="@color/app_on_surface"
+                            android:textStyle="bold" />
+
+                        <SeekBar
+                            android:id="@+id/sbVolAngleMax"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardDebugLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-            </LinearLayout>
+                    android:orientation="vertical"
+                    android:padding="14dp">
 
-            <!-- Live values -->
-            <TextView
-                android:id="@+id/tvPitchValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:text="Pitch ACTIVE_DELTA_DEG = 0.00°" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Debug Log"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/tvVolValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Volume ACTIVE_DELTA_DEG = 0.00°" />
-
-            <TextView
-                android:id="@+id/tvToneValue"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Mapped tone: 523.3 Hz | Volume 0%" />
-
-            <TextView
-                android:id="@+id/tvPitchLast"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Pitch last packet: (none)"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/tvVolLast"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Volume last packet: (none)"
-                android:textSize="12sp" />
-
-            <!-- Log -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Log"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvLog"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="-"
-                android:textSize="12sp"
-                android:typeface="monospace" />
+                    <TextView
+                        android:id="@+id/tvLog"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="(log)"
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </com.example.thereminglovestest2.InsetAwareScrollView>
 
-    <!-- Persistent bottom navigation (exactly 5 items, one row) -->
     <com.example.thereminglovestest2.BottomNavBarView
         android:id="@+id/bottomNavBar"
         android:layout_width="match_parent"

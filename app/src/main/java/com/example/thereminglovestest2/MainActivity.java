@@ -30,6 +30,8 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.text.InputType;
 import android.view.View;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.SeekBar;
@@ -41,12 +43,15 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Locale;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
+
+    private static WeakReference<MainActivity> activeHostRef = new WeakReference<>(null);
 
     // ===== BLE (MUST MATCH ARDUINO) =====
     private static final String PITCH_DEVICE_NAME = "ThereminGlove";
@@ -81,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
     // ===== Background audio preference =====
     private static final String PREFS_NAME = "theremin_prefs";
     private static final String PREF_BG_AUDIO_ENABLED = "bg_audio_enabled";
+    private static final String PREF_DIRECTION_DEFAULTS_MIGRATED_V2 = "direction_defaults_migrated_v2";
 
     private volatile boolean bgAudioEnabled = true;
 
@@ -105,11 +111,12 @@ public class MainActivity extends AppCompatActivity {
     private SeekBar sbPitchAngleMin, sbPitchAngleMax, sbFreqMin, sbFreqMax;
     private SeekBar sbVolAngleMin, sbVolAngleMax;
 
-    private Button btnScanConnect, btnDisconnectAll, btnAudioStart, btnAudioStop;
+    private Button btnScanConnect, btnDisconnectAll, btnAudioStart, btnAudioStop, btnOpenCalibration;
     private Button btnNeutralPitch, btnNeutralVol, btnDirectionPitch, btnDirectionVol, btnHelpPitch, btnHelpVol;
     private Button btnDefaults;
 
     private ThereminVisualizerView thereminVisualizerView;
+    private Animation calibrateGlowAnimation;
 
     // ===== Application context for BLE ownership =====
     private Context appContext;
@@ -159,6 +166,9 @@ public class MainActivity extends AppCompatActivity {
     private volatile float volumeAngleMinDeg = -10.0f;
     private volatile float volumeAngleMaxDeg = 55.0f;
 
+    private volatile boolean pitchDirectionInverted = false;
+    private volatile boolean volumeDirectionInverted = true;
+
     // ===== Latest glove values =====
     private volatile float pitchActiveDeltaDeg = 0.0f;
     private volatile float volActiveDeltaDeg = 0.0f;
@@ -172,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
     private volatile float audioTargetVolumeLinear = 0.0f;
 
     // UI state
-    private volatile String statusText = "Idle";
+    private volatile String statusText = "Connect both gloves to start playing";
     private volatile boolean suppressSliderCallbacks = false;
 
     // Performance: bounded log buffer
@@ -195,12 +205,176 @@ public class MainActivity extends AppCompatActivity {
     // ===== Persistence =====
     private AppSettingsRepository settingsRepo;
 
+    public static final class BleUiSnapshot {
+        public final boolean hostReady;
+        public final boolean bluetoothEnabled;
+        public final boolean scanning;
+        public final boolean busyOrConnected;
+        public final String statusText;
+        public final String pitchConnText;
+        public final String volumeConnText;
+        public final String pitchLastText;
+        public final String volumeLastText;
+
+        public BleUiSnapshot(
+                boolean hostReady,
+                boolean bluetoothEnabled,
+                boolean scanning,
+                boolean busyOrConnected,
+                String statusText,
+                String pitchConnText,
+                String volumeConnText,
+                String pitchLastText,
+                String volumeLastText
+        ) {
+            this.hostReady = hostReady;
+            this.bluetoothEnabled = bluetoothEnabled;
+            this.scanning = scanning;
+            this.busyOrConnected = busyOrConnected;
+            this.statusText = statusText;
+            this.pitchConnText = pitchConnText;
+            this.volumeConnText = volumeConnText;
+            this.pitchLastText = pitchLastText;
+            this.volumeLastText = volumeLastText;
+        }
+    }
+
+    public static final class CalibrationUiSnapshot {
+        public final boolean hostReady;
+        public final boolean bluetoothEnabled;
+        public final boolean pitchConnected;
+        public final boolean volumeConnected;
+        public final float pitchActiveDeltaDeg;
+        public final float volumeActiveDeltaDeg;
+        public final float pitchNeutralRollDeg;
+        public final float volumeNeutralRollDeg;
+        public final String pitchDirectionText;
+        public final String volumeDirectionText;
+
+        public CalibrationUiSnapshot(
+                boolean hostReady,
+                boolean bluetoothEnabled,
+                boolean pitchConnected,
+                boolean volumeConnected,
+                float pitchActiveDeltaDeg,
+                float volumeActiveDeltaDeg,
+                float pitchNeutralRollDeg,
+                float volumeNeutralRollDeg,
+                String pitchDirectionText,
+                String volumeDirectionText
+        ) {
+            this.hostReady = hostReady;
+            this.bluetoothEnabled = bluetoothEnabled;
+            this.pitchConnected = pitchConnected;
+            this.volumeConnected = volumeConnected;
+            this.pitchActiveDeltaDeg = pitchActiveDeltaDeg;
+            this.volumeActiveDeltaDeg = volumeActiveDeltaDeg;
+            this.pitchNeutralRollDeg = pitchNeutralRollDeg;
+            this.volumeNeutralRollDeg = volumeNeutralRollDeg;
+            this.pitchDirectionText = pitchDirectionText;
+            this.volumeDirectionText = volumeDirectionText;
+        }
+    }
+
+    private static MainActivity getActiveHost() {
+        return activeHostRef.get();
+    }
+
+    public static boolean isBleHostAvailable() {
+        MainActivity host = getActiveHost();
+        return host != null && !host.isFinishing();
+    }
+
+    public static BleUiSnapshot getBleUiSnapshot() {
+        MainActivity host = getActiveHost();
+        if (host == null) return null;
+        return host.buildBleUiSnapshot();
+    }
+
+    public static CalibrationUiSnapshot getCalibrationUiSnapshot() {
+        MainActivity host = getActiveHost();
+        if (host == null) return null;
+        return host.buildCalibrationUiSnapshot();
+    }
+
+    public static void requestBleToggleFromFacade() {
+        MainActivity host = getActiveHost();
+        if (host == null) return;
+        host.mainHandler.post(host::onBleTogglePressed);
+    }
+
+    public static void requestCaptureNeutralFromFacade(boolean isPitch) {
+        MainActivity host = getActiveHost();
+        if (host == null) return;
+        host.mainHandler.post(() ->
+                host.sendCommandToGlove(isPitch ? host.pitchGlove : host.volumeGlove, "N")
+        );
+    }
+
+    public static void requestToggleDirectionFromFacade(boolean isPitch) {
+        MainActivity host = getActiveHost();
+        if (host == null) return;
+        host.mainHandler.post(() -> host.toggleDirectionPreferenceAndSend(isPitch));
+    }
+
+    public static void requestRefreshHandshakeFromFacade() {
+        MainActivity host = getActiveHost();
+        if (host == null) return;
+        host.mainHandler.post(() -> {
+            host.sendCommandToGlove(host.pitchGlove, "H");
+            host.sendCommandToGlove(host.volumeGlove, "H");
+        });
+    }
+
+    private BleUiSnapshot buildBleUiSnapshot() {
+        boolean btEnabled = isBluetoothEnabled();
+        String bigStatus = btEnabled
+                ? ("Status: " + statusText)
+                : "⚠️ BLUETOOTH OFF — Turn Bluetooth ON to play";
+
+        return new BleUiSnapshot(
+                true,
+                btEnabled,
+                isScanning,
+                isBleBusyOrConnected(),
+                bigStatus,
+                connLine(pitchGlove, "Pitch (" + PITCH_DEVICE_NAME + ")"),
+                connLine(volumeGlove, "Volume (" + VOLUME_DEVICE_NAME + ")"),
+                "Pitch last: " + pitchGlove.lastPacket,
+                "Volume last: " + volumeGlove.lastPacket
+        );
+    }
+
+    private CalibrationUiSnapshot buildCalibrationUiSnapshot() {
+        return new CalibrationUiSnapshot(
+                true,
+                isBluetoothEnabled(),
+                pitchGlove.connected,
+                volumeGlove.connected,
+                pitchActiveDeltaDeg,
+                volActiveDeltaDeg,
+                pitchGlove.neutralRollDeg,
+                volumeGlove.neutralRollDeg,
+                safeDirectionText(pitchGlove),
+                safeDirectionText(volumeGlove)
+        );
+    }
+
+    private String safeDirectionText(GloveClient glove) {
+        if (glove == null) return "UNKNOWN";
+        if (glove.directionText == null) return "UNKNOWN";
+        String trimmed = glove.directionText.trim();
+        return trimmed.isEmpty() ? "UNKNOWN" : trimmed;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         appContext = getApplicationContext();
+        BleHostBridge.initialize(appContext);
+        activeHostRef = new WeakReference<>(this);
 
         bindViews();
 
@@ -218,7 +392,7 @@ public class MainActivity extends AppCompatActivity {
 
         wireButtons();
 
-        setStatusText("Idle");
+        setStatusText("Connect both gloves to start playing");
         appendLogSafe("App started");
         appendLogSafe("BG audio: " + (bgAudioEnabled ? "ON" : "OFF"));
         appendLogSafe("BLE GATT uses application context");
@@ -231,6 +405,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         autoReconnectEnabled = true;
+        activeHostRef = new WeakReference<>(this);
         keepBleAliveAcrossDestroy = true;
         registerBluetoothStateReceiverIfNeeded();
 
@@ -241,13 +416,12 @@ public class MainActivity extends AppCompatActivity {
         mainHandler.removeCallbacks(connectionTruthWatchdogRunnable);
         mainHandler.post(connectionTruthWatchdogRunnable);
 
-        maybeAutoConnectOnLaunchOrReturn();
+        BleHostBridge.maybeStartAutoConnect();
     }
 
     private void cleanupStaleDisconnectedGattState() {
         cleanupStaleDisconnectedGattStateForGlove(pitchGlove);
         cleanupStaleDisconnectedGattStateForGlove(volumeGlove);
-        updateBleButtonText();
     }
 
     private void cleanupStaleDisconnectedGattStateForGlove(GloveClient glove) {
@@ -256,63 +430,81 @@ public class MainActivity extends AppCompatActivity {
         if (glove.connecting) return;
         if (glove.gatt == null) return;
 
-        appendLogSafe(glove.roleLabel + ": clearing stale disconnected GATT");
+        appendLogSafe(glove.roleLabel + ": cleaning stale GATT reference");
         safeCloseGloveConnection(glove);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-
-        persistSettings();
-
-        if (!bgAudioEnabled) {
-            appendLogSafe("BG audio OFF -> stopping audio onStop");
-            forceSilenceAndStopAudio();
-        } else {
-            appendLogSafe("BG audio ON -> keeping audio running in background");
-        }
-
-        // Keep BLE alive while navigating to internal screens.
-        keepBleAliveAcrossDestroy = true;
-        mainHandler.removeCallbacks(uiTicker);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         keepBleAliveAcrossDestroy = true;
+
+        activeHostRef = new WeakReference<>(this);
+
+        // Preserve the user's manual play/pause choice when returning to Play.
+        // Do not auto-start audio here.
+        updateAudioStatusText();
+
+        reloadMappingSettingsFromRepository();
+        syncAllMappingControlsFromState();
+        updateStatusLineText();
+        updateBleButtonText();
+    }
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        if (audioEngine != null) {
+            if (!bgAudioEnabled && !isChangingConfigurations()) {
+                audioEngine.stop();
+                appendLogSafe("onPause -> audio stopped (background off)");
+            } else if (bgAudioEnabled && audioEngine.isRunning()) {
+                appendLogSafe("onPause -> audio kept running in background");
+            }
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mainHandler.removeCallbacks(uiTicker);
+
+        if (isChangingConfigurations()) {
+            keepBleAliveAcrossDestroy = true;
+            return;
+        }
+
+        if (bgAudioEnabled) {
+            keepBleAliveAcrossDestroy = true;
+        }
     }
 
     @Override
     protected void onDestroy() {
-        boolean shouldFullyTearDownBle =
-                isFinishing() && !keepBleAliveAcrossDestroy;
+        super.onDestroy();
 
-        appendLogSafe("onDestroy: finishing=" + isFinishing()
-                + " keepBleAliveAcrossDestroy=" + keepBleAliveAcrossDestroy
-                + " -> fullBleTeardown=" + shouldFullyTearDownBle);
+        appShuttingDown = isFinishing();
+        activeHostRef = new WeakReference<>(null);
 
-        if (shouldFullyTearDownBle) {
-            appShuttingDown = true;
-            autoReconnectEnabled = false;
-            cancelAutoReconnect();
-            cancelScanTimeout();
-            mainHandler.removeCallbacks(connectionTruthWatchdogRunnable);
-            unregisterBluetoothStateReceiverIfNeeded();
+        mainHandler.removeCallbacks(uiTicker);
+        mainHandler.removeCallbacks(scanTimeoutRunnable);
+        mainHandler.removeCallbacks(autoReconnectRunnable);
+        mainHandler.removeCallbacks(connectionTruthWatchdogRunnable);
 
-            stopScanIfRunning();
+        unregisterBluetoothStateReceiverIfNeeded();
+
+        boolean shouldKeepBleAlive = keepBleAliveAcrossDestroy && !appShuttingDown;
+        if (!shouldKeepBleAlive) {
             disconnectAllGlovesInternal(true);
-
-            if (audioEngine != null) audioEngine.stop();
         }
 
-        super.onDestroy();
+        if (audioEngine != null) {
+            if (!bgAudioEnabled || appShuttingDown) {
+                audioEngine.shutdown();
+            }
+        }
     }
 
-    // =========================
-    // Background audio pref
-    // =========================
     private void loadBgAudioPref() {
         SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         bgAudioEnabled = sp.getBoolean(PREF_BG_AUDIO_ENABLED, true);
@@ -323,18 +515,11 @@ public class MainActivity extends AppCompatActivity {
         sp.edit().putBoolean(PREF_BG_AUDIO_ENABLED, bgAudioEnabled).apply();
     }
 
-    // =========================
-    // Bluetooth OFF behavior
-    // =========================
-    private boolean isBluetoothEnabled() {
-        return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
-    }
-
     private void onBluetoothAdapterStateChanged(int state) {
         switch (state) {
             case BluetoothAdapter.STATE_OFF:
             case BluetoothAdapter.STATE_TURNING_OFF:
-                appendLogSafe("Bluetooth turning OFF -> stopping audio + disconnecting");
+                appendLogSafe("Bluetooth OFF");
                 handleBluetoothOffHard();
                 break;
 
@@ -342,16 +527,18 @@ public class MainActivity extends AppCompatActivity {
                 appendLogSafe("Bluetooth ON");
                 updateStatusLineText();
                 updateBleButtonText();
-                if (!manualDisconnectRequested) scheduleAutoReconnect("Bluetooth on");
+                if (!manualDisconnectRequested) {
+                    scheduleAutoReconnect("Bluetooth on");
+                }
                 break;
 
             case BluetoothAdapter.STATE_TURNING_ON:
-                setStatusText("Bluetooth turning on...");
+                appendLogSafe("Bluetooth turning on");
+                setStatusText("Bluetooth is turning on...");
                 updateBleButtonText();
                 break;
 
             default:
-                appendLogSafe("Bluetooth state=" + state);
                 break;
         }
     }
@@ -360,8 +547,6 @@ public class MainActivity extends AppCompatActivity {
         cancelAutoReconnect();
         stopScanIfRunning();
 
-        forceSilenceAndStopAudio();
-
         safeCloseGloveConnection(pitchGlove);
         safeCloseGloveConnection(volumeGlove);
 
@@ -369,27 +554,23 @@ public class MainActivity extends AppCompatActivity {
         volActiveDeltaDeg = 0f;
         pitchHasAngle = false;
         volHasAngle = false;
+
         pitchGlove.lastPacket = "(none)";
         volumeGlove.lastPacket = "(none)";
 
         setStatusText("⚠️ BLUETOOTH OFF — Turn Bluetooth ON to play");
-        updateStatusLineText();
-        updateAudioStatusText();
-        updateBleButtonText();
-    }
-
-    private void forceSilenceAndStopAudio() {
-        audioTargetVolumeLinear = 0f;
         mappedVolumeLinear = 0f;
+        audioTargetVolumeLinear = 0f;
 
-        if (audioEngine != null && audioEngine.isRunning()) {
-            audioEngine.stop();
-        }
+        updateStatusLineText();
+        updateBleButtonText();
+        updateAudioStatusText();
     }
 
-    // =========================
-    // Watchdog (truth-state + idle handling)
-    // =========================
+    private boolean isBluetoothEnabled() {
+        return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
+    }
+
     private void runConnectionTruthWatchdog() {
         if (appShuttingDown) return;
 
@@ -415,7 +596,7 @@ public class MainActivity extends AppCompatActivity {
         long age = nowMs - glove.connectAttemptStartMs;
         if (age < CONNECT_ATTEMPT_TIMEOUT_MS) return;
 
-        appendLogSafe(glove.roleLabel + ": connect attempt timed out after " + age + "ms");
+        appendLogSafe(glove.roleLabel + ": connect timeout");
         safeCloseGloveConnection(glove);
         updateStatusLineText();
         updateBleButtonText();
@@ -437,44 +618,32 @@ public class MainActivity extends AppCompatActivity {
 
         if (age > PING_AFTER_MS && (nowMs - glove.lastPingMs) > 2000) {
             glove.lastPingMs = nowMs;
-            appendLogSafe(glove.roleLabel + ": idle ping (H), age=" + age + "ms");
+            appendLogSafe(glove.roleLabel + ": stale-ish -> request handshake");
             sendCommandToGlove(glove, "H");
         }
 
         if (age > STALE_RECONNECT_MS) {
-            appendLogSafe(glove.roleLabel + ": no telemetry for " + age + "ms -> reconnecting");
+            appendLogSafe(glove.roleLabel + ": telemetry stale too long -> reconnect");
             safeCloseGloveConnection(glove);
             updateStatusLineText();
             updateBleButtonText();
-            if (!manualDisconnectRequested) scheduleAutoReconnect(glove.roleLabel + " telemetry stale");
+
+            if (!manualDisconnectRequested) {
+                scheduleAutoReconnect(glove.roleLabel + " telemetry stale");
+            }
         }
     }
 
-    // =========================
-    // Auto-connect on visibility
-    // =========================
     private void maybeAutoConnectOnLaunchOrReturn() {
-        if (appShuttingDown) return;
-        if (manualDisconnectRequested) return;
-        if (!isBluetoothEnabled()) return;
-        if (isScanning) return;
-
-        boolean missing = !pitchGlove.connected || !volumeGlove.connected;
-        if (!missing) return;
-
-        if (!startupAutoConnectAttempted) {
-            startupAutoConnectAttempted = true;
-            appendLogSafe("Auto-connect on launch");
-        } else {
-            appendLogSafe("Auto-connect (missing glove)");
-        }
-        startScanAndConnect();
+        BleHostBridge.maybeStartAutoConnect();
     }
 
-    // =========================
-    // UI binding + buttons
-    // =========================
     private void bindViews() {
+        TopNavBarView topNavBar = findViewById(R.id.topNavBar);
+        if (topNavBar != null) {
+            topNavBar.setTitleText("Play");
+        }
+
         tvStatus = findViewById(R.id.tvStatus);
         tvPitchConn = findViewById(R.id.tvPitchConn);
         tvVolConn = findViewById(R.id.tvVolConn);
@@ -508,6 +677,7 @@ public class MainActivity extends AppCompatActivity {
         btnDisconnectAll = findViewById(R.id.btnDisconnectAll);
         btnAudioStart = findViewById(R.id.btnAudioStart);
         btnAudioStop = findViewById(R.id.btnAudioStop);
+        btnOpenCalibration = findViewById(R.id.btnOpenCalibration);
 
         btnNeutralPitch = findViewById(R.id.btnNeutralPitch);
         btnNeutralVol = findViewById(R.id.btnNeutralVol);
@@ -554,11 +724,16 @@ public class MainActivity extends AppCompatActivity {
             updateAudioStatusText();
         });
 
-        btnNeutralPitch.setOnClickListener(v -> sendCommandToGlove(pitchGlove, "N"));
-        btnNeutralVol.setOnClickListener(v -> sendCommandToGlove(volumeGlove, "N"));
+        if (btnOpenCalibration != null) {
+            btnOpenCalibration.setText("✨ Calibrate Precisely");
+            btnOpenCalibration.setOnClickListener(v -> openCalibrationScreen());
+        }
 
-        btnDirectionPitch.setOnClickListener(v -> sendCommandToGlove(pitchGlove, "D"));
-        btnDirectionVol.setOnClickListener(v -> sendCommandToGlove(volumeGlove, "D"));
+        btnNeutralPitch.setOnClickListener(v -> BleHostBridge.requestCaptureNeutral(true));
+        btnNeutralVol.setOnClickListener(v -> BleHostBridge.requestCaptureNeutral(false));
+
+        btnDirectionPitch.setOnClickListener(v -> toggleDirectionPreferenceAndSend(true));
+        btnDirectionVol.setOnClickListener(v -> toggleDirectionPreferenceAndSend(false));
 
         btnHelpPitch.setOnClickListener(v -> showHelpDialog("Pitch glove", pitchGlove));
         btnHelpVol.setOnClickListener(v -> showHelpDialog("Volume glove", volumeGlove));
@@ -576,24 +751,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onBleTogglePressed() {
-        if (!isBluetoothEnabled()) {
-            handleBluetoothOffHard();
-            toastSafe("Bluetooth is OFF");
-            return;
-        }
-
-        if (isBleBusyOrConnected()) {
-            manualDisconnectRequested = true;
-            keepBleAliveAcrossDestroy = false;
-            disconnectAllGlovesInternal(false);
-            appendLogSafe("BLE button -> DISCONNECT");
-        } else {
-            manualDisconnectRequested = false;
-            keepBleAliveAcrossDestroy = true;
-            appendLogSafe("BLE button -> CONNECT");
-            startScanAndConnect();
-        }
-
+        BleHostBridge.requestBleToggle();
         updateBleButtonText();
     }
 
@@ -606,16 +764,99 @@ public class MainActivity extends AppCompatActivity {
     private void updateBleButtonText() {
         if (btnScanConnect == null) return;
 
-        if (!isBluetoothEnabled()) {
-            btnScanConnect.setText("BT OFF");
+        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
+        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+
+        if (bleSnapshot == null || !bleSnapshot.hostReady) {
+            btnScanConnect.setText("Connect Gloves");
             return;
         }
 
-        if (isBleBusyOrConnected()) {
-            btnScanConnect.setText("DISCONNECT");
-        } else {
-            btnScanConnect.setText("CONNECT");
+        boolean bothConnected = calSnapshot != null && calSnapshot.pitchConnected && calSnapshot.volumeConnected;
+        boolean oneConnected = calSnapshot != null && (calSnapshot.pitchConnected || calSnapshot.volumeConnected);
+        boolean connecting = bleSnapshot.scanning
+                || isConnecting(bleSnapshot.pitchConnText)
+                || isConnecting(bleSnapshot.volumeConnText);
+
+        if (!bleSnapshot.bluetoothEnabled) {
+            btnScanConnect.setText("Bluetooth Off");
+            return;
         }
+
+        if (bothConnected) {
+            btnScanConnect.setText("Disconnect Gloves");
+        } else if (connecting || oneConnected) {
+            btnScanConnect.setText("Reconnect Gloves");
+        } else {
+            btnScanConnect.setText("Connect Gloves");
+        }
+    }
+
+    private void openCalibrationScreen() {
+        keepBleAliveAcrossDestroy = true;
+        Intent intent = new Intent(this, CalibrationActivity.class);
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
+        );
+        startActivity(intent);
+        overridePendingTransition(0, 0);
+    }
+
+    private boolean desiredDirectionInvertedForGlove(GloveClient glove) {
+        return glove == volumeGlove ? volumeDirectionInverted : pitchDirectionInverted;
+    }
+
+    private String desiredDirectionTextForGlove(GloveClient glove) {
+        return desiredDirectionInvertedForGlove(glove) ? "NEGATIVE" : "POSITIVE";
+    }
+
+    private boolean reportedDirectionMatchesDesired(GloveClient glove) {
+        String reported = safeDirectionText(glove).trim().toUpperCase(Locale.US);
+        if (reported.isEmpty() || "UNKNOWN".equals(reported)) return false;
+        return reported.contains(desiredDirectionTextForGlove(glove));
+    }
+
+    private void syncDirectionPreferenceIfNeeded(GloveClient glove) {
+        if (glove == null || !glove.connected) return;
+
+        String reported = safeDirectionText(glove).trim().toUpperCase(Locale.US);
+        if (!reported.contains("POS") && !reported.contains("NEG")) return;
+        if (reportedDirectionMatchesDesired(glove)) return;
+
+        long now = SystemClock.elapsedRealtime();
+        if (now - glove.lastDirectionSyncCommandMs < 1000L) return;
+
+        glove.lastDirectionSyncCommandMs = now;
+        appendLogSafe(glove.roleLabel + ": applying saved direction -> " + desiredDirectionTextForGlove(glove));
+        sendCommandToGlove(glove, "D");
+    }
+
+    private void toggleDirectionPreferenceAndSend(boolean isPitch) {
+        GloveClient glove = isPitch ? pitchGlove : volumeGlove;
+
+        if (isPitch) {
+            pitchDirectionInverted = !pitchDirectionInverted;
+        } else {
+            volumeDirectionInverted = !volumeDirectionInverted;
+        }
+
+        persistSettings();
+        appendLogSafe(glove.roleLabel + ": direction preference saved -> " + desiredDirectionTextForGlove(glove));
+        BleHostBridge.requestToggleDirection(isPitch);
+    }
+
+    private void applyDirectionDefaultsMigrationIfNeeded() {
+        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean migrated = sp.getBoolean(PREF_DIRECTION_DEFAULTS_MIGRATED_V2, false);
+        if (migrated) return;
+
+        pitchDirectionInverted = false;
+        volumeDirectionInverted = true;
+        sp.edit().putBoolean(PREF_DIRECTION_DEFAULTS_MIGRATED_V2, true).apply();
+        persistSettings();
+        appendLogSafe("Applied direction defaults: volume glove inverted by default");
     }
 
     private void showHelpDialog(String title, GloveClient glove) {
@@ -626,6 +867,8 @@ public class MainActivity extends AppCompatActivity {
         sb.append("Telemetry stale: ").append(glove.telemetryStale).append("\n\n");
         sb.append("Background audio: ").append(bgAudioEnabled ? "ON" : "OFF").append("\n");
         sb.append("BLE button: ").append(isBleBusyOrConnected() ? "DISCONNECT" : "CONNECT").append("\n");
+        sb.append("Saved default direction: ").append(desiredDirectionTextForGlove(glove)).append("\n");
+        sb.append("Reported device direction: ").append(safeDirectionText(glove)).append("\n");
 
         new AlertDialog.Builder(this)
                 .setTitle(title)
@@ -634,9 +877,6 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    // =========================
-    // Permissions
-    // =========================
     private boolean hasRequiredPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             return ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
@@ -659,7 +899,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != REQ_PERMS) return;
 
@@ -670,32 +912,290 @@ public class MainActivity extends AppCompatActivity {
                 break;
             }
         }
-        toastSafe(ok ? "Permissions granted" : "BLE permissions required");
+
+        if (ok) {
+            appendLogSafe("Permissions granted -> auto connect");
+            startScanAndConnect();
+        } else {
+            appendLogSafe("Permissions denied");
+            toastSafe("Bluetooth permissions are required");
+        }
     }
 
-    // =========================
-    // Scanning / connect
-    // =========================
-    private void startScanAndConnect() {
-        cancelAutoReconnect();
+    private void toastSafe(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
 
+    private void reloadMappingSettingsFromRepository() {
+        if (settingsRepo == null) settingsRepo = new AppSettingsRepository(this);
+
+        AppSettings s = settingsRepo.load();
+        if (s == null) {
+            setDefaultMappingValues();
+            applyDirectionDefaultsMigrationIfNeeded();
+            persistSettings();
+            return;
+        }
+
+        pitchAngleMinDeg = s.pitchAngleMinDeg;
+        pitchAngleMaxDeg = s.pitchAngleMaxDeg;
+        freqMinHz = s.freqMinHz;
+        freqMaxHz = s.freqMaxHz;
+
+        volumeAngleMinDeg = s.volumeAngleMinDeg;
+        volumeAngleMaxDeg = s.volumeAngleMaxDeg;
+
+        pitchDirectionInverted = s.pitchDirectionInverted;
+        volumeDirectionInverted = s.volumeDirectionInverted;
+
+        sanitizeMappingValues();
+    }
+
+    private void persistSettings() {
+        if (settingsRepo == null) settingsRepo = new AppSettingsRepository(this);
+
+        sanitizeMappingValues();
+
+        AppSettings s = settingsRepo.load();
+        if (s == null) s = new AppSettings();
+
+        s.pitchAngleMinDeg = pitchAngleMinDeg;
+        s.pitchAngleMaxDeg = pitchAngleMaxDeg;
+        s.freqMinHz = freqMinHz;
+        s.freqMaxHz = freqMaxHz;
+
+        s.volumeAngleMinDeg = volumeAngleMinDeg;
+        s.volumeAngleMaxDeg = volumeAngleMaxDeg;
+
+        s.pitchDirectionInverted = pitchDirectionInverted;
+        s.volumeDirectionInverted = volumeDirectionInverted;
+
+        settingsRepo.save(s);
+    }
+
+    private void setDefaultMappingValues() {
+        pitchAngleMinDeg = -15.0f;
+        pitchAngleMaxDeg = 55.0f;
+        freqMinHz = 880.0f;
+        freqMaxHz = 2000.0f;
+
+        volumeAngleMinDeg = -10.0f;
+        volumeAngleMaxDeg = 55.0f;
+
+        pitchDirectionInverted = false;
+        volumeDirectionInverted = true;
+
+        sanitizeMappingValues();
+    }
+
+    private void sanitizeMappingValues() {
+        pitchAngleMinDeg = clamp(pitchAngleMinDeg, ANGLE_MIN, ANGLE_MAX);
+        pitchAngleMaxDeg = clamp(pitchAngleMaxDeg, ANGLE_MIN, ANGLE_MAX);
+        volumeAngleMinDeg = clamp(volumeAngleMinDeg, ANGLE_MIN, ANGLE_MAX);
+        volumeAngleMaxDeg = clamp(volumeAngleMaxDeg, ANGLE_MIN, ANGLE_MAX);
+
+        freqMinHz = clamp(freqMinHz, FREQ_MIN_UI, FREQ_MAX_UI);
+        freqMaxHz = clamp(freqMaxHz, FREQ_MIN_UI, FREQ_MAX_UI);
+
+        if (pitchAngleMaxDeg < pitchAngleMinDeg + ANGLE_STEP) {
+            pitchAngleMaxDeg = Math.min(ANGLE_MAX, pitchAngleMinDeg + ANGLE_STEP);
+        }
+        if (volumeAngleMaxDeg < volumeAngleMinDeg + ANGLE_STEP) {
+            volumeAngleMaxDeg = Math.min(ANGLE_MAX, volumeAngleMinDeg + ANGLE_STEP);
+        }
+        if (freqMaxHz < freqMinHz + 1f) {
+            freqMaxHz = Math.min(FREQ_MAX_UI, freqMinHz + 1f);
+        }
+    }
+
+    private float clamp(float x, float lo, float hi) {
+        return Math.max(lo, Math.min(hi, x));
+    }
+
+    private void setupSlidersAndClickNumbers() {
+        reloadMappingSettingsFromRepository();
+
+        sbPitchAngleMin.setMax(ANGLE_PROGRESS_MAX);
+        sbPitchAngleMax.setMax(ANGLE_PROGRESS_MAX);
+        sbVolAngleMin.setMax(ANGLE_PROGRESS_MAX);
+        sbVolAngleMax.setMax(ANGLE_PROGRESS_MAX);
+
+        sbFreqMin.setMax(FREQ_PROGRESS_MAX);
+        sbFreqMax.setMax(FREQ_PROGRESS_MAX);
+
+        SeekBar.OnSeekBarChangeListener commonAngleListener = new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (suppressSliderCallbacks) return;
+
+                float value = progressToAngle(progress);
+
+                if (seekBar == sbPitchAngleMin) pitchAngleMinDeg = value;
+                if (seekBar == sbPitchAngleMax) pitchAngleMaxDeg = value;
+                if (seekBar == sbVolAngleMin) volumeAngleMinDeg = value;
+                if (seekBar == sbVolAngleMax) volumeAngleMaxDeg = value;
+
+                sanitizeMappingValues();
+                syncAllMappingControlsFromState();
+                recomputeMappedOutputs();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                persistSettings();
+            }
+        };
+
+        SeekBar.OnSeekBarChangeListener commonFreqListener = new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (suppressSliderCallbacks) return;
+
+                float value = progressToFreq(progress);
+
+                if (seekBar == sbFreqMin) freqMinHz = value;
+                if (seekBar == sbFreqMax) freqMaxHz = value;
+
+                sanitizeMappingValues();
+                syncAllMappingControlsFromState();
+                recomputeMappedOutputs();
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                persistSettings();
+            }
+        };
+
+        sbPitchAngleMin.setOnSeekBarChangeListener(commonAngleListener);
+        sbPitchAngleMax.setOnSeekBarChangeListener(commonAngleListener);
+        sbVolAngleMin.setOnSeekBarChangeListener(commonAngleListener);
+        sbVolAngleMax.setOnSeekBarChangeListener(commonAngleListener);
+
+        sbFreqMin.setOnSeekBarChangeListener(commonFreqListener);
+        sbFreqMax.setOnSeekBarChangeListener(commonFreqListener);
+
+        makeNumberEditable(tvPitchAngleMinVal, "Pitch angle min", () -> pitchAngleMinDeg, v -> pitchAngleMinDeg = v, true);
+        makeNumberEditable(tvPitchAngleMaxVal, "Pitch angle max", () -> pitchAngleMaxDeg, v -> pitchAngleMaxDeg = v, true);
+        makeNumberEditable(tvVolAngleMinVal, "Volume angle min", () -> volumeAngleMinDeg, v -> volumeAngleMinDeg = v, true);
+        makeNumberEditable(tvVolAngleMaxVal, "Volume angle max", () -> volumeAngleMaxDeg, v -> volumeAngleMaxDeg = v, true);
+        makeNumberEditable(tvFreqMinVal, "Frequency min", () -> freqMinHz, v -> freqMinHz = v, false);
+        makeNumberEditable(tvFreqMaxVal, "Frequency max", () -> freqMaxHz, v -> freqMaxHz = v, false);
+    }
+
+    private interface FloatGetter {
+        float get();
+    }
+
+    private interface FloatSetter {
+        void set(float v);
+    }
+
+    private void makeNumberEditable(TextView target,
+                                    String title,
+                                    FloatGetter getter,
+                                    FloatSetter setter,
+                                    boolean isAngle) {
+        target.setOnClickListener(v -> showEditNumberDialog(title, getter.get(), setter, isAngle));
+    }
+
+    private void showEditNumberDialog(String title,
+                                      float currentValue,
+                                      FloatSetter setter,
+                                      boolean isAngle) {
+        final EditText et = new EditText(this);
+        et.setInputType(InputType.TYPE_CLASS_NUMBER
+                | InputType.TYPE_NUMBER_FLAG_DECIMAL
+                | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        et.setText(String.format(Locale.US, isAngle ? "%.1f" : "%.0f", currentValue));
+        et.setSelection(et.getText().length());
+
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(et)
+                .setPositiveButton("OK", (dialog, which) -> {
+                    try {
+                        float v = Float.parseFloat(et.getText().toString().trim());
+                        setter.set(v);
+                        sanitizeMappingValues();
+                        syncAllMappingControlsFromState();
+                        recomputeMappedOutputs();
+                        persistSettings();
+                    } catch (Exception ignored) {
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void syncAllMappingControlsFromState() {
+        suppressSliderCallbacks = true;
+
+        sbPitchAngleMin.setProgress(angleToProgress(pitchAngleMinDeg));
+        sbPitchAngleMax.setProgress(angleToProgress(pitchAngleMaxDeg));
+        sbVolAngleMin.setProgress(angleToProgress(volumeAngleMinDeg));
+        sbVolAngleMax.setProgress(angleToProgress(volumeAngleMaxDeg));
+
+        sbFreqMin.setProgress(freqToProgress(freqMinHz));
+        sbFreqMax.setProgress(freqToProgress(freqMaxHz));
+
+        suppressSliderCallbacks = false;
+        syncMappingValueTextsOnly();
+    }
+
+    private void syncMappingValueTextsOnly() {
+        tvPitchAngleMinVal.setText(String.format(Locale.US, "%.1f°", pitchAngleMinDeg));
+        tvPitchAngleMaxVal.setText(String.format(Locale.US, "%.1f°", pitchAngleMaxDeg));
+        tvVolAngleMinVal.setText(String.format(Locale.US, "%.1f°", volumeAngleMinDeg));
+        tvVolAngleMaxVal.setText(String.format(Locale.US, "%.1f°", volumeAngleMaxDeg));
+
+        tvFreqMinVal.setText(String.format(Locale.US, "%.0f Hz", freqMinHz));
+        tvFreqMaxVal.setText(String.format(Locale.US, "%.0f Hz", freqMaxHz));
+    }
+
+    private int angleToProgress(float angle) {
+        float clamped = clamp(angle, ANGLE_MIN, ANGLE_MAX);
+        return Math.round((clamped - ANGLE_MIN) / ANGLE_STEP);
+    }
+
+    private float progressToAngle(int progress) {
+        return ANGLE_MIN + (progress * ANGLE_STEP);
+    }
+
+    private int freqToProgress(float freq) {
+        float clamped = clamp(freq, FREQ_MIN_UI, FREQ_MAX_UI);
+        return Math.round(clamped - FREQ_MIN_UI);
+    }
+
+    private float progressToFreq(int progress) {
+        return FREQ_MIN_UI + progress;
+    }
+
+    @SuppressLint("MissingPermission")
+    private void startScanAndConnect() {
         if (!hasRequiredPermissions()) {
             requestRequiredPermissions();
             return;
         }
-
         if (!isBluetoothEnabled()) {
             handleBluetoothOffHard();
             return;
         }
 
+        cancelAutoReconnect();
+
         if (isScanning) stopScanIfRunning();
 
-        bleScanner = bluetoothAdapter.getBluetoothLeScanner();
+        bleScanner = bluetoothAdapter != null ? bluetoothAdapter.getBluetoothLeScanner() : null;
         if (bleScanner == null) {
             appendLogSafe("Scanner unavailable");
-            setStatusText("Scanner unavailable");
-            updateStatusLineText();
+            setStatusText("Bluetooth scanner unavailable");
             updateBleButtonText();
             return;
         }
@@ -704,55 +1204,117 @@ public class MainActivity extends AppCompatActivity {
         volumeGlove.seenDuringCurrentScan = false;
 
         isScanning = true;
-        setStatusText("Scanning...");
         updateStatusLineText();
         updateBleButtonText();
-        appendLogSafe("Scan started (" + SCAN_TIMEOUT_MS + "ms)");
+        appendLogSafe("Scanning...");
 
         try {
             bleScanner.startScan(scanCallback);
+            mainHandler.postDelayed(scanTimeoutRunnable, SCAN_TIMEOUT_MS);
         } catch (Exception e) {
-            appendLogSafe("startScan exception: " + e.getClass().getSimpleName());
+            appendLogSafe("Start scan exception");
             isScanning = false;
-            updateBleButtonText();
             scheduleAutoReconnect("scan exception");
             updateStatusLineText();
-            return;
+            updateBleButtonText();
         }
-
-        scheduleScanTimeout();
-    }
-
-    private void scheduleScanTimeout() {
-        cancelScanTimeout();
-        mainHandler.postDelayed(scanTimeoutRunnable, SCAN_TIMEOUT_MS);
-    }
-
-    private void cancelScanTimeout() {
-        mainHandler.removeCallbacks(scanTimeoutRunnable);
     }
 
     private void onScanTimeout() {
         if (!isScanning) return;
+
         appendLogSafe("Scan timeout");
         stopScanIfRunning();
-        updateBleButtonText();
+
         if (!pitchGlove.connected || !volumeGlove.connected) {
             scheduleAutoReconnect("scan timeout missing glove");
         }
     }
 
     private void stopScanIfRunning() {
-        cancelScanTimeout();
+        mainHandler.removeCallbacks(scanTimeoutRunnable);
+
         if (!isScanning || bleScanner == null) return;
+
         try {
             bleScanner.stopScan(scanCallback);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
+
         isScanning = false;
-        appendLogSafe("Scan stopped");
         updateStatusLineText();
         updateBleButtonText();
+    }
+
+    private void scheduleAutoReconnect(String reason) {
+        if (!autoReconnectEnabled || manualDisconnectRequested || appShuttingDown) return;
+        if (!isBluetoothEnabled()) return;
+        if (pitchGlove.connected && volumeGlove.connected) return;
+
+        appendLogSafe("Auto-reconnect scheduled: " + reason);
+        cancelAutoReconnect();
+        mainHandler.postDelayed(autoReconnectRunnable, AUTO_RECONNECT_DELAY_MS);
+    }
+
+    private void runAutoReconnect() {
+        if (!autoReconnectEnabled || manualDisconnectRequested || appShuttingDown) return;
+        if (!isBluetoothEnabled()) {
+            handleBluetoothOffHard();
+            return;
+        }
+        if (pitchGlove.connected && volumeGlove.connected) return;
+        if (isScanning) return;
+
+        appendLogSafe("Auto-reconnect running");
+        startScanAndConnect();
+    }
+
+    private void cancelAutoReconnect() {
+        mainHandler.removeCallbacks(autoReconnectRunnable);
+    }
+
+    private void disconnectAllGlovesInternal(boolean silent) {
+        cancelAutoReconnect();
+        stopScanIfRunning();
+
+        safeCloseGloveConnection(pitchGlove);
+        safeCloseGloveConnection(volumeGlove);
+
+        if (!silent) {
+            appendLogSafe("Disconnected all gloves");
+        }
+
+        updateStatusLineText();
+        updateBleButtonText();
+    }
+
+    @SuppressLint("MissingPermission")
+    private void safeCloseGloveConnection(GloveClient glove) {
+        if (glove == null) return;
+
+        glove.connected = false;
+        glove.connecting = false;
+        glove.notificationsEnabled = false;
+        glove.connectAttemptStartMs = 0L;
+        glove.lastTelemetryMs = 0L;
+        glove.lastPingMs = 0L;
+        glove.telemetryStale = false;
+        glove.directionText = "";
+        glove.roleTextFromDevice = "";
+        glove.txChar = null;
+        glove.rxChar = null;
+
+        BluetoothGatt gatt = glove.gatt;
+        glove.gatt = null;
+
+        if (gatt != null) {
+            try {
+                gatt.disconnect();
+            } catch (Exception ignored) {}
+
+            try {
+                gatt.close();
+            } catch (Exception ignored) {}
+        }
     }
 
     private final ScanCallback scanCallback = new ScanCallback() {
@@ -770,95 +1332,49 @@ public class MainActivity extends AppCompatActivity {
                 maybeConnectToGloveDevice(volumeGlove, device);
             }
 
-            if (pitchGlove.connected && volumeGlove.connected) stopScanIfRunning();
-            updateBleButtonText();
+            if (pitchGlove.connected && volumeGlove.connected) {
+                stopScanIfRunning();
+            }
+            updateStatusLineText();
         }
     };
 
     @SuppressLint("MissingPermission")
-    private void maybeConnectToGloveDevice(GloveClient glove, BluetoothDevice device) {
+    private void maybeConnectToGloveDevice(final GloveClient glove, BluetoothDevice device) {
         if (glove.connected || glove.connecting) return;
 
         if (glove.gatt != null) {
-            appendLogSafe(glove.roleLabel + ": found stale GATT before connect, clearing it");
             safeCloseGloveConnection(glove);
         }
 
         glove.connecting = true;
         glove.connectAttemptStartMs = SystemClock.elapsedRealtime();
+
         try {
             glove.lastDeviceAddress = device.getAddress();
         } catch (Exception ignored) {
             glove.lastDeviceAddress = "";
         }
 
-        appendLogSafe(glove.roleLabel + ": connecting to " + safeNameWithFallback(device));
-        updateBleButtonText();
+        appendLogSafe(glove.roleLabel + ": connecting to " + glove.targetDeviceName);
 
         BluetoothGattCallback callback = createGattCallback(glove);
-        Context gattContext = (appContext != null) ? appContext : getApplicationContext();
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                glove.gatt = device.connectGatt(gattContext, false, callback, BluetoothDevice.TRANSPORT_LE);
+                glove.gatt = device.connectGatt(appContext, false, callback, BluetoothDevice.TRANSPORT_LE);
             } else {
-                glove.gatt = device.connectGatt(gattContext, false, callback);
+                glove.gatt = device.connectGatt(appContext, false, callback);
             }
         } catch (Exception e) {
+            appendLogSafe(glove.roleLabel + ": connect exception");
             glove.connecting = false;
             glove.gatt = null;
             glove.connectAttemptStartMs = 0L;
-            appendLogSafe(glove.roleLabel + ": connect exception " + e.getClass().getSimpleName());
-            updateBleButtonText();
             scheduleAutoReconnect(glove.roleLabel + " connect exception");
         }
     }
 
-    private void scheduleAutoReconnect(String reason) {
-        if (appShuttingDown || !autoReconnectEnabled || manualDisconnectRequested) return;
-        if (!isBluetoothEnabled()) return;
-        if (pitchGlove.connected && volumeGlove.connected) return;
-
-        cancelAutoReconnect();
-        appendLogSafe("Auto-reconnect scheduled (" + reason + ")");
-        mainHandler.postDelayed(autoReconnectRunnable, AUTO_RECONNECT_DELAY_MS);
-    }
-
-    private void runAutoReconnect() {
-        if (appShuttingDown || !autoReconnectEnabled || manualDisconnectRequested) return;
-        if (!isBluetoothEnabled()) {
-            handleBluetoothOffHard();
-            return;
-        }
-        if (pitchGlove.connected && volumeGlove.connected) return;
-        if (isScanning) return;
-
-        appendLogSafe("Auto-reconnect scanning...");
-        startScanAndConnect();
-    }
-
-    private void cancelAutoReconnect() {
-        mainHandler.removeCallbacks(autoReconnectRunnable);
-    }
-
-    private void disconnectAllGlovesInternal(boolean silent) {
-        cancelAutoReconnect();
-        stopScanIfRunning();
-        safeCloseGloveConnection(pitchGlove);
-        safeCloseGloveConnection(volumeGlove);
-        updateStatusLineText();
-
-        audioTargetVolumeLinear = 0f;
-        mappedVolumeLinear = 0f;
-
-        if (!silent) appendLogSafe("Manual disconnect all");
-        updateAudioStatusText();
-        updateBleButtonText();
-    }
-
-    // =========================
-    // GATT callback guards
-    // =========================
     private boolean isCurrentGattCallback(GloveClient glove, BluetoothGatt gatt) {
         return glove != null && gatt != null && glove.gatt == gatt;
     }
@@ -866,52 +1382,24 @@ public class MainActivity extends AppCompatActivity {
     @SuppressLint("MissingPermission")
     private void closeGattQuietly(BluetoothGatt gatt) {
         if (gatt == null) return;
+
         try {
             gatt.disconnect();
         } catch (Exception ignored) {
         }
+
         try {
             gatt.close();
         } catch (Exception ignored) {
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private void safeCloseGloveConnection(GloveClient glove) {
-        if (glove == null) return;
-
-        glove.connecting = false;
-        glove.connected = false;
-        glove.notificationsEnabled = false;
-        glove.telemetryStale = false;
-        glove.lastPingMs = 0L;
-        glove.connectAttemptStartMs = 0L;
-
-        glove.txChar = null;
-        glove.rxChar = null;
-
-        BluetoothGatt g = glove.gatt;
-        glove.gatt = null;
-
-        if (g != null) {
-            try {
-                g.disconnect();
-            } catch (Exception ignored) {
-            }
-            try {
-                g.close();
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    private BluetoothGattCallback createGattCallback(GloveClient glove) {
+    private BluetoothGattCallback createGattCallback(final GloveClient glove) {
         return new BluetoothGattCallback() {
 
             @Override
             public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
                 if (!isCurrentGattCallback(glove, gatt)) {
-                    appendLogSafe(glove.roleLabel + ": ignoring connState from stale GATT");
                     closeGattQuietly(gatt);
                     return;
                 }
@@ -937,9 +1425,8 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    appendLogSafe(glove.roleLabel + ": disconnected (status=" + status + ")");
-
                     if (glove.gatt == gatt) {
+                        appendLogSafe(glove.roleLabel + ": disconnected");
                         safeCloseGloveConnection(glove);
                     } else {
                         closeGattQuietly(gatt);
@@ -949,13 +1436,9 @@ public class MainActivity extends AppCompatActivity {
                     updateStatusLineText();
                     updateBleButtonText();
 
-                    if (!pitchGlove.connected && !volumeGlove.connected) {
-                        audioTargetVolumeLinear = 0f;
-                        mappedVolumeLinear = 0f;
+                    if (!manualDisconnectRequested) {
+                        scheduleAutoReconnect(glove.roleLabel + " disconnected");
                     }
-
-                    if (!manualDisconnectRequested) scheduleAutoReconnect(glove.roleLabel + " disconnected");
-                    updateAudioStatusText();
                 }
             }
 
@@ -965,8 +1448,9 @@ public class MainActivity extends AppCompatActivity {
                     closeGattQuietly(gatt);
                     return;
                 }
+
                 if (status != BluetoothGatt.GATT_SUCCESS) {
-                    appendLogSafe(glove.roleLabel + ": service discovery failed " + status);
+                    appendLogSafe(glove.roleLabel + ": service discovery failed");
                     safeCloseGloveConnection(glove);
                     scheduleAutoReconnect(glove.roleLabel + " service discovery failed");
                     return;
@@ -1041,9 +1525,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // =========================
-    // Notification parsing
-    // =========================
     private void handleGloveNotification(GloveClient glove, BluetoothGattCharacteristic ch, byte[] value) {
         if (ch == null || value == null) return;
         if (!TX_CHAR_UUID.equals(ch.getUuid())) return;
@@ -1074,6 +1555,7 @@ public class MainActivity extends AppCompatActivity {
             if (v != null) glove.neutralRollDeg = v;
         } else if (line.startsWith("DIRECTION:")) {
             glove.directionText = line.substring("DIRECTION:".length()).trim();
+            syncDirectionPreferenceIfNeeded(glove);
         } else if (line.startsWith("ROLE:")) {
             glove.roleTextFromDevice = line.substring("ROLE:".length()).trim();
         }
@@ -1091,9 +1573,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // =========================
-    // Mapping
-    // =========================
     private void recomputeMappedOutputs() {
         sanitizeMappingValues();
 
@@ -1122,7 +1601,14 @@ public class MainActivity extends AppCompatActivity {
         audioTargetFreqHz = mappedFreqHz;
         audioTargetVolumeLinear = mappedVolumeLinear;
 
-        if (!isBluetoothEnabled() || (!pitchGlove.connected && !volumeGlove.connected)) {
+        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
+        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+        boolean sharedBtEnabled = bleSnapshot == null || bleSnapshot.bluetoothEnabled;
+        boolean sharedAnyConnected = calSnapshot != null
+                ? (calSnapshot.pitchConnected || calSnapshot.volumeConnected)
+                : (pitchGlove.connected || volumeGlove.connected);
+
+        if (!sharedBtEnabled || !sharedAnyConnected) {
             audioTargetVolumeLinear = 0f;
             mappedVolumeLinear = 0f;
         }
@@ -1136,9 +1622,6 @@ public class MainActivity extends AppCompatActivity {
         return outMin + t * (outMax - outMin);
     }
 
-    // =========================
-    // Send commands
-    // =========================
     @SuppressLint("MissingPermission")
     private void sendCommandToGlove(GloveClient glove, String cmd) {
         if (!hasRequiredPermissions()) {
@@ -1159,36 +1642,175 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // =========================
-    // UI refresh (fast)
-    // =========================
     private void refreshUiFast() {
-        if (!isBluetoothEnabled()) {
-            tvStatus.setText("⚠️  BLUETOOTH OFF\nTurn Bluetooth ON to play");
-        } else {
-            tvStatus.setText("Status: " + statusText);
-        }
+        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
+        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
 
-        tvPitchConn.setText(connLine(pitchGlove, "Pitch (" + PITCH_DEVICE_NAME + ")"));
-        tvVolConn.setText(connLine(volumeGlove, "Volume (" + VOLUME_DEVICE_NAME + ")"));
+        boolean bothConnected = calSnapshot != null && calSnapshot.pitchConnected && calSnapshot.volumeConnected;
+        boolean oneConnected = calSnapshot != null && (calSnapshot.pitchConnected || calSnapshot.volumeConnected);
+        boolean connecting = bleSnapshot != null && bleSnapshot.hostReady
+                && (bleSnapshot.scanning
+                || isConnecting(bleSnapshot.pitchConnText)
+                || isConnecting(bleSnapshot.volumeConnText));
+
+        if (bleSnapshot != null && bleSnapshot.hostReady) {
+            if (calSnapshot != null) {
+                pitchActiveDeltaDeg = calSnapshot.pitchActiveDeltaDeg;
+                volActiveDeltaDeg = calSnapshot.volumeActiveDeltaDeg;
+                pitchHasAngle = calSnapshot.pitchConnected;
+                volHasAngle = calSnapshot.volumeConnected;
+            }
+
+            recomputeMappedOutputs();
+
+            tvStatus.setText(buildPlayHeadline(bleSnapshot, bothConnected, oneConnected, connecting));
+            tvAudio.setText(buildPlaySubtitle(bleSnapshot, bothConnected, oneConnected, connecting));
+
+            tvPitchConn.setText(buildFriendlyConnectionChip("Pitch glove", bleSnapshot.pitchConnText));
+            tvVolConn.setText(buildFriendlyConnectionChip("Volume glove", bleSnapshot.volumeConnText));
+
+            tvPitchValue.setText(String.format(Locale.US, "Pitch response • %.2f°", pitchActiveDeltaDeg));
+            tvVolValue.setText(String.format(Locale.US, "Volume response • %.2f°", volActiveDeltaDeg));
+
+            tvToneValue.setText(buildToneSummary(bothConnected, mappedFreqHz, mappedVolumeLinear));
+
+            if (bothConnected) {
+                tvPitchLast.setVisibility(View.GONE);
+                tvVolLast.setVisibility(View.GONE);
+            } else {
+                tvPitchLast.setVisibility(View.VISIBLE);
+                tvVolLast.setVisibility(View.VISIBLE);
+                tvPitchLast.setText(bleSnapshot.pitchLastText);
+                tvVolLast.setText(bleSnapshot.volumeLastText);
+            }
+
+            updateCalibrationButtonGlow(bothConnected);
+        } else {
+            if (!isBluetoothEnabled()) {
+                tvStatus.setText("Bluetooth is off");
+                tvAudio.setText("Turn Bluetooth on to begin playing.");
+            } else {
+                tvStatus.setText("Preparing instrument");
+                tvAudio.setText("Getting the theremin ready...");
+            }
+
+            tvPitchConn.setText("Pitch glove\nWaiting");
+            tvVolConn.setText("Volume glove\nWaiting");
+            tvPitchValue.setText(String.format(Locale.US, "Pitch response • %.2f°", pitchActiveDeltaDeg));
+            tvVolValue.setText(String.format(Locale.US, "Volume response • %.2f°", volActiveDeltaDeg));
+            tvToneValue.setText("Your live tone will appear here.");
+
+            tvPitchLast.setVisibility(View.GONE);
+            tvVolLast.setVisibility(View.GONE);
+
+            updateCalibrationButtonGlow(false);
+        }
 
         updateAudioStatusText();
         updateBleButtonText();
-
-        tvPitchValue.setText(String.format(Locale.US, "Pitch ACTIVE_DELTA_DEG = %.2f°", pitchActiveDeltaDeg));
-        tvVolValue.setText(String.format(Locale.US, "Volume ACTIVE_DELTA_DEG = %.2f°", volActiveDeltaDeg));
-
-        tvToneValue.setText(String.format(Locale.US, "Mapped: %.1f Hz | Volume %.0f%%",
-                mappedFreqHz, mappedVolumeLinear * 100f));
-
-        tvPitchLast.setText("Pitch last: " + pitchGlove.lastPacket);
-        tvVolLast.setText("Volume last: " + volumeGlove.lastPacket);
 
         if (thereminVisualizerView != null) {
             thereminVisualizerView.setThereminState(mappedFreqHz, mappedVolumeLinear, freqMinHz, freqMaxHz);
         }
 
         syncMappingValueTextsOnly();
+    }
+
+    private String buildPlayHeadline(BleHostBridge.BleUiSnapshot bleSnapshot,
+                                     boolean bothConnected,
+                                     boolean oneConnected,
+                                     boolean connecting) {
+        if (bleSnapshot == null || !bleSnapshot.hostReady) {
+            return "Preparing instrument";
+        }
+        if (!bleSnapshot.bluetoothEnabled) {
+            return "Bluetooth is off";
+        }
+        if (bothConnected) {
+            return "Ready to perform";
+        }
+        if (oneConnected) {
+            return "Almost ready";
+        }
+        if (connecting) {
+            return "Connecting your gloves";
+        }
+        return "Waiting for gloves";
+    }
+
+    private String buildPlaySubtitle(BleHostBridge.BleUiSnapshot bleSnapshot,
+                                     boolean bothConnected,
+                                     boolean oneConnected,
+                                     boolean connecting) {
+        if (bleSnapshot == null || !bleSnapshot.hostReady) {
+            return "Setting up the live instrument experience.";
+        }
+        if (!bleSnapshot.bluetoothEnabled) {
+            return "Turn Bluetooth on to reconnect your gloves.";
+        }
+        if (bothConnected) {
+            return "Move your hands to shape pitch and volume. Calibrate anytime for a tighter response.";
+        }
+        if (oneConnected) {
+            return "One glove is connected. Turn on the second glove to complete the instrument.";
+        }
+        if (connecting) {
+            return "Keep both gloves awake and close to your phone.";
+        }
+        return "Turn on both gloves to begin playing.";
+    }
+
+    private String buildFriendlyConnectionChip(String label, String rawLine) {
+        if (rawLine == null || rawLine.trim().isEmpty()) {
+            return label + "\nWaiting";
+        }
+
+        String upper = rawLine.toUpperCase(Locale.US);
+        if (upper.contains("CONNECTED") && upper.contains("NO DATA")) {
+            return label + "\nConnected • waiting for motion";
+        }
+        if (upper.contains("CONNECTED")) {
+            return label + "\nReady";
+        }
+        if (upper.contains("CONNECTING")) {
+            return label + "\nConnecting…";
+        }
+        return label + "\nWaiting";
+    }
+
+    private String buildToneSummary(boolean bothConnected, float freqHz, float volumeLinear) {
+        if (!bothConnected) {
+            return "Connect both gloves to start shaping sound.";
+        }
+        if (volumeLinear <= 0.01f) {
+            return String.format(Locale.US,
+                    "Live tone ready • %.1f Hz • Raise your volume hand to bring it in",
+                    freqHz);
+        }
+        return String.format(Locale.US,
+                "Live tone • %.1f Hz • %.0f%% intensity",
+                freqHz, volumeLinear * 100f);
+    }
+
+    private void updateCalibrationButtonGlow(boolean shouldGlow) {
+        if (btnOpenCalibration == null) return;
+
+        if (shouldGlow) {
+            btnOpenCalibration.setText("✨ Calibrate Precisely");
+            if (calibrateGlowAnimation == null) {
+                AlphaAnimation pulse = new AlphaAnimation(1.0f, 0.55f);
+                pulse.setDuration(850);
+                pulse.setRepeatMode(Animation.REVERSE);
+                pulse.setRepeatCount(Animation.INFINITE);
+                calibrateGlowAnimation = pulse;
+            }
+            if (btnOpenCalibration.getAnimation() == null) {
+                btnOpenCalibration.startAnimation(calibrateGlowAnimation);
+            }
+        } else {
+            btnOpenCalibration.setText("Calibrate");
+            btnOpenCalibration.clearAnimation();
+        }
     }
 
     private String connLine(GloveClient g, String prefix) {
@@ -1202,11 +1824,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateAudioStatusText() {
         boolean running = audioEngine != null && audioEngine.isRunning();
-        String bg = bgAudioEnabled ? "BG:ON" : "BG:OFF";
-        tvAudio.setText((running ? "Audio: RUNNING ✅" : "Audio: STOPPED") + " | " + bg);
-
-        if (btnAudioStart != null) btnAudioStart.setText(running ? "⏸ PAUSE" : "▶ PLAY");
-        if (btnAudioStop != null) btnAudioStop.setText(bgAudioEnabled ? "BG AUDIO: ON" : "BG AUDIO: OFF");
+        if (btnAudioStart != null) btnAudioStart.setText(running ? "Pause Tone" : "Play Tone");
+        if (btnAudioStop != null) btnAudioStop.setText(bgAudioEnabled ? "Background Audio On" : "Background Audio Off");
     }
 
     private void setStatusText(String s) {
@@ -1214,19 +1833,33 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateStatusLineText() {
+        BleHostBridge.BleUiSnapshot snapshot = BleHostBridge.getBleUiSnapshot();
+        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+
+        if (snapshot != null && snapshot.hostReady) {
+            statusText = snapshot.statusText;
+
+            boolean anyConnected = calSnapshot != null && (calSnapshot.pitchConnected || calSnapshot.volumeConnected);
+            if (!snapshot.bluetoothEnabled || !anyConnected) {
+                audioTargetVolumeLinear = 0f;
+                mappedVolumeLinear = 0f;
+            }
+            return;
+        }
+
         if (!isBluetoothEnabled()) {
-            setStatusText("Bluetooth off");
+            setStatusText("Bluetooth is off — turn it on to play");
             return;
         }
 
         if (pitchGlove.connected && volumeGlove.connected) {
-            setStatusText("Both gloves connected");
+            setStatusText("Both gloves connected — ready to play");
         } else if (pitchGlove.connected || volumeGlove.connected) {
-            setStatusText("One glove connected");
+            setStatusText("One glove connected — connect the other glove");
         } else if (isScanning) {
-            setStatusText("Scanning...");
+            setStatusText("Scanning for gloves...");
         } else {
-            setStatusText("Idle / disconnected");
+            setStatusText("Connect both gloves to start playing");
         }
 
         if (!pitchGlove.connected && !volumeGlove.connected) {
@@ -1235,9 +1868,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // =========================
-    // Logging (bounded + slow flush)
-    // =========================
     private void appendLogSafe(String msg) {
         final long now = SystemClock.elapsedRealtime();
         synchronized (logLines) {
@@ -1248,366 +1878,55 @@ public class MainActivity extends AppCompatActivity {
 
             StringBuilder sb = new StringBuilder();
             for (String s : logLines) sb.append(s).append('\n');
-            final String out = sb.toString();
+            final String all = sb.toString();
 
-            mainHandler.post(() -> {
-                if (tvLog != null) tvLog.setText(out);
+            runOnUiThread(() -> {
+                if (tvLog != null) tvLog.setText(all);
             });
         }
     }
 
-    private void toastSafe(String msg) {
-        mainHandler.post(() -> Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show());
+    private boolean isConnecting(String text) {
+        return text != null && text.toUpperCase(Locale.US).contains("CONNECTING");
     }
 
-    @SuppressLint("MissingPermission")
     private String safeDeviceName(BluetoothDevice d) {
         if (d == null) return null;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) {
+                return null;
+            }
+        }
         try {
             return d.getName();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
             return null;
         }
     }
 
-    @SuppressLint("MissingPermission")
-    private String safeNameWithFallback(BluetoothDevice d) {
-        if (d == null) return "(null)";
-        String n = safeDeviceName(d);
-        if (n != null) return n;
-        try {
-            return d.getAddress();
-        } catch (Exception ignored) {
-            return "(unknown)";
-        }
-    }
-
-    // =========================
-    // Bluetooth receiver registration
-    // =========================
     private void registerBluetoothStateReceiverIfNeeded() {
         if (bluetoothStateReceiverRegistered) return;
+
         try {
             registerReceiver(bluetoothStateReceiver, new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED));
             bluetoothStateReceiverRegistered = true;
-        } catch (Exception e) {
-            appendLogSafe("BT receiver register failed");
+        } catch (Exception ignored) {
         }
     }
 
     private void unregisterBluetoothStateReceiverIfNeeded() {
         if (!bluetoothStateReceiverRegistered) return;
+
         try {
             unregisterReceiver(bluetoothStateReceiver);
         } catch (Exception ignored) {
-        }
-        bluetoothStateReceiverRegistered = false;
-    }
-
-    // =========================
-    // Settings / mapping UI
-    // =========================
-    private void setupSlidersAndClickNumbers() {
-        settingsRepo = new AppSettingsRepository(this);
-
-        sbPitchAngleMin.setMax(ANGLE_PROGRESS_MAX);
-        sbPitchAngleMax.setMax(ANGLE_PROGRESS_MAX);
-        sbVolAngleMin.setMax(ANGLE_PROGRESS_MAX);
-        sbVolAngleMax.setMax(ANGLE_PROGRESS_MAX);
-        sbFreqMin.setMax(FREQ_PROGRESS_MAX);
-        sbFreqMax.setMax(FREQ_PROGRESS_MAX);
-
-        AppSettings s = settingsRepo.load();
-        if (s != null) {
-            pitchAngleMinDeg = s.pitchAngleMinDeg;
-            pitchAngleMaxDeg = s.pitchAngleMaxDeg;
-            freqMinHz = s.freqMinHz;
-            freqMaxHz = s.freqMaxHz;
-            volumeAngleMinDeg = s.volumeAngleMinDeg;
-            volumeAngleMaxDeg = s.volumeAngleMaxDeg;
-        } else {
-            setDefaultMappingValues();
-        }
-
-        SeekBar.OnSeekBarChangeListener l = new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (suppressSliderCallbacks) return;
-                updateMappingFromControls();
-                recomputeMappedOutputs();
-                persistSettings();
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-        };
-
-        sbPitchAngleMin.setOnSeekBarChangeListener(l);
-        sbPitchAngleMax.setOnSeekBarChangeListener(l);
-        sbVolAngleMin.setOnSeekBarChangeListener(l);
-        sbVolAngleMax.setOnSeekBarChangeListener(l);
-        sbFreqMin.setOnSeekBarChangeListener(l);
-        sbFreqMax.setOnSeekBarChangeListener(l);
-
-        setupNumberClickEdit(tvPitchAngleMinVal, () -> pitchAngleMinDeg, v -> pitchAngleMinDeg = v);
-        setupNumberClickEdit(tvPitchAngleMaxVal, () -> pitchAngleMaxDeg, v -> pitchAngleMaxDeg = v);
-        setupNumberClickEdit(tvFreqMinVal, () -> freqMinHz, v -> freqMinHz = v);
-        setupNumberClickEdit(tvFreqMaxVal, () -> freqMaxHz, v -> freqMaxHz = v);
-        setupNumberClickEdit(tvVolAngleMinVal, () -> volumeAngleMinDeg, v -> volumeAngleMinDeg = v);
-        setupNumberClickEdit(tvVolAngleMaxVal, () -> volumeAngleMaxDeg, v -> volumeAngleMaxDeg = v);
-    }
-
-    private interface FloatGetter {
-        float get();
-    }
-
-    private interface FloatSetter {
-        void set(float v);
-    }
-
-    private void setupNumberClickEdit(TextView tv, FloatGetter getter, FloatSetter setter) {
-        tv.setOnClickListener(v -> {
-            AlertDialog.Builder b = new AlertDialog.Builder(this);
-            b.setTitle("Edit value");
-
-            EditText et = new EditText(this);
-            et.setInputType(InputType.TYPE_CLASS_NUMBER
-                    | InputType.TYPE_NUMBER_FLAG_DECIMAL
-                    | InputType.TYPE_NUMBER_FLAG_SIGNED);
-            et.setText(String.format(Locale.US, "%.2f", getter.get()));
-            b.setView(et);
-
-            b.setPositiveButton("OK", (d, which) -> {
-                try {
-                    float val = Float.parseFloat(et.getText().toString().trim());
-                    setter.set(val);
-                    sanitizeMappingValues();
-                    syncAllMappingControlsFromState();
-                    recomputeMappedOutputs();
-                    persistSettings();
-                } catch (Exception ignored) {
-                    toastSafe("Invalid number");
-                }
-            });
-            b.setNegativeButton("Cancel", null);
-            b.show();
-        });
-    }
-
-    private void persistSettings() {
-        if (settingsRepo == null) return;
-        AppSettings s = new AppSettings();
-        s.pitchAngleMinDeg = pitchAngleMinDeg;
-        s.pitchAngleMaxDeg = pitchAngleMaxDeg;
-        s.freqMinHz = freqMinHz;
-        s.freqMaxHz = freqMaxHz;
-        s.volumeAngleMinDeg = volumeAngleMinDeg;
-        s.volumeAngleMaxDeg = volumeAngleMaxDeg;
-        settingsRepo.save(s);
-    }
-
-    private void reloadMappingSettingsFromRepository() {
-        if (settingsRepo == null) return;
-
-        AppSettings s = settingsRepo.load();
-        if (s == null) return;
-
-        pitchAngleMinDeg = s.pitchAngleMinDeg;
-        pitchAngleMaxDeg = s.pitchAngleMaxDeg;
-        freqMinHz = s.freqMinHz;
-        freqMaxHz = s.freqMaxHz;
-        volumeAngleMinDeg = s.volumeAngleMinDeg;
-        volumeAngleMaxDeg = s.volumeAngleMaxDeg;
-
-        sanitizeMappingValues();
-        syncAllMappingControlsFromState();
-        recomputeMappedOutputs();
-    }
-
-    private void updateMappingFromControls() {
-        pitchAngleMinDeg = ANGLE_MIN + sbPitchAngleMin.getProgress() * ANGLE_STEP;
-        pitchAngleMaxDeg = ANGLE_MIN + sbPitchAngleMax.getProgress() * ANGLE_STEP;
-
-        volumeAngleMinDeg = ANGLE_MIN + sbVolAngleMin.getProgress() * ANGLE_STEP;
-        volumeAngleMaxDeg = ANGLE_MIN + sbVolAngleMax.getProgress() * ANGLE_STEP;
-
-        freqMinHz = FREQ_MIN_UI + sbFreqMin.getProgress();
-        freqMaxHz = FREQ_MIN_UI + sbFreqMax.getProgress();
-
-        sanitizeMappingValues();
-        syncMappingValueTextsOnly();
-    }
-
-    private void syncMappingValueTextsOnly() {
-        tvPitchAngleMinVal.setText(String.format(Locale.US, "%.2f°", pitchAngleMinDeg));
-        tvPitchAngleMaxVal.setText(String.format(Locale.US, "%.2f°", pitchAngleMaxDeg));
-        tvVolAngleMinVal.setText(String.format(Locale.US, "%.2f°", volumeAngleMinDeg));
-        tvVolAngleMaxVal.setText(String.format(Locale.US, "%.2f°", volumeAngleMaxDeg));
-        tvFreqMinVal.setText(String.format(Locale.US, "%.1f Hz", freqMinHz));
-        tvFreqMaxVal.setText(String.format(Locale.US, "%.1f Hz", freqMaxHz));
-    }
-
-    private void syncAllMappingControlsFromState() {
-        suppressSliderCallbacks = true;
-
-        sbPitchAngleMin.setProgress(clampInt((int) ((pitchAngleMinDeg - ANGLE_MIN) / ANGLE_STEP), 0, ANGLE_PROGRESS_MAX));
-        sbPitchAngleMax.setProgress(clampInt((int) ((pitchAngleMaxDeg - ANGLE_MIN) / ANGLE_STEP), 0, ANGLE_PROGRESS_MAX));
-
-        sbVolAngleMin.setProgress(clampInt((int) ((volumeAngleMinDeg - ANGLE_MIN) / ANGLE_STEP), 0, ANGLE_PROGRESS_MAX));
-        sbVolAngleMax.setProgress(clampInt((int) ((volumeAngleMaxDeg - ANGLE_MIN) / ANGLE_STEP), 0, ANGLE_PROGRESS_MAX));
-
-        sbFreqMin.setProgress(clampInt((int) (freqMinHz - FREQ_MIN_UI), 0, FREQ_PROGRESS_MAX));
-        sbFreqMax.setProgress(clampInt((int) (freqMaxHz - FREQ_MIN_UI), 0, FREQ_PROGRESS_MAX));
-
-        syncMappingValueTextsOnly();
-        suppressSliderCallbacks = false;
-    }
-
-    private void setDefaultMappingValues() {
-        pitchAngleMinDeg = -15.0f;
-        pitchAngleMaxDeg = 55.0f;
-        freqMinHz = 880.0f;
-        freqMaxHz = 2000.0f;
-
-        volumeAngleMinDeg = -10.0f;
-        volumeAngleMaxDeg = 55.0f;
-    }
-
-    private void sanitizeMappingValues() {
-        if (pitchAngleMaxDeg < pitchAngleMinDeg + 0.5f) pitchAngleMaxDeg = pitchAngleMinDeg + 0.5f;
-        if (volumeAngleMaxDeg < volumeAngleMinDeg + 0.5f) volumeAngleMaxDeg = volumeAngleMinDeg + 0.5f;
-        if (freqMaxHz < freqMinHz + 1f) freqMaxHz = freqMinHz + 1f;
-
-        pitchAngleMinDeg = clamp(pitchAngleMinDeg, ANGLE_MIN, ANGLE_MAX);
-        pitchAngleMaxDeg = clamp(pitchAngleMaxDeg, ANGLE_MIN, ANGLE_MAX);
-        volumeAngleMinDeg = clamp(volumeAngleMinDeg, ANGLE_MIN, ANGLE_MAX);
-        volumeAngleMaxDeg = clamp(volumeAngleMaxDeg, ANGLE_MIN, ANGLE_MAX);
-        freqMinHz = clamp(freqMinHz, FREQ_MIN_UI, FREQ_MAX_UI);
-        freqMaxHz = clamp(freqMaxHz, FREQ_MIN_UI, FREQ_MAX_UI);
-    }
-
-    private float clamp(float v, float lo, float hi) {
-        return (v < lo) ? lo : Math.min(v, hi);
-    }
-
-    private int clampInt(int v, int lo, int hi) {
-        return (v < lo) ? lo : Math.min(v, hi);
-    }
-
-    private float clamp01(float v) {
-        return (v < 0f) ? 0f : Math.min(v, 1f);
-    }
-
-    // =========================
-    // Audio
-    // =========================
-    class AudioEngine {
-        private static final int SAMPLE_RATE = 48000;
-        private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_OUT_MONO;
-        private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
-
-        private Thread thread;
-        private volatile boolean running = false;
-
-        boolean isRunning() {
-            return running;
-        }
-
-        void start() {
-            if (running) return;
-            running = true;
-            thread = new Thread(this::runAudio, "ThereminAudioThread");
-            thread.start();
-            appendLogSafe("Audio started");
-        }
-
-        void stop() {
-            running = false;
-            if (thread != null) {
-                try {
-                    thread.join(400);
-                } catch (InterruptedException ignored) {
-                }
-                thread = null;
-            }
-            appendLogSafe("Audio stopped");
-        }
-
-        private void runAudio() {
-            int minBuffer = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
-            if (minBuffer <= 0) minBuffer = 2048;
-            int bufferSize = Math.max(minBuffer, 4096);
-
-            AudioTrack track = null;
-            try {
-                track = new AudioTrack(
-                        AudioManager.STREAM_MUSIC,
-                        SAMPLE_RATE,
-                        CHANNEL_CONFIG,
-                        AUDIO_FORMAT,
-                        bufferSize,
-                        AudioTrack.MODE_STREAM
-                );
-
-                short[] buffer = new short[512];
-                double phase = 0.0;
-                final double twoPi = 2.0 * Math.PI;
-
-                float freqSmooth = Math.max(20f, mappedFreqHz);
-                float volSmooth = 0f;
-
-                track.play();
-
-                while (running) {
-                    if (!isBluetoothEnabled()) {
-                        running = false;
-                        break;
-                    }
-
-                    float targetFreq = Math.max(20f, audioTargetFreqHz);
-                    float targetVol = clamp01(audioTargetVolumeLinear);
-
-                    freqSmooth += 0.20f * (targetFreq - freqSmooth);
-                    volSmooth += 0.20f * (targetVol - volSmooth);
-
-                    double phaseInc = twoPi * freqSmooth / SAMPLE_RATE;
-
-                    for (int i = 0; i < buffer.length; i++) {
-                        double s = Math.sin(phase) * volSmooth;
-                        buffer[i] = (short) (s * 32767.0);
-                        phase += phaseInc;
-                        if (phase > twoPi) phase -= twoPi;
-                    }
-
-                    track.write(buffer, 0, buffer.length);
-                }
-            } catch (Exception e) {
-                appendLogSafe("Audio error: " + e.getClass().getSimpleName());
-            } finally {
-                if (track != null) {
-                    try {
-                        track.stop();
-                    } catch (Exception ignored) {
-                    }
-                    try {
-                        track.release();
-                    } catch (Exception ignored) {
-                    }
-                }
-                mainHandler.post(MainActivity.this::updateAudioStatusText);
-            }
+        } finally {
+            bluetoothStateReceiverRegistered = false;
         }
     }
 
-    // =========================
-    // Glove state container
-    // =========================
-    class GloveClient {
+    private static final class GloveClient {
         final String roleLabel;
         final String targetDeviceName;
 
@@ -1627,6 +1946,7 @@ public class MainActivity extends AppCompatActivity {
 
         String lastDeviceAddress = "";
         String lastPacket = "(none)";
+        long lastDirectionSyncCommandMs = 0L;
         String directionText = "";
         String roleTextFromDevice = "";
 
@@ -1635,6 +1955,103 @@ public class MainActivity extends AppCompatActivity {
         GloveClient(String roleLabel, String targetDeviceName) {
             this.roleLabel = roleLabel;
             this.targetDeviceName = targetDeviceName;
+        }
+    }
+
+    private final class AudioEngine {
+        private static final int SAMPLE_RATE = 48000;
+        private static final int CHANNEL_MASK = AudioFormat.CHANNEL_OUT_MONO;
+        private static final int ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+
+        private AudioTrack track;
+        private Thread audioThread;
+        private volatile boolean running = false;
+
+        private float phase = 0f;
+
+        boolean isRunning() {
+            return running;
+        }
+
+        void start() {
+            if (running) return;
+
+            int minBuffer = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING);
+            int bufferSize = Math.max(minBuffer, 2048);
+
+            track = new AudioTrack(
+                    AudioManager.STREAM_MUSIC,
+                    SAMPLE_RATE,
+                    CHANNEL_MASK,
+                    ENCODING,
+                    bufferSize,
+                    AudioTrack.MODE_STREAM
+            );
+
+            running = true;
+            track.play();
+
+            audioThread = new Thread(() -> {
+                short[] buffer = new short[1024];
+
+                while (running) {
+                    float freq = audioTargetFreqHz;
+                    float vol = audioTargetVolumeLinear;
+
+                    for (int i = 0; i < buffer.length; i++) {
+                        phase += (2f * (float) Math.PI * freq) / SAMPLE_RATE;
+                        if (phase > 2f * Math.PI) phase -= 2f * (float) Math.PI;
+
+                        float sample = (float) Math.sin(phase);
+                        short pcm = (short) (sample * vol * Short.MAX_VALUE * 0.25f);
+                        buffer[i] = pcm;
+                    }
+
+                    if (track != null) {
+                        try {
+                            track.write(buffer, 0, buffer.length);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }, "ThereminAudioThread");
+
+            audioThread.start();
+        }
+
+        void stop() {
+            running = false;
+
+            if (audioThread != null) {
+                try {
+                    audioThread.join(300);
+                } catch (InterruptedException ignored) {
+                }
+                audioThread = null;
+            }
+
+            if (track != null) {
+                try {
+                    track.pause();
+                } catch (Exception ignored) {
+                }
+
+                try {
+                    track.flush();
+                } catch (Exception ignored) {
+                }
+
+                try {
+                    track.release();
+                } catch (Exception ignored) {
+                }
+
+                track = null;
+            }
+        }
+
+        void shutdown() {
+            stop();
         }
     }
 }

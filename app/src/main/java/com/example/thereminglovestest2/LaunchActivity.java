@@ -19,30 +19,23 @@ public class LaunchActivity extends AppCompatActivity {
         if (btnTapToStart == null) {
             throw new IllegalStateException("btnTapToStart not found in activity_launch.xml");
         }
-
-        btnTapToStart.setOnClickListener(v -> goToMain());
+        btnTapToStart.setOnClickListener(v -> goToSetup());
 
         Button btnOpenMenu = findViewById(R.id.btnOpenMenu);
-        if (btnOpenMenu != null) {
-            btnOpenMenu.setOnClickListener(v -> goToHome());
+        if (btnOpenMenu == null) {
+            throw new IllegalStateException("btnOpenMenu not found in activity_launch.xml");
         }
+        btnOpenMenu.setOnClickListener(v -> goToSetup());
     }
 
-    private void goToHome() {
+    private void goToSetup() {
         if (started) return;
         started = true;
 
         Intent intent = new Intent(this, HomeActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
         startActivity(intent);
-        finish();
-    }
-
-    private void goToMain() {
-        if (started) return;
-        started = true;
-
-        Intent intent = new Intent(this, MainActivity.class);
-        startActivity(intent);
+        overridePendingTransition(0, 0);
         finish();
     }
 }

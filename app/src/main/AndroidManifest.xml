@@ -22,27 +22,9 @@
         android:allowBackup="true"
         android:label="Theremin Gloves Dual"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+        android:theme="@style/Theme.ThereminGlovestest2">
         <activity
-            android:name=".AppSettings"
-            android:exported="false" />
-        <activity
-            android:name=".AppSettingsRepository"
-            android:exported="false" />
-        <activity
-            android:name=".AppSettingsDbHelper"
-            android:exported="false" />
-        <activity
-            android:name=".BottomNavBarView"
-            android:exported="false" />
-        <activity
-            android:name=".BaseNavPlaceholderActivity"
-            android:exported="false" />
-        <activity
-            android:name=".NavFiveButtonsView"
-            android:exported="false" />
-        <activity
-            android:name=".InsetAwareScrollView"
+            android:name=".ConnectionStatusTextView"
             android:exported="false" />
         <activity
             android:name=".LaunchActivity"
@@ -52,15 +34,21 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> <!-- Play / Live -->
+        </activity>
+        <activity
+            android:name=".HomeActivity"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
-            android:exported="false" /> <!-- Placeholder screens (safe navigation shell step) -->
+            android:exported="false" />
         <activity
             android:name=".ConnectGlovesActivity"
             android:exported="false" />
         <activity
             android:name=".CalibrationActivity"
+            android:exported="false" />
+        <activity
+            android:name=".PlaybackActivity"
             android:exported="false" />
         <activity
             android:name=".LibraryActivity"

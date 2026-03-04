@@ -11,8 +11,10 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 /**
- * ScrollView that adds system bar insets (status bar / nav bar) to its padding.
- * Helps prevent content from being blocked by notch/status bar and 3-button nav.
+ * ScrollView that only applies horizontal system insets.
+ *
+ * Top inset is handled by TopNavBarView.
+ * Bottom inset is handled by BottomNavBarView.
  */
 public class InsetAwareScrollView extends ScrollView {
 
@@ -43,9 +45,9 @@ public class InsetAwareScrollView extends ScrollView {
             Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(
                     baseLeft + sys.left,
-                    baseTop + sys.top,
+                    baseTop,
                     baseRight + sys.right,
-                    baseBottom + sys.bottom
+                    baseBottom
             );
             return insets;
         });

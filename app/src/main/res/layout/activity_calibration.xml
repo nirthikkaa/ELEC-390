@@ -1,10 +1,458 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
+    android:id="@+id/calibrationScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".CalibrationActivity">
+    android:background="@color/app_background"
+    android:orientation="vertical">
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <com.example.thereminglovestest2.TopNavBarView
+        android:id="@+id/topNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <com.example.thereminglovestest2.InsetAwareScrollView
+        android:id="@+id/calibrationScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="20dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Calibration"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="28sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvLiveStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Pitch: -- | Volume: --"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvHostNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:maxLines="3"
+                        android:text="Tap a value to type. Rotate a knob to adjust calibration. Use BLE Refresh only if the UI feels stale."
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        app:cardBackgroundColor="@color/app_surface_variant"
+                        app:cardCornerRadius="18dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/app_outline"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <TextView
+                                android:id="@+id/tvCalibrationProgress"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Progress 0/3 • Connect both gloves before calibrating."
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <ProgressBar
+                                android:id="@+id/progressCalibration"
+                                style="?android:attr/progressBarStyleHorizontal"
+                                android:layout_width="match_parent"
+                                android:layout_height="8dp"
+                                android:layout_marginTop="8dp"
+                                android:indeterminate="false"
+                                android:indeterminateOnly="false"
+                                android:max="100"
+                                android:progress="0" />
+
+                            <TextView
+                                android:id="@+id/tvSavedSummary"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:maxLines="2"
+                                android:text="Pitch -15°→55° | Freq 880→2000 Hz | Volume -10°→55°"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPing"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="BLE Refresh"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_secondary"
+                            app:cornerRadius="18dp"
+                            app:strokeColor="@color/app_secondary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnOpenPlay"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="Open Play"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_on_primary"
+                            android:textStyle="bold"
+                            app:backgroundTint="@color/app_primary"
+                            app:cornerRadius="18dp" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardPitch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Pitch"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvPitchLive"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Pitch ACTIVE_DELTA_DEG: 0.00°"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvPitchMeta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:maxLines="2"
+                        android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="12sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPitchNeutral"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="Neutral"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_on_primary"
+                            android:textStyle="bold"
+                            app:backgroundTint="@color/app_primary"
+                            app:cornerRadius="18dp" />
+
+                        <androidx.appcompat.widget.SwitchCompat
+                            android:id="@+id/switchPitchDirection"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:showText="true"
+                            android:textOff="POS"
+                            android:textOn="NEG" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <com.example.thereminglovestest2.KnobControlView
+                            android:id="@+id/knobPitchAngleMin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+
+                        <com.example.thereminglovestest2.KnobControlView
+                            android:id="@+id/knobPitchAngleMax"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal">
+
+                        <com.example.thereminglovestest2.KnobControlView
+                            android:id="@+id/knobFreqMin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+
+                        <com.example.thereminglovestest2.KnobControlView
+                            android:id="@+id/knobFreqMax"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardVolume"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Volume"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvVolumeLive"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Volume ACTIVE_DELTA_DEG: 0.00°"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvVolumeMeta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:maxLines="2"
+                        android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="12sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnVolumeNeutral"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="Neutral"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_on_primary"
+                            android:textStyle="bold"
+                            app:backgroundTint="@color/app_primary"
+                            app:cornerRadius="18dp" />
+
+                        <androidx.appcompat.widget.SwitchCompat
+                            android:id="@+id/switchVolumeDirection"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:showText="true"
+                            android:textOff="POS"
+                            android:textOn="NEG" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <com.example.thereminglovestest2.KnobControlView
+                            android:id="@+id/knobVolumeAngleMin"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1" />
+
+                        <com.example.thereminglovestest2.KnobControlView
+                            android:id="@+id/knobVolumeAngleMax"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Actions"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSaveAndPlay"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:minHeight="54dp"
+                        android:text="Save &amp; Play"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_on_primary"
+                        android:textStyle="bold"
+                        app:backgroundTint="@color/app_primary"
+                        app:cornerRadius="18dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnDefaults"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="Defaults"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_secondary"
+                            app:cornerRadius="18dp"
+                            app:strokeColor="@color/app_secondary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnReload"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="Load Saved"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_secondary"
+                            app:cornerRadius="18dp"
+                            app:strokeColor="@color/app_secondary" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </com.example.thereminglovestest2.InsetAwareScrollView>
+
+    <com.example.thereminglovestest2.BottomNavBarView
+        android:id="@+id/bottomNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+</LinearLayout>

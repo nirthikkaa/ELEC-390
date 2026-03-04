@@ -3,7 +3,6 @@ package com.example.thereminglovestest2;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -15,8 +14,10 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
-
-import com.google.android.material.color.MaterialColors;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 public class TopNavBarView extends LinearLayout {
 
@@ -42,10 +43,33 @@ public class TopNavBarView extends LinearLayout {
     private void init(Context context) {
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        int p = dp(8);
-        setPadding(p, p, p, p);
 
-        int onSurface = MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface, Color.WHITE);
+        final int baseLeft = dp(8);
+        final int baseTop = dp(8);
+        final int baseRight = dp(8);
+        final int baseBottom = dp(8);
+
+        setPadding(baseLeft, baseTop, baseRight, baseBottom);
+        setMinimumHeight(dp(56));
+        setClipToPadding(false);
+        setElevation(dp(6));
+
+        int surface = ContextCompat.getColor(context, R.color.app_surface);
+        int onSurface = ContextCompat.getColor(context, R.color.app_on_surface);
+
+        // Plain translucent fill only. Lowered alpha for more transparency.
+        setBackgroundColor(withAlpha(surface, 90));
+
+        ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
+            Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(
+                    baseLeft + sys.left,
+                    baseTop + sys.top,
+                    baseRight + sys.right,
+                    baseBottom
+            );
+            return insets;
+        });
 
         backButton = new ImageButton(context);
         backButton.setImageResource(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
@@ -76,22 +100,41 @@ public class TopNavBarView extends LinearLayout {
         LayoutParams menuLp = new LayoutParams(dp(40), dp(40));
         addView(menuButton, menuLp);
 
-        backButton.setOnClickListener(v -> {
-            Context c = getContext();
-            if (c instanceof Activity) {
-                Activity a = (Activity) c;
-                a.finish();
-                a.overridePendingTransition(0, 0); // no back animation
-            }
-        });
-
+        backButton.setOnClickListener(v -> handleBackPressed());
         menuButton.setOnClickListener(this::showMenu);
+        ViewCompat.requestApplyInsets(this);
+    }
+
+    private void handleBackPressed() {
+        Context c = getContext();
+        if (!(c instanceof Activity)) return;
+
+        Activity current = (Activity) c;
+
+        if (current instanceof HomeActivity) {
+            openScreen(LaunchActivity.class);
+            current.finish();
+            current.overridePendingTransition(0, 0);
+            return;
+        }
+
+        if (current.isTaskRoot()) {
+            openScreen(HomeActivity.class);
+            current.finish();
+            current.overridePendingTransition(0, 0);
+            return;
+        }
+
+        current.finish();
+        current.overridePendingTransition(0, 0);
     }
 
     private void showMenu(View anchor) {
         Context c = getContext();
         PopupMenu popup = new PopupMenu(c, anchor);
 
+        popup.getMenu().add(0, 100, 100, "Setup");
+        popup.getMenu().add(0, 101, 101, "Launch");
         popup.getMenu().add(0, 1, 1, "Play");
         popup.getMenu().add(0, 2, 2, "Connect Gloves");
         popup.getMenu().add(0, 3, 3, "Calibration");
@@ -100,6 +143,12 @@ public class TopNavBarView extends LinearLayout {
 
         popup.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
+                case 100:
+                    openScreen(HomeActivity.class);
+                    return true;
+                case 101:
+                    openScreen(LaunchActivity.class);
+                    return true;
                 case 1:
                     openScreen(MainActivity.class);
                     return true;
@@ -131,17 +180,25 @@ public class TopNavBarView extends LinearLayout {
         if (current.getClass().equals(target)) return;
 
         Intent intent = new Intent(current, target);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
+        );
         current.startActivity(intent);
-        current.overridePendingTransition(0, 0); // no forward animation
+        current.overridePendingTransition(0, 0);
     }
 
     public void setTitleText(String title) {
-        if (titleView != null) titleView.setText(title);
+        if (titleView != null) {
+            titleView.setText(title);
+        }
     }
 
     private String getDefaultTitle() {
         Context c = getContext();
+        if (c instanceof LaunchActivity) return "Launch";
+        if (c instanceof HomeActivity) return "Setup";
         if (c instanceof MainActivity) return "Play";
         if (c instanceof ConnectGlovesActivity) return "Connect Gloves";
         if (c instanceof CalibrationActivity) return "Calibration";
@@ -156,6 +213,11 @@ public class TopNavBarView extends LinearLayout {
                 android.R.attr.selectableItemBackgroundBorderless, tv, true
         );
         return ok ? tv.resourceId : android.R.color.transparent;
+    }
+
+    private static int withAlpha(int color, int alpha255) {
+        alpha255 = Math.max(0, Math.min(255, alpha255));
+        return (color & 0x00FFFFFF) | (alpha255 << 24);
     }
 
     private int dp(int value) {

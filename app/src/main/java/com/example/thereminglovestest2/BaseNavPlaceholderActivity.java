@@ -13,9 +13,15 @@ public abstract class BaseNavPlaceholderActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Root = vertical (scrollable content on top, persistent bottom nav at bottom)
         LinearLayout screenRoot = new LinearLayout(this);
         screenRoot.setOrientation(LinearLayout.VERTICAL);
+
+        TopNavBarView top = new TopNavBarView(this);
+        top.setTitleText(getScreenTitle());
+        screenRoot.addView(top, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
 
         InsetAwareScrollView scroll = new InsetAwareScrollView(this);
         scroll.setFillViewport(true);
@@ -25,23 +31,14 @@ public abstract class BaseNavPlaceholderActivity extends AppCompatActivity {
         int pad = dp(16);
         content.setPadding(pad, pad, pad, pad);
 
-        TopNavBarView top = new TopNavBarView(this);
-        top.setTitleText(getScreenTitle());
-        content.addView(top, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
-
         TextView title = new TextView(this);
         title.setText(getScreenTitle());
         title.setTextSize(24f);
         title.setTypeface(title.getTypeface(), Typeface.BOLD);
-        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
+        content.addView(title, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        titleLp.topMargin = dp(16);
-        content.addView(title, titleLp);
+        ));
 
         TextView body = new TextView(this);
         body.setText(getScreenBodyText());
@@ -58,14 +55,12 @@ public abstract class BaseNavPlaceholderActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
 
-        // Persistent bottom bar
         BottomNavBarView bottomNav = new BottomNavBarView(this);
 
         LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
         );
         screenRoot.addView(scroll, scrollLp);
-
         screenRoot.addView(bottomNav, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT

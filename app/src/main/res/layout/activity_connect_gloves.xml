@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/connectScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/app_background"
     android:orientation="vertical">
 
-    <!-- Scrollable content area -->
+    <com.example.thereminglovestest2.TopNavBarView
+        android:id="@+id/topNavBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
     <com.example.thereminglovestest2.InsetAwareScrollView
         android:id="@+id/rootScroll"
         android:layout_width="match_parent"
@@ -17,89 +23,403 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="20dp">
 
-            <!-- Top bar -->
-            <com.example.thereminglovestest2.TopNavBarView
-                android:id="@+id/topNavBar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-
-            <!-- Big status -->
-            <TextView
-                android:id="@+id/tvBigStatus"
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="Status: —"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
 
-            <!-- Host note: shown only if MainActivity isn't alive yet -->
-            <TextView
-                android:id="@+id/tvHostNote"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="(host note)"
-                android:visibility="gone" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
 
-            <!-- Glove connection lines -->
-            <TextView
-                android:id="@+id/tvPitchConn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Pitch (ThereminGlove): —" />
+                    <TextView
+                        android:id="@+id/tvReadyHeadline"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Connect Gloves"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="28sp"
+                        android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/tvVolConn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Volume (ThereminGloveVol): —" />
+                    <TextView
+                        android:id="@+id/tvReadySubtext"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Manage connection status for both gloves."
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="15sp" />
 
-            <TextView
-                android:id="@+id/tvPitchLast"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Pitch last: —" />
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        app:cardBackgroundColor="@color/app_surface_variant"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/app_outline"
+                        app:strokeWidth="1dp">
 
-            <TextView
-                android:id="@+id/tvVolLast"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Volume last: —" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
 
-            <!-- Primary BLE control -->
-            <Button
-                android:id="@+id/btnConnectToggle"
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Connection status"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvBigStatus"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="—"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="19sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvPairSummary"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="Connected gloves: 0 / 2"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnConnectToggle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:minHeight="56dp"
+                        android:text="Connect Gloves"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_on_primary"
+                        android:textStyle="bold"
+                        app:backgroundTint="@color/app_primary"
+                        app:cornerRadius="18dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnRefreshInfo"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="Refresh"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_secondary"
+                            app:cornerRadius="18dp"
+                            app:strokeColor="@color/app_secondary" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnOpenPlay"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
+                            android:layout_weight="1"
+                            android:minHeight="52dp"
+                            android:text="Play"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_secondary"
+                            app:cornerRadius="18dp"
+                            app:strokeColor="@color/app_secondary" />
+                    </LinearLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnGoCalibration"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:minHeight="52dp"
+                        android:text="Open Calibration"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_tertiary"
+                        android:visibility="gone"
+                        app:cornerRadius="18dp"
+                        app:strokeColor="@color/app_tertiary" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:text="CONNECT" />
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
 
-            <!-- Only visible if the BLE host isn't alive yet -->
-            <Button
-                android:id="@+id/btnOpenPlay"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Open Play to Initialize BLE"
-                android:visibility="gone" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
 
-            <!-- Small hint -->
-            <TextView
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Pitch Glove"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="ThereminGlove"
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        app:cardBackgroundColor="@color/app_surface_variant"
+                        app:cardCornerRadius="18dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/app_outline"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Connection"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvPitchConn"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:minLines="1"
+                                android:text="Unavailable"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:text="Latest packet"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvPitchLast"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="—"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReconnectPitch"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:minHeight="52dp"
+                        android:text="Reconnect Pitch Glove"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_primary"
+                        app:cornerRadius="18dp"
+                        app:strokeColor="@color/app_primary" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:text="Note: In this MVP step, BLE engine still lives in Play (MainActivity). This screen is the UI façade. Next step: move BLE engine to a dedicated manager/service."
-                android:textSize="12sp" />
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Volume Glove"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="ThereminGloveVol"
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        app:cardBackgroundColor="@color/app_surface_variant"
+                        app:cardCornerRadius="18dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="@color/app_outline"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Connection"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvVolConn"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:minLines="1"
+                                android:text="Unavailable"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:text="Latest packet"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvVolLast"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:text="—"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="14sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnReconnectVolume"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:minHeight="52dp"
+                        android:text="Reconnect Volume Glove"
+                        android:textAllCaps="false"
+                        android:textColor="@color/app_primary"
+                        app:cornerRadius="18dp"
+                        app:strokeColor="@color/app_primary" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/app_surface_variant"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Recent Connection Events"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvHostNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="No connection events yet."
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </com.example.thereminglovestest2.InsetAwareScrollView>
 
-    <!-- Persistent bottom navigation bar -->
     <com.example.thereminglovestest2.BottomNavBarView
         android:id="@+id/bottomNavBar"
         android:layout_width="match_parent"
