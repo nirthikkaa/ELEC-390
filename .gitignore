@@ -13,3 +13,10 @@
 .externalNativeBuild
 .cxx
 local.properties
+.idea/workspace.xml
+.idea/deploymentTargetSelector.xml
+.idea/studiobot.xml
+.idea/caches
+.idea/libraries
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
