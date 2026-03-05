@@ -58,21 +58,25 @@ public class ConnectionStatusTextView extends AppCompatTextView {
         StatusKind kind = StatusKind.DISCONNECTED;
         String detail = "Waiting";
 
-        if (bleSnapshot != null && bleSnapshot.hostReady && bleSnapshot.bluetoothEnabled) {
-            String rawLine = isVolume ? bleSnapshot.volumeConnText : bleSnapshot.pitchConnText;
-            String upper = rawLine == null ? "" : rawLine.toUpperCase();
-            boolean connected = calSnapshot != null && (isVolume ? calSnapshot.volumeConnected : calSnapshot.pitchConnected);
+        boolean hostReady = bleSnapshot != null && bleSnapshot.hostReady;
+        boolean bluetoothEnabled = hostReady && bleSnapshot.bluetoothEnabled;
+        boolean connected = calSnapshot != null
+                && calSnapshot.hostReady
+                && (isVolume ? calSnapshot.volumeConnected : calSnapshot.pitchConnected);
+        String rawLine = hostReady ? (isVolume ? bleSnapshot.volumeConnText : bleSnapshot.pitchConnText) : null;
+        boolean connecting = bluetoothEnabled
+                && !connected
+                && (BleUiText.isConnecting(rawLine) || bleSnapshot.scanning);
 
-            if (upper.contains("DISCONNECTED") || upper.contains("OFF") || upper.contains("WAITING")) {
-                kind = StatusKind.DISCONNECTED;
-                detail = "Waiting";
-            } else if (upper.contains("CONNECTING")) {
-                kind = StatusKind.CONNECTING;
-                detail = "Connecting…";
-            } else if (connected || upper.contains("CONNECTED")) {
-                kind = StatusKind.CONNECTED;
-                detail = "Ready";
-            }
+        if (hostReady && !bluetoothEnabled) {
+            kind = StatusKind.DISCONNECTED;
+            detail = "Bluetooth off";
+        } else if (connected) {
+            kind = StatusKind.CONNECTED;
+            detail = "Connected";
+        } else if (connecting) {
+            kind = StatusKind.CONNECTING;
+            detail = "Connecting…";
         }
 
         internalUpdate = true;

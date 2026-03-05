@@ -1,6 +1,5 @@
 package com.example.thereminglovestest2;
 
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.InputType;
@@ -24,17 +23,18 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private static final long UI_POLL_MS = 150L;
 
-    private static final float DEFAULT_PITCH_ANGLE_MIN = -15.0f;
-    private static final float DEFAULT_PITCH_ANGLE_MAX = 55.0f;
-    private static final float DEFAULT_FREQ_MIN = 880.0f;
+    private static final float DEFAULT_PITCH_ANGLE_MIN = 0.0f;
+    private static final float DEFAULT_PITCH_ANGLE_MAX = 90.0f;
+    private static final float DEFAULT_FREQ_MIN = 20.0f;
     private static final float DEFAULT_FREQ_MAX = 2000.0f;
-    private static final float DEFAULT_VOLUME_ANGLE_MIN = -10.0f;
-    private static final float DEFAULT_VOLUME_ANGLE_MAX = 55.0f;
+    private static final float DEFAULT_VOLUME_ANGLE_MIN = 0.0f;
+    private static final float DEFAULT_VOLUME_ANGLE_MAX = 90.0f;
 
     private static final float ANGLE_MIN_LIMIT = -90.0f;
     private static final float ANGLE_MAX_LIMIT = 90.0f;
     private static final float FREQ_MIN_LIMIT = 20.0f;
-    private static final float FREQ_MAX_LIMIT = 2000.0f;
+    private static final float FREQ_STANDARD_MAX_LIMIT = 2000.0f;
+    private static final float FREQ_EXTENDED_MAX_LIMIT = 20000.0f;
 
     private static final int CALIBRATION_PROGRESS_NOT_READY = 10;
     private static final int CALIBRATION_PROGRESS_CONNECTED = 35;
@@ -43,6 +43,8 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private static final String UI_PREFS_NAME = "calibration_ui_prefs";
     private static final String KEY_CALIBRATION_GUIDE_LEARNED = "calibration_guide_learned";
+    private static final String APP_PREFS_NAME = "theremin_prefs";
+    private static final String KEY_EXTENDED_FREQUENCY_RANGE_ENABLED = "extended_frequency_range_enabled";
 
     private final android.os.Handler mainHandler =
             new android.os.Handler(android.os.Looper.getMainLooper());
@@ -67,6 +69,7 @@ public class CalibrationActivity extends AppCompatActivity {
     private boolean pitchDirectionInverted = false;
     private boolean volumeDirectionInverted = true;
     private boolean suppressDirectionSwitchCallbacks = false;
+    private float freqMaxLimitHz = FREQ_STANDARD_MAX_LIMIT;
 
     /**
      * Calibration changes are local-only until SAVE & PLAY.
@@ -101,6 +104,7 @@ public class CalibrationActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         settingsRepo = new AppSettingsRepository(this);
+        refreshFrequencyRangeLimit();
         loadCalibrationUiPrefs();
         loadStateFromRepositoryOrDefaults();
         setContentView(R.layout.activity_calibration);
@@ -115,14 +119,13 @@ public class CalibrationActivity extends AppCompatActivity {
         super.onStart();
 
         boolean wasGuideLearned = calibrationGuideLearned;
+        refreshFrequencyRangeLimit();
         loadCalibrationUiPrefs();
 
         if (wasGuideLearned && !calibrationGuideLearned) {
             pitchNeutralCapturedThisVisit = false;
             volumeNeutralCapturedThisVisit = false;
-            if (tvHostNote != null) {
-                tvHostNote.setText("Calibration tutorial restored. Start from step 1.");
-            }
+            setHostNote("Calibration tutorial restored. Start from step 1.");
         }
 
         syncAllViewsFromState();
@@ -165,6 +168,26 @@ public class CalibrationActivity extends AppCompatActivity {
         knobVolumeAngleMax = findViewById(R.id.knobVolumeAngleMax);
     }
 
+    private boolean isExtendedFrequencyRangeEnabled() {
+        SharedPreferences prefs = getSharedPreferences(APP_PREFS_NAME, MODE_PRIVATE);
+        return prefs.getBoolean(KEY_EXTENDED_FREQUENCY_RANGE_ENABLED, false);
+    }
+
+    private void refreshFrequencyRangeLimit() {
+        freqMaxLimitHz = isExtendedFrequencyRangeEnabled()
+                ? FREQ_EXTENDED_MAX_LIMIT
+                : FREQ_STANDARD_MAX_LIMIT;
+    }
+
+    private void refreshFrequencyKnobRanges() {
+        if (knobFreqMin != null) {
+            knobFreqMin.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
+        }
+        if (knobFreqMax != null) {
+            knobFreqMax.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
+        }
+    }
+
     private void setupControls() {
         setupKnob(
                 knobPitchAngleMin,
@@ -192,7 +215,7 @@ public class CalibrationActivity extends AppCompatActivity {
                 knobFreqMin,
                 "Freq Min",
                 FREQ_MIN_LIMIT,
-                FREQ_MAX_LIMIT,
+                freqMaxLimitHz,
                 1.0f,
                 false,
                 () -> freqMinHz,
@@ -203,7 +226,7 @@ public class CalibrationActivity extends AppCompatActivity {
                 knobFreqMax,
                 "Freq Max",
                 FREQ_MIN_LIMIT,
-                FREQ_MAX_LIMIT,
+                freqMaxLimitHz,
                 1.0f,
                 false,
                 () -> freqMaxHz,
@@ -232,96 +255,56 @@ public class CalibrationActivity extends AppCompatActivity {
                 value -> volumeAngleMaxDeg = value
         );
 
+        refreshFrequencyKnobRanges();
+
         Button btnPing = findViewById(R.id.btnPing);
         btnPing.setOnClickListener(v -> {
             BleHostBridge.requestRefreshHandshake();
-            tvHostNote.setText("Requested BLE refresh from the Play host.");
+            setHostNote("Requested BLE refresh from the Play host.");
         });
 
         Button btnOpenPlay = findViewById(R.id.btnOpenPlay);
         btnOpenPlay.setOnClickListener(v -> openPlayHost());
 
         Button btnPitchNeutral = findViewById(R.id.btnPitchNeutral);
-        btnPitchNeutral.setOnClickListener(v -> {
-            BleHostBridge.CalibrationUiSnapshot snapshot = BleHostBridge.getCalibrationUiSnapshot();
-            if (snapshot != null && snapshot.hostReady && snapshot.pitchConnected) {
-                pitchNeutralCapturedThisVisit = true;
-            }
-            BleHostBridge.requestCaptureNeutral(true);
-            tvHostNote.setText("Pitch neutral captured. Now capture the volume glove.");
-            updateCalibrationProgress(BleHostBridge.getCalibrationUiSnapshot());
-        });
+        btnPitchNeutral.setOnClickListener(v -> handleNeutralCapture(true));
 
-        switchPitchDirection.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (suppressDirectionSwitchCallbacks) return;
-
-            if (!BleHostBridge.isBleHostAvailable()) {
-                tvHostNote.setText("Open Play first so the BLE host can apply direction changes.");
-                syncDirectionToggleViews(false);
-                return;
-            }
-
-            pitchDirectionInverted = isChecked;
-            BleHostBridge.requestToggleDirection(true);
-            hasUnsavedChanges = true;
-            tvHostNote.setText("Pitch direction toggle requested.");
-            updateSummaryText();
-        });
+        switchPitchDirection.setOnCheckedChangeListener((buttonView, isChecked) ->
+                handleDirectionToggle(true, isChecked)
+        );
 
         Button btnVolumeNeutral = findViewById(R.id.btnVolumeNeutral);
-        btnVolumeNeutral.setOnClickListener(v -> {
-            BleHostBridge.CalibrationUiSnapshot snapshot = BleHostBridge.getCalibrationUiSnapshot();
-            if (snapshot != null && snapshot.hostReady && snapshot.volumeConnected) {
-                volumeNeutralCapturedThisVisit = true;
-            }
-            BleHostBridge.requestCaptureNeutral(false);
-            tvHostNote.setText("Volume neutral captured. If both steps are done, SAVE & PLAY will finish calibration.");
-            updateCalibrationProgress(BleHostBridge.getCalibrationUiSnapshot());
-        });
+        btnVolumeNeutral.setOnClickListener(v -> handleNeutralCapture(false));
 
-        switchVolumeDirection.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (suppressDirectionSwitchCallbacks) return;
-
-            if (!BleHostBridge.isBleHostAvailable()) {
-                tvHostNote.setText("Open Play first so the BLE host can apply direction changes.");
-                syncDirectionToggleViews(false);
-                return;
-            }
-
-            volumeDirectionInverted = isChecked;
-            BleHostBridge.requestToggleDirection(false);
-            hasUnsavedChanges = true;
-            tvHostNote.setText("Volume direction toggle requested.");
-            updateSummaryText();
-        });
+        switchVolumeDirection.setOnCheckedChangeListener((buttonView, isChecked) ->
+                handleDirectionToggle(false, isChecked)
+        );
 
         Button btnDefaults = findViewById(R.id.btnDefaults);
         btnDefaults.setOnClickListener(v -> {
             applyDefaultsToState();
             hasUnsavedChanges = true;
-            pitchNeutralCapturedThisVisit = false;
-            volumeNeutralCapturedThisVisit = false;
+            resetNeutralCaptureProgress();
             syncAllViewsFromState();
-            updateCalibrationProgress(BleHostBridge.getCalibrationUiSnapshot());
-            tvHostNote.setText("Defaults loaded locally.");
+            updateCalibrationProgress(getCalibrationSnapshot());
+            setHostNote("Defaults loaded locally.");
         });
 
         Button btnReload = findViewById(R.id.btnReload);
         btnReload.setOnClickListener(v -> {
             loadStateFromRepositoryOrDefaults();
             hasUnsavedChanges = false;
-            pitchNeutralCapturedThisVisit = false;
-            volumeNeutralCapturedThisVisit = false;
+            resetNeutralCaptureProgress();
             syncAllViewsFromState();
-            updateCalibrationProgress(BleHostBridge.getCalibrationUiSnapshot());
-            tvHostNote.setText("Loaded the last saved calibration from local storage.");
+            updateCalibrationProgress(getCalibrationSnapshot());
+            setHostNote("Loaded the last saved calibration from local storage.");
         });
 
         Button btnSaveAndPlay = findViewById(R.id.btnSaveAndPlay);
         btnSaveAndPlay.setOnClickListener(v -> {
             sanitizeState();
             persistSettings();
-            tvHostNote.setText("Calibration saved. Returning to Play.");
+            setHostNote("Calibration saved. Returning to Play.");
             returnToExistingPlay();
         });
     }
@@ -369,7 +352,7 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private void showNumberEditDialog(String label, float current, FloatSetter setter, boolean isAngle) {
         final float min = isAngle ? ANGLE_MIN_LIMIT : FREQ_MIN_LIMIT;
-        final float max = isAngle ? ANGLE_MAX_LIMIT : FREQ_MAX_LIMIT;
+        final float max = isAngle ? ANGLE_MAX_LIMIT : freqMaxLimitHz;
         final String unit = isAngle ? "°" : " Hz";
         final String initialText = String.format(Locale.US, isAngle ? "%.2f" : "%.0f", current);
 
@@ -477,13 +460,13 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void refreshLiveCalibration() {
-        BleHostBridge.CalibrationUiSnapshot snapshot = BleHostBridge.getCalibrationUiSnapshot();
+        BleHostBridge.CalibrationUiSnapshot snapshot = getCalibrationSnapshot();
 
         if (snapshot == null || !snapshot.hostReady) {
             tvLiveStatus.setText("Live status: host unavailable");
 
             if (!hasUnsavedChanges) {
-                tvHostNote.setText("Open Play once to initialize BLE, then come back here.");
+                setHostNote("Open Play once to initialize BLE, then come back here.");
             }
 
             tvPitchLive.setText("Pitch ACTIVE_DELTA_DEG: —");
@@ -513,7 +496,7 @@ public class CalibrationActivity extends AppCompatActivity {
         tvLiveStatus.setText(liveStatusText);
 
         if (!hasUnsavedChanges) {
-            tvHostNote.setText("Tap a value to type. Rotate a knob to adjust calibration. SAVE & PLAY stores the current values.");
+            setHostNote("Tap a value to type. Rotate a knob to adjust calibration. SAVE & PLAY stores the current values.");
         }
 
         tvPitchLive.setText(String.format(Locale.US, "Pitch ACTIVE_DELTA_DEG: %.2f°", snapshot.pitchActiveDeltaDeg));
@@ -646,6 +629,8 @@ public class CalibrationActivity extends AppCompatActivity {
     private void syncAllViewsFromState() {
         sanitizeState();
 
+        refreshFrequencyKnobRanges();
+
         knobPitchAngleMin.setValue(pitchAngleMinDeg);
         knobPitchAngleMax.setValue(pitchAngleMaxDeg);
         knobFreqMin.setValue(freqMinHz);
@@ -662,7 +647,7 @@ public class CalibrationActivity extends AppCompatActivity {
 
         syncDirectionToggleViews(BleHostBridge.isBleHostAvailable());
         updateSummaryText();
-        updateCalibrationProgress(BleHostBridge.getCalibrationUiSnapshot());
+        updateCalibrationProgress(getCalibrationSnapshot());
     }
 
     private String formatValue(float value, boolean isAngle) {
@@ -691,7 +676,7 @@ public class CalibrationActivity extends AppCompatActivity {
         settingsRepo.save(s);
         hasUnsavedChanges = false;
         updateSummaryText();
-        tvHostNote.setText("Calibration saved.");
+        setHostNote("Calibration saved.");
     }
 
     private void updateSummaryText() {
@@ -728,8 +713,8 @@ public class CalibrationActivity extends AppCompatActivity {
         pitchAngleMaxDeg = clamp(pitchAngleMaxDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
         volumeAngleMinDeg = clamp(volumeAngleMinDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
         volumeAngleMaxDeg = clamp(volumeAngleMaxDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
-        freqMinHz = clamp(freqMinHz, FREQ_MIN_LIMIT, FREQ_MAX_LIMIT);
-        freqMaxHz = clamp(freqMaxHz, FREQ_MIN_LIMIT, FREQ_MAX_LIMIT);
+        freqMinHz = clamp(freqMinHz, FREQ_MIN_LIMIT, freqMaxLimitHz);
+        freqMaxHz = clamp(freqMaxHz, FREQ_MIN_LIMIT, freqMaxLimitHz);
 
         if (pitchAngleMaxDeg < pitchAngleMinDeg + 0.5f) {
             pitchAngleMaxDeg = Math.min(ANGLE_MAX_LIMIT, pitchAngleMinDeg + 0.5f);
@@ -740,24 +725,79 @@ public class CalibrationActivity extends AppCompatActivity {
         }
 
         if (freqMaxHz < freqMinHz + 1.0f) {
-            freqMaxHz = Math.min(FREQ_MAX_LIMIT, freqMinHz + 1.0f);
+            freqMaxHz = Math.min(freqMaxLimitHz, freqMinHz + 1.0f);
         }
     }
 
+    private void handleNeutralCapture(boolean isPitch) {
+        BleHostBridge.CalibrationUiSnapshot snapshot = getCalibrationSnapshot();
+        markNeutralCapturedIfConnected(isPitch, snapshot);
+        BleHostBridge.requestCaptureNeutral(isPitch);
+
+        if (isPitch) {
+            setHostNote("Pitch neutral captured. Now capture the volume glove.");
+        } else {
+            setHostNote("Volume neutral captured. If both steps are done, SAVE & PLAY will finish calibration.");
+        }
+
+        updateCalibrationProgress(snapshot);
+    }
+
+    private void handleDirectionToggle(boolean isPitch, boolean isChecked) {
+        if (suppressDirectionSwitchCallbacks) return;
+
+        if (!BleHostBridge.isBleHostAvailable()) {
+            setHostNote("Open Play first so the BLE host can apply direction changes.");
+            syncDirectionToggleViews(false);
+            return;
+        }
+
+        if (isPitch) {
+            pitchDirectionInverted = isChecked;
+        } else {
+            volumeDirectionInverted = isChecked;
+        }
+
+        BleHostBridge.requestToggleDirection(isPitch);
+        hasUnsavedChanges = true;
+        setHostNote(isPitch ? "Pitch direction toggle requested." : "Volume direction toggle requested.");
+        updateSummaryText();
+    }
+
+    private BleHostBridge.CalibrationUiSnapshot getCalibrationSnapshot() {
+        return BleHostBridge.getCalibrationUiSnapshot();
+    }
+
+    private void markNeutralCapturedIfConnected(boolean isPitch, BleHostBridge.CalibrationUiSnapshot snapshot) {
+        if (snapshot == null || !snapshot.hostReady) {
+            return;
+        }
+
+        if (isPitch && snapshot.pitchConnected) {
+            pitchNeutralCapturedThisVisit = true;
+        } else if (!isPitch && snapshot.volumeConnected) {
+            volumeNeutralCapturedThisVisit = true;
+        }
+    }
+
+    private void resetNeutralCaptureProgress() {
+        pitchNeutralCapturedThisVisit = false;
+        volumeNeutralCapturedThisVisit = false;
+    }
+
     private void openPlayHost() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-        );
-        startActivity(intent);
-        overridePendingTransition(0, 0);
+        NavigationUtils.openScreen(this, MainActivity.class);
     }
 
     private void returnToExistingPlay() {
         openPlayHost();
         finish();
+    }
+
+    private void setHostNote(String text) {
+        if (tvHostNote != null) {
+            tvHostNote.setText(text);
+        }
     }
 
     private float clamp(float value, float min, float max) {

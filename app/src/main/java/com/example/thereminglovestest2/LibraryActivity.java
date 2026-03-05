@@ -1,14 +1,31 @@
 package com.example.thereminglovestest2;
 
-public class LibraryActivity extends BaseNavPlaceholderActivity {
+import android.os.Bundle;
+import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+public class LibraryActivity extends AppCompatActivity {
 
     @Override
-    protected String getScreenTitle() {
-        return "Library";
-    }
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_base_nav_placeholder);
 
-    @Override
-    protected String getScreenBodyText() {
-        return "Planned local-only library for recordings, presets, and session history (privacy-first).";
+        TopNavBarView topNavBar = findViewById(R.id.topNavBar);
+        TextView titleView = findViewById(R.id.tvPlaceholderTitle);
+        TextView bodyView = findViewById(R.id.tvPlaceholderBody);
+
+        if (topNavBar != null) {
+            topNavBar.setTitleText("Library");
+        }
+
+        if (titleView != null) {
+            titleView.setText("Library");
+        }
+
+        if (bodyView != null) {
+            bodyView.setText("Your recordings, presets, and session history will appear here.");
+        }
     }
 }

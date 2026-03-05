@@ -148,6 +148,11 @@ public final class BleSessionManager {
     private static boolean manualDisconnectRequested = false;
     private static boolean bluetoothStateReceiverRegistered = false;
 
+    private static final int CONNECT_SCOPE_BOTH = 0;
+    private static final int CONNECT_SCOPE_PITCH_ONLY = 1;
+    private static final int CONNECT_SCOPE_VOLUME_ONLY = 2;
+    private static int connectScope = CONNECT_SCOPE_BOTH;
+
     private static String statusText = "Connect both gloves to start playing";
     private static final ArrayDeque<String> recentEventLines = new ArrayDeque<>();
 
@@ -201,15 +206,15 @@ public final class BleSessionManager {
             String name = safeDeviceName(device);
             if (name == null) return;
 
-            if (PITCH_DEVICE_NAME.equals(name)) {
+            if (PITCH_DEVICE_NAME.equals(name) && shouldConnectGlove(pitchGlove)) {
                 pitchGlove.seenDuringCurrentScan = true;
                 maybeConnectToGloveDevice(pitchGlove, device);
-            } else if (VOLUME_DEVICE_NAME.equals(name)) {
+            } else if (VOLUME_DEVICE_NAME.equals(name) && shouldConnectGlove(volumeGlove)) {
                 volumeGlove.seenDuringCurrentScan = true;
                 maybeConnectToGloveDevice(volumeGlove, device);
             }
 
-            if (pitchGlove.connected && volumeGlove.connected) stopScanIfRunning();
+            if (!hasPendingAllowedConnection()) stopScanIfRunning();
             updateStatusLineText();
         }
     };
@@ -311,6 +316,7 @@ public final class BleSessionManager {
                     disconnectAllGlovesInternal(false);
                 } else {
                     manualDisconnectRequested = false;
+                    connectScope = CONNECT_SCOPE_BOTH;
                     appendEvent("Manual connect requested");
                     startScanAndConnect();
                 }
@@ -353,6 +359,43 @@ public final class BleSessionManager {
         });
     }
 
+    public static void requestConnectMissingGloves() {
+        mainHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (!initialized || appContext == null) return;
+
+                if (!hasRequiredPermissions(appContext)) {
+                    statusText = "BLE permissions required";
+                    appendEvent("BLE permissions required");
+                    return;
+                }
+
+                if (!isBluetoothEnabled()) {
+                    handleBluetoothOffHard();
+                    return;
+                }
+
+                manualDisconnectRequested = false;
+                connectScope = CONNECT_SCOPE_BOTH;
+
+                if (!hasPendingAllowedConnection()) {
+                    updateStatusLineText();
+                    return;
+                }
+
+                // User explicitly pressed reconnect/connect from Play.
+                // Clear any half-open states first so the button always does
+                // something visible, even after a stuck "Connecting..." phase.
+                stopScanIfRunning();
+                resetAllowedNonConnectedGlovesForFreshConnect();
+
+                appendEvent("Connect missing gloves requested");
+                startScanAndConnect();
+            }
+        });
+    }
+
     public static void requestReconnectGlove(final boolean isPitch) {
         mainHandler.post(new Runnable() {
             @Override
@@ -371,6 +414,7 @@ public final class BleSessionManager {
                 }
 
                 manualDisconnectRequested = false;
+                connectScope = isPitch ? CONNECT_SCOPE_PITCH_ONLY : CONNECT_SCOPE_VOLUME_ONLY;
 
                 GloveClient target = isPitch ? pitchGlove : volumeGlove;
                 appendEvent("Manual reconnect requested for " + target.roleLabel + " glove");
@@ -386,9 +430,9 @@ public final class BleSessionManager {
             @Override
             public void run() {
                 if (!initialized || !isBluetoothEnabled() || !hasRequiredPermissions(appContext)) return;
-                if (pitchGlove.connected && volumeGlove.connected) return;
+                if (manualDisconnectRequested) return;
+                if (!hasPendingAllowedConnection()) return;
                 if (isScanning) return;
-                manualDisconnectRequested = false;
                 appendEvent("Auto-connect requested from app flow");
                 startScanAndConnect();
             }
@@ -605,6 +649,11 @@ public final class BleSessionManager {
             return;
         }
 
+        if (!hasPendingAllowedConnection()) {
+            updateStatusLineText();
+            return;
+        }
+
         pitchGlove.seenDuringCurrentScan = false;
         volumeGlove.seenDuringCurrentScan = false;
 
@@ -637,7 +686,7 @@ public final class BleSessionManager {
 
         stopScanIfRunning();
 
-        if (!pitchGlove.connected || !volumeGlove.connected) {
+        if (hasPendingAllowedConnection()) {
             appendEvent("Scan timeout — retrying");
             scheduleAutoReconnect("scan timeout missing glove");
         }
@@ -695,7 +744,7 @@ public final class BleSessionManager {
     private static void scheduleAutoReconnect(String reason) {
         if (!initialized || !autoReconnectEnabled || manualDisconnectRequested) return;
         if (!isBluetoothEnabled()) return;
-        if (pitchGlove.connected && volumeGlove.connected) return;
+        if (!hasPendingAllowedConnection()) return;
 
         cancelAutoReconnect();
         appendEvent("Auto-reconnect scheduled: " + reason);
@@ -710,7 +759,7 @@ public final class BleSessionManager {
             return;
         }
 
-        if (pitchGlove.connected && volumeGlove.connected) return;
+        if (!hasPendingAllowedConnection()) return;
         if (isScanning) return;
 
         startScanAndConnect();
@@ -732,6 +781,28 @@ public final class BleSessionManager {
     private static void disconnectSingleGloveInternal(GloveClient glove) {
         if (glove == null) return;
         safeCloseGloveConnection(glove);
+    }
+
+    private static boolean shouldConnectGlove(GloveClient glove) {
+        if (glove == null) return false;
+        if (connectScope == CONNECT_SCOPE_PITCH_ONLY) return glove == pitchGlove;
+        if (connectScope == CONNECT_SCOPE_VOLUME_ONLY) return glove == volumeGlove;
+        return true;
+    }
+
+    private static boolean hasPendingAllowedConnection() {
+        return (shouldConnectGlove(pitchGlove) && !pitchGlove.connected)
+                || (shouldConnectGlove(volumeGlove) && !volumeGlove.connected);
+    }
+
+    private static void resetAllowedNonConnectedGlovesForFreshConnect() {
+        if (shouldConnectGlove(pitchGlove) && !pitchGlove.connected) {
+            safeCloseGloveConnection(pitchGlove);
+        }
+        if (shouldConnectGlove(volumeGlove) && !volumeGlove.connected) {
+            safeCloseGloveConnection(volumeGlove);
+        }
+        updateStatusLineText();
     }
 
     private static boolean isCurrentGattCallback(GloveClient glove, BluetoothGatt gatt) {

@@ -149,8 +149,16 @@ public final class BleHostBridge {
         BleSessionManager.requestRefreshHandshake();
     }
 
+    public static void requestRefreshBackgroundAudioPreference() {
+        MainActivity.refreshBackgroundAudioPreferenceFromFacade();
+    }
+
     public static void requestReconnectGlove(boolean isPitch) {
         BleSessionManager.requestReconnectGlove(isPitch);
+    }
+
+    public static void requestConnectMissingGloves() {
+        BleSessionManager.requestConnectMissingGloves();
     }
 
     public static void maybeStartAutoConnect() {

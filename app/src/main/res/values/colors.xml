@@ -4,8 +4,8 @@
     <color name="white">#FFFFFFFF</color>
 
     <!-- Global app palette -->
-    <color name="app_primary">#B78CFF</color>
-    <color name="app_on_primary">#201133</color>
+    <color name="app_primary">#7EA4FF</color>
+    <color name="app_on_primary">#081425</color>
 
     <color name="app_secondary">#43E5FF</color>
     <color name="app_on_secondary">#082633</color>
@@ -22,11 +22,11 @@
     <color name="app_on_surface_variant">#CBBEF8</color>
 
     <color name="app_outline">#4C4080</color>
-    <color name="app_nav_active_bg">#33B78CFF</color>
+    <color name="app_nav_active_bg">#337EA4FF</color>
 
     <!-- Launch / branded surfaces -->
-    <color name="launch_primary">#B78CFF</color>
-    <color name="launch_primary_bright">#D0B1FF</color>
+    <color name="launch_primary">#7EA4FF</color>
+    <color name="launch_primary_bright">#AFC8FF</color>
     <color name="launch_cyan">#43E5FF</color>
 
     <color name="launch_bg_top">#090714</color>

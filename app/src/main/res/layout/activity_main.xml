@@ -24,7 +24,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="12dp"
-            android:paddingTop="10dp"
+            android:paddingTop="8dp"
             android:paddingEnd="12dp"
             android:paddingBottom="12dp">
 
@@ -36,7 +36,7 @@
                 app:cardCornerRadius="24dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/app_outline"
-                app:strokeWidth="1dp">
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -61,6 +61,92 @@
                         android:text="Turn on both gloves to begin playing."
                         android:textColor="@color/app_on_surface_variant"
                         android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            app:cardBackgroundColor="@android:color/transparent"
+                            app:cardCornerRadius="18dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/app_outline"
+                            app:strokeWidth="1dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:paddingStart="12dp"
+                                android:paddingTop="8dp"
+                                android:paddingEnd="12dp"
+                                android:paddingBottom="8dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Volume"
+                                    android:textColor="@color/app_primary"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvVolValue"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="Volume • 0%"
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            app:cardBackgroundColor="@color/app_surface_variant"
+                            app:cardCornerRadius="18dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="@color/app_outline"
+                            app:strokeWidth="1dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:paddingStart="12dp"
+                                android:paddingTop="8dp"
+                                android:paddingEnd="12dp"
+                                android:paddingBottom="8dp">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Frequency"
+                                    android:textColor="@color/app_secondary"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvPitchValue"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="Frequency • 20 Hz"
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -128,197 +214,161 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="@color/app_surface"
+                app:cardBackgroundColor="@android:color/transparent"
                 app:cardCornerRadius="22dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="10dp">
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        app:cardBackgroundColor="@color/app_surface_variant"
-                        app:cardCornerRadius="18dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="@color/app_outline"
-                        app:strokeWidth="1dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="10dp">
-
-                            <com.example.thereminglovestest2.ThereminVisualizerView
-                                android:id="@+id/thereminVisualizerView"
-                                android:layout_width="match_parent"
-                                android:layout_height="180dp" />
-
-                            <TextView
-                                android:id="@+id/tvToneValue"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="8dp"
-                                android:gravity="center"
-                                android:text="Live tone preview • 523.3 Hz • 0% volume"
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="14sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="22dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
-                app:strokeWidth="1dp">
+                app:strokeColor="@android:color/transparent"
+                app:strokeWidth="0dp">
 
                 <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="220dp"
-                    android:padding="14dp">
+                    android:layout_height="360dp">
 
-                    <View
-                        android:layout_width="92dp"
-                        android:layout_height="92dp"
-                        android:layout_gravity="center"
-                        android:background="@drawable/bg_launch_ring"
-                        android:alpha="0.35" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnAudioStart"
-                        android:layout_width="132dp"
-                        android:layout_height="56dp"
-                        android:layout_gravity="top|center_horizontal"
-                        android:text="Play Tone"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_on_primary"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        app:backgroundTint="@color/app_primary"
-                        app:cornerRadius="18dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnScanConnect"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="132dp"
-                        android:layout_height="56dp"
-                        android:layout_gravity="start|center_vertical"
-                        android:text="Reconnect"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_secondary"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        app:cornerRadius="18dp"
-                        app:strokeColor="@color/app_secondary" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnAudioStop"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="132dp"
-                        android:layout_height="56dp"
-                        android:layout_gravity="end|center_vertical"
-                        android:text="Background Audio"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_secondary"
-                        android:textSize="13sp"
-                        android:textStyle="bold"
-                        app:cornerRadius="18dp"
-                        app:strokeColor="@color/app_secondary" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnOpenCalibration"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="132dp"
-                        android:layout_height="56dp"
-                        android:layout_gravity="bottom|center_horizontal"
-                        android:text="Calibrate"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_secondary"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        app:cornerRadius="18dp"
-                        app:strokeColor="@color/app_secondary" />
-
-                    <Button
-                        android:id="@+id/btnDisconnectAll"
+                    <com.example.thereminglovestest2.ThereminVisualizerView
+                        android:id="@+id/thereminVisualizerView"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Disconnect All"
-                        android:visibility="gone" />
+                        android:layout_height="match_parent" />
                 </FrameLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <TextView
+                android:id="@+id/tvToneValue"
+                android:layout_width="1dp"
+                android:layout_height="1dp"
+                android:visibility="gone"
+                android:text="hidden" />
+
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardLiveTelemetry"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="@color/app_surface_variant"
+                app:cardBackgroundColor="@color/app_surface"
                 app:cardCornerRadius="22dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/app_outline"
                 app:strokeWidth="1dp">
 
-                <LinearLayout
+                <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
+                    android:layout_height="132dp"
+                    android:paddingStart="16dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="10dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAudioStart"
+                        android:layout_width="84dp"
+                        android:layout_height="84dp"
+                        android:contentDescription="Play or pause tone"
+                        android:elevation="4dp"
+                        android:text=""
+                        app:backgroundTint="@color/app_primary"
+                        app:cornerRadius="42dp"
+                        app:icon="@drawable/ic_play_theremin"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="34dp"
+                        app:iconTint="@color/app_background"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
 
                     <TextView
-                        android:id="@+id/tvPitchValue"
-                        android:layout_width="match_parent"
+                        android:id="@+id/tvPlayRemoteLabel"
+                        android:layout_width="84dp"
                         android:layout_height="wrap_content"
-                        android:text="Pitch gesture: 0.00°"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center"
+                        android:maxLines="2"
+                        android:text="Play"
                         android:textColor="@color/app_on_surface"
-                        android:textSize="14sp" />
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:layout_constraintEnd_toEndOf="@id/btnAudioStart"
+                        app:layout_constraintStart_toStartOf="@id/btnAudioStart"
+                        app:layout_constraintTop_toBottomOf="@id/btnAudioStart" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnScanConnect"
+                        android:layout_width="58dp"
+                        android:layout_height="58dp"
+                        android:contentDescription="Reconnect gloves"
+                        android:text=""
+                        app:backgroundTint="@color/app_surface_variant"
+                        app:cornerRadius="29dp"
+                        app:icon="@android:drawable/ic_popup_sync"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="22dp"
+                        app:iconTint="@color/app_secondary"
+                        app:layout_constraintBottom_toBottomOf="@id/btnAudioStart"
+                        app:layout_constraintEnd_toStartOf="@id/btnAudioStart"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/btnAudioStart"
+                        app:strokeColor="@color/app_outline"
+                        app:strokeWidth="1dp" />
 
                     <TextView
-                        android:id="@+id/tvVolValue"
-                        android:layout_width="match_parent"
+                        android:id="@+id/tvReconnectLabel"
+                        android:layout_width="72dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Volume gesture: 0.00°"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvPitchLast"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:text="Pitch last: (none)"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center"
+                        android:maxLines="2"
+                        android:text="Connect"
                         android:textColor="@color/app_on_surface_variant"
                         android:textSize="12sp"
-                        android:visibility="gone" />
+                        app:layout_constraintEnd_toEndOf="@id/btnScanConnect"
+                        app:layout_constraintStart_toStartOf="@id/btnScanConnect"
+                        app:layout_constraintTop_toBottomOf="@id/btnScanConnect" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAudioStop"
+                        android:layout_width="58dp"
+                        android:layout_height="58dp"
+                        android:contentDescription="Background audio"
+                        android:text=""
+                        app:backgroundTint="@color/app_surface_variant"
+                        app:cornerRadius="29dp"
+                        app:icon="@android:drawable/ic_menu_recent_history"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconSize="22dp"
+                        app:iconTint="@color/app_secondary"
+                        app:layout_constraintBottom_toBottomOf="@id/btnAudioStart"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toEndOf="@id/btnAudioStart"
+                        app:layout_constraintTop_toTopOf="@id/btnAudioStart"
+                        app:strokeColor="@color/app_outline"
+                        app:strokeWidth="1dp" />
 
                     <TextView
-                        android:id="@+id/tvVolLast"
-                        android:layout_width="match_parent"
+                        android:id="@+id/tvBackgroundLabel"
+                        android:layout_width="80dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Volume last: (none)"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center"
+                        android:maxLines="2"
+                        android:text="Background On"
                         android:textColor="@color/app_on_surface_variant"
                         android:textSize="12sp"
-                        android:visibility="gone" />
-                </LinearLayout>
+                        app:layout_constraintEnd_toEndOf="@id/btnAudioStop"
+                        app:layout_constraintStart_toStartOf="@id/btnAudioStop"
+                        app:layout_constraintTop_toBottomOf="@id/btnAudioStop" />
+
+                    <Button
+                        android:id="@+id/btnDisconnectAll"
+                        android:layout_width="1dp"
+                        android:layout_height="1dp"
+                        android:text="Disconnect All"
+                        android:visibility="gone"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintStart_toStartOf="parent" />
+                </androidx.constraintlayout.widget.ConstraintLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Hidden for now so Play stays focused on playing.
-                 IDs remain in layout so MainActivity keeps working safely. -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardGloveCommands"
                 android:layout_width="match_parent"
@@ -493,7 +543,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:padding="8dp"
-                            android:text="-31.5°"
+                            android:text="0.0°"
                             android:textColor="@color/app_on_surface"
                             android:textStyle="bold" />
 
@@ -524,7 +574,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:padding="8dp"
-                            android:text="23.0°"
+                            android:text="90.0°"
                             android:textColor="@color/app_on_surface"
                             android:textStyle="bold" />
 
@@ -555,7 +605,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:padding="8dp"
-                            android:text="684.0 Hz"
+                            android:text="20.0 Hz"
                             android:textColor="@color/app_on_surface"
                             android:textStyle="bold" />
 
@@ -618,7 +668,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:padding="8dp"
-                            android:text="-20.0°"
+                            android:text="0.0°"
                             android:textColor="@color/app_on_surface"
                             android:textStyle="bold" />
 
@@ -649,7 +699,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:padding="8dp"
-                            android:text="35.0°"
+                            android:text="90.0°"
                             android:textColor="@color/app_on_surface"
                             android:textStyle="bold" />
 

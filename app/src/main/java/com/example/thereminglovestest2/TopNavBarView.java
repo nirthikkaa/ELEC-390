@@ -2,7 +2,6 @@ package com.example.thereminglovestest2;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -57,7 +56,6 @@ public class TopNavBarView extends LinearLayout {
         int surface = ContextCompat.getColor(context, R.color.app_surface);
         int onSurface = ContextCompat.getColor(context, R.color.app_on_surface);
 
-        // Plain translucent fill only. Lowered alpha for more transparency.
         setBackgroundColor(withAlpha(surface, 90));
 
         ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
@@ -83,7 +81,7 @@ public class TopNavBarView extends LinearLayout {
         titleView = new TextView(context);
         titleView.setTextSize(18f);
         titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
-        titleView.setText(getDefaultTitle());
+        titleView.setText(NavigationUtils.resolveScreenTitle(context));
         titleView.setTextColor(onSurface);
 
         LayoutParams titleLp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
@@ -112,16 +110,12 @@ public class TopNavBarView extends LinearLayout {
         Activity current = (Activity) c;
 
         if (current instanceof HomeActivity) {
-            openScreen(LaunchActivity.class);
-            current.finish();
-            current.overridePendingTransition(0, 0);
+            NavigationUtils.replaceWithScreen(current, LaunchActivity.class);
             return;
         }
 
         if (current.isTaskRoot()) {
-            openScreen(HomeActivity.class);
-            current.finish();
-            current.overridePendingTransition(0, 0);
+            NavigationUtils.replaceWithScreen(current, HomeActivity.class);
             return;
         }
 
@@ -175,36 +169,13 @@ public class TopNavBarView extends LinearLayout {
     private void openScreen(Class<? extends Activity> target) {
         Context c = getContext();
         if (!(c instanceof Activity)) return;
-
-        Activity current = (Activity) c;
-        if (current.getClass().equals(target)) return;
-
-        Intent intent = new Intent(current, target);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-        );
-        current.startActivity(intent);
-        current.overridePendingTransition(0, 0);
+        NavigationUtils.openScreen((Activity) c, target);
     }
 
     public void setTitleText(String title) {
         if (titleView != null) {
             titleView.setText(title);
         }
-    }
-
-    private String getDefaultTitle() {
-        Context c = getContext();
-        if (c instanceof LaunchActivity) return "Launch";
-        if (c instanceof HomeActivity) return "Setup";
-        if (c instanceof MainActivity) return "Play";
-        if (c instanceof ConnectGlovesActivity) return "Connect Gloves";
-        if (c instanceof CalibrationActivity) return "Calibration";
-        if (c instanceof LibraryActivity) return "Library";
-        if (c instanceof SettingsActivity) return "Settings";
-        return "Theremin Gloves";
     }
 
     private int getBorderlessSelectableResId() {

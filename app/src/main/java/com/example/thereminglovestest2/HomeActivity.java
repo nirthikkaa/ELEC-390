@@ -1,12 +1,7 @@
 package com.example.thereminglovestest2;
 
-import android.Manifest;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothManager;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,7 +11,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -112,18 +106,18 @@ public class HomeActivity extends AppCompatActivity {
 
     private void wireButtons() {
         btnPrimaryAction.setOnClickListener(v -> handlePrimaryAction());
-        btnSecondaryAction.setOnClickListener(v -> openScreen(ConnectGlovesActivity.class));
-        btnCalibrate.setOnClickListener(v -> openScreen(CalibrationActivity.class));
+        btnSecondaryAction.setOnClickListener(v -> NavigationUtils.openScreen(this, ConnectGlovesActivity.class));
+        btnCalibrate.setOnClickListener(v -> NavigationUtils.openScreen(this, CalibrationActivity.class));
     }
 
     private void handlePrimaryAction() {
         if (!BleHostBridge.hasRequiredPermissions(this)) {
-            requestRequiredPermissions();
+            BluetoothRequirements.requestRequiredPermissions(this, REQ_BLE_PERMS);
             return;
         }
 
-        if (!isBluetoothEnabled()) {
-            requestEnableBluetoothPrompt();
+        if (!BluetoothRequirements.isBluetoothEnabled(this)) {
+            BluetoothRequirements.requestEnableBluetoothPrompt(this, REQ_ENABLE_BT);
             return;
         }
 
@@ -142,15 +136,15 @@ public class HomeActivity extends AppCompatActivity {
         if (!BleHostBridge.hasRequiredPermissions(this)) {
             if (!permissionPromptShownThisVisit) {
                 permissionPromptShownThisVisit = true;
-                requestRequiredPermissions();
+                BluetoothRequirements.requestRequiredPermissions(this, REQ_BLE_PERMS);
             }
             return;
         }
 
-        if (!isBluetoothEnabled()) {
+        if (!BluetoothRequirements.isBluetoothEnabled(this)) {
             if (!bluetoothPromptShownThisVisit) {
                 bluetoothPromptShownThisVisit = true;
-                requestEnableBluetoothPrompt();
+                BluetoothRequirements.requestEnableBluetoothPrompt(this, REQ_ENABLE_BT);
             }
             return;
         }
@@ -217,20 +211,20 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         boolean permissionsOk = BleHostBridge.hasRequiredPermissions(this);
-        boolean bluetoothOn = isBluetoothEnabled();
+        boolean bluetoothOn = BluetoothRequirements.isBluetoothEnabled(this);
 
         boolean pitchConnected = calSnapshot != null && calSnapshot.pitchConnected;
         boolean volumeConnected = calSnapshot != null && calSnapshot.volumeConnected;
 
-        boolean pitchConnecting = isConnecting(snapshot.pitchConnText);
-        boolean volumeConnecting = isConnecting(snapshot.volumeConnText);
+        boolean pitchConnecting = BleUiText.isConnecting(snapshot.pitchConnText);
+        boolean volumeConnecting = BleUiText.isConnecting(snapshot.volumeConnText);
 
         int connectedCount = 0;
         if (pitchConnected) connectedCount++;
         if (volumeConnected) connectedCount++;
 
-        tvPitchStatus.setText("Pitch glove • " + cleanStatus(snapshot.pitchConnText));
-        tvVolumeStatus.setText("Volume glove • " + cleanStatus(snapshot.volumeConnText));
+        tvPitchStatus.setText("Pitch glove • " + BleUiText.cleanConnectionText(snapshot.pitchConnText));
+        tvVolumeStatus.setText("Volume glove • " + BleUiText.cleanConnectionText(snapshot.volumeConnText));
 
         if (!permissionsOk) {
             consecutiveFullyConnectedPolls = 0;
@@ -318,65 +312,6 @@ public class HomeActivity extends AppCompatActivity {
         maybeAutoConnectIfPossible();
     }
 
-    private boolean isBluetoothEnabled() {
-        BluetoothManager bluetoothManager =
-                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
-        BluetoothAdapter adapter = bluetoothManager != null ? bluetoothManager.getAdapter() : null;
-        return adapter != null && adapter.isEnabled();
-    }
-
-    @SuppressWarnings("deprecation")
-    private void requestEnableBluetoothPrompt() {
-        try {
-            Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(intent, REQ_ENABLE_BT);
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void requestRequiredPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{
-                            Manifest.permission.BLUETOOTH_SCAN,
-                            Manifest.permission.BLUETOOTH_CONNECT
-                    },
-                    REQ_BLE_PERMS
-            );
-        } else {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    REQ_BLE_PERMS
-            );
-        }
-    }
-
-    private void openScreen(Class<?> targetActivity) {
-        Intent intent = new Intent(this, targetActivity);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-        );
-        startActivity(intent);
-        overridePendingTransition(0, 0);
-    }
-
-    private boolean isConnecting(String text) {
-        return text != null && text.contains("CONNECTING");
-    }
-
-    private String cleanStatus(String text) {
-        if (text == null || text.trim().isEmpty()) {
-            return "—";
-        }
-
-        return text.trim()
-                .replace("Pitch (ThereminGlove): ", "")
-                .replace("Volume (ThereminGloveVol): ", "");
-    }
 
     @SuppressWarnings("deprecation")
     @Override
@@ -385,7 +320,7 @@ public class HomeActivity extends AppCompatActivity {
 
         if (requestCode == REQ_ENABLE_BT) {
             autoConnectRequestedThisVisit = false;
-            if (isBluetoothEnabled()) {
+            if (BluetoothRequirements.isBluetoothEnabled(this)) {
                 maybeAutoConnectIfPossible();
             }
             refreshHomeSnapshot();
@@ -414,7 +349,7 @@ public class HomeActivity extends AppCompatActivity {
 
         if (allGranted) {
             autoConnectRequestedThisVisit = false;
-            if (!isBluetoothEnabled()) {
+            if (!BluetoothRequirements.isBluetoothEnabled(this)) {
                 bluetoothPromptShownThisVisit = false;
                 kickAutomaticSetupFlow();
             } else {

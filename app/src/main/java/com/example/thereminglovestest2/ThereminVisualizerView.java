@@ -15,12 +15,6 @@ public class ThereminVisualizerView extends View {
 
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-    private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint subtitlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-    private final Paint panelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint panelStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint centerLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -29,19 +23,13 @@ public class ThereminVisualizerView extends View {
     private final Paint secondaryWavePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint sparkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-    private final Paint meterTrackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint meterFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
     private final RectF scopeRect = new RectF();
-    private final RectF meterRect = new RectF();
-    private final RectF tempRect = new RectF();
 
     private final Path mainWavePath = new Path();
     private final Path glowWavePath = new Path();
     private final Path secondaryWavePath = new Path();
 
     private Shader cachedBgShader;
-    private Shader cachedMeterShader;
 
     private float freqHz = 523.25f;
     private float volume01 = 0f;
@@ -67,30 +55,16 @@ public class ThereminVisualizerView extends View {
 
     private void init() {
         borderPaint.setStyle(Paint.Style.STROKE);
-        borderPaint.setStrokeWidth(dp(1.2f));
-        borderPaint.setColor(Color.parseColor("#33FFFFFF"));
-
-        titlePaint.setColor(Color.WHITE);
-        titlePaint.setTextSize(sp(18));
-        titlePaint.setFakeBoldText(true);
-
-        subtitlePaint.setColor(Color.parseColor("#DDE7FF"));
-        subtitlePaint.setTextSize(sp(13));
-
-        panelPaint.setStyle(Paint.Style.FILL);
-        panelPaint.setColor(Color.parseColor("#15000000"));
-
-        panelStrokePaint.setStyle(Paint.Style.STROKE);
-        panelStrokePaint.setStrokeWidth(dp(1f));
-        panelStrokePaint.setColor(Color.parseColor("#2EFFFFFF"));
+        borderPaint.setStrokeWidth(dp(1.0f));
+        borderPaint.setColor(Color.parseColor("#22A7D7FF"));
 
         gridPaint.setStyle(Paint.Style.STROKE);
-        gridPaint.setStrokeWidth(dp(1f));
-        gridPaint.setColor(Color.parseColor("#18FFFFFF"));
+        gridPaint.setStrokeWidth(dp(0.9f));
+        gridPaint.setColor(Color.parseColor("#14B8D9FF"));
 
         centerLinePaint.setStyle(Paint.Style.STROKE);
-        centerLinePaint.setStrokeWidth(dp(1.4f));
-        centerLinePaint.setColor(Color.parseColor("#30FFFFFF"));
+        centerLinePaint.setStrokeWidth(dp(1.1f));
+        centerLinePaint.setColor(Color.parseColor("#20D3E7FF"));
 
         glowWavePaint.setStyle(Paint.Style.STROKE);
         glowWavePaint.setStrokeCap(Paint.Cap.ROUND);
@@ -106,10 +80,6 @@ public class ThereminVisualizerView extends View {
 
         sparkPaint.setStyle(Paint.Style.FILL);
 
-        meterTrackPaint.setStyle(Paint.Style.FILL);
-        meterTrackPaint.setColor(Color.parseColor("#22000000"));
-
-        meterFillPaint.setStyle(Paint.Style.FILL);
     }
 
     public void setThereminState(float freqHz, float volume01, float minHz, float maxHz) {
@@ -169,18 +139,6 @@ public class ThereminVisualizerView extends View {
                 null,
                 Shader.TileMode.CLAMP
         );
-
-        cachedMeterShader = new LinearGradient(
-                0, 0, w, 0,
-                new int[]{
-                        Color.parseColor("#24B6FF"),
-                        Color.parseColor("#6B73FF"),
-                        Color.parseColor("#CB57FF"),
-                        Color.parseColor("#FF5B61")
-                },
-                null,
-                Shader.TileMode.CLAMP
-        );
     }
 
     @Override
@@ -193,86 +151,67 @@ public class ThereminVisualizerView extends View {
 
         float t = (System.currentTimeMillis() % 100000L) * 0.001f;
 
-        drawBackground(canvas, w, h);
         layoutRects(w, h);
+        drawBackground(canvas);
 
         float normFreq = normalizeFreq(freqHz, freqMinHz, freqMaxHz);
         int waveColor = strongPitchColor(normFreq);
         int brightWaveColor = brightenByVolume(waveColor, volume01);
 
-        drawScopePanel(canvas);
         drawGrid(canvas);
         drawOscilloscope(canvas, t, brightWaveColor, normFreq);
-        drawBottomMeter(canvas, brightWaveColor, normFreq);
-        drawLabels(canvas, w, h);
 
         if (animating) {
             postInvalidateOnAnimation();
         }
     }
 
-    private void drawBackground(Canvas canvas, float w, float h) {
+    private void drawBackground(Canvas canvas) {
         bgPaint.setShader(cachedBgShader);
-        canvas.drawRoundRect(0, 0, w, h, dp(20), dp(20), bgPaint);
-        canvas.drawRoundRect(dp(1), dp(1), w - dp(1), h - dp(1), dp(20), dp(20), borderPaint);
+        canvas.drawRoundRect(scopeRect, dp(18), dp(18), bgPaint);
+        canvas.drawRoundRect(scopeRect, dp(18), dp(18), borderPaint);
     }
 
     private void layoutRects(float w, float h) {
-        float pad = dp(16);
-        float headerH = dp(42);
-        float bottomSectionH = dp(70);
-
+        float pad = dp(0.5f);
         scopeRect.set(
                 pad,
-                pad + headerH,
-                w - pad,
-                h - pad - bottomSectionH
-        );
-
-        meterRect.set(
                 pad,
-                h - pad - dp(50),
                 w - pad,
                 h - pad
         );
     }
 
-    private void drawScopePanel(Canvas canvas) {
-        canvas.drawRoundRect(scopeRect, dp(18), dp(18), panelPaint);
-        canvas.drawRoundRect(scopeRect, dp(18), dp(18), panelStrokePaint);
-    }
-
     private void drawGrid(Canvas canvas) {
-        float colStep = scopeRect.width() / 8f;
-        float rowStep = scopeRect.height() / 6f;
+        float innerPad = dp(0.5f);
+        float left = scopeRect.left + innerPad;
+        float top = scopeRect.top + innerPad;
+        float right = scopeRect.right - innerPad;
+        float bottom = scopeRect.bottom - innerPad;
+        float colStep = (right - left) / 8f;
+        float rowStep = (bottom - top) / 6f;
 
         for (int i = 1; i < 8; i++) {
-            float x = scopeRect.left + i * colStep;
-            canvas.drawLine(x, scopeRect.top + dp(8), x, scopeRect.bottom - dp(8), gridPaint);
+            float x = left + i * colStep;
+            canvas.drawLine(x, top, x, bottom, gridPaint);
         }
 
         for (int i = 1; i < 6; i++) {
-            float y = scopeRect.top + i * rowStep;
-            canvas.drawLine(scopeRect.left + dp(8), y, scopeRect.right - dp(8), y, gridPaint);
+            float y = top + i * rowStep;
+            canvas.drawLine(left, y, right, y, gridPaint);
         }
 
-        canvas.drawLine(
-                scopeRect.left + dp(8),
-                scopeRect.centerY(),
-                scopeRect.right - dp(8),
-                scopeRect.centerY(),
-                centerLinePaint
-        );
+        canvas.drawLine(left, scopeRect.centerY(), right, scopeRect.centerY(), centerLinePaint);
     }
 
     private void drawOscilloscope(Canvas canvas, float t, int brightWaveColor, float normFreq) {
-        float left = scopeRect.left + dp(8);
-        float right = scopeRect.right - dp(8);
+        float left = scopeRect.left + dp(1.5f);
+        float right = scopeRect.right - dp(1.5f);
         float centerY = scopeRect.centerY();
         float width = right - left;
 
-        float amplitude = dp(8) + volume01 * (scopeRect.height() * 0.32f);
-        float cycles = 1.2f + normFreq * 6.5f;
+        float amplitude = scopeRect.height() * (0.20f + volume01 * 0.20f);
+        float cycles = 1.0f + normFreq * 5.8f;
         float phase = t * (2.4f + normFreq * 9.0f);
 
         mainWavePath.reset();
@@ -303,10 +242,10 @@ public class ThereminVisualizerView extends View {
             }
         }
 
-        glowWavePaint.setStrokeWidth(dp(14f) + volume01 * dp(8f));
+        glowWavePaint.setStrokeWidth(dp(10f) + volume01 * dp(6f));
         glowWavePaint.setColor(withAlpha(brightWaveColor, 60 + Math.round(volume01 * 90f)));
 
-        mainWavePaint.setStrokeWidth(dp(3.2f) + volume01 * dp(1.2f));
+        mainWavePaint.setStrokeWidth(dp(4.2f) + volume01 * dp(1.6f));
         mainWavePaint.setColor(lighten(brightWaveColor, 0.16f));
 
         secondaryWavePaint.setStrokeWidth(dp(1.6f));
@@ -322,8 +261,8 @@ public class ThereminVisualizerView extends View {
     private void drawSparks(Canvas canvas, float t, int brightWaveColor, float amplitude) {
         sparkPaint.setColor(withAlpha(lighten(brightWaveColor, 0.45f), 170));
 
-        float left = scopeRect.left + dp(10);
-        float right = scopeRect.right - dp(10);
+        float left = scopeRect.left + dp(1.5f);
+        float right = scopeRect.right - dp(1.5f);
         float centerY = scopeRect.centerY();
 
         for (int i = 0; i < 12; i++) {
@@ -335,44 +274,6 @@ public class ThereminVisualizerView extends View {
         }
     }
 
-    private void drawBottomMeter(Canvas canvas, int brightWaveColor, float normFreq) {
-        canvas.drawRoundRect(meterRect, dp(16), dp(16), panelPaint);
-        canvas.drawRoundRect(meterRect, dp(16), dp(16), panelStrokePaint);
-
-        float innerPad = dp(8);
-        tempRect.set(
-                meterRect.left + innerPad,
-                meterRect.top + innerPad + dp(12),
-                meterRect.right - innerPad,
-                meterRect.bottom - innerPad
-        );
-
-        canvas.drawRoundRect(tempRect, dp(12), dp(12), meterTrackPaint);
-
-        float fillW = tempRect.width() * normFreq;
-        meterFillPaint.setShader(cachedMeterShader);
-
-        RectF fillRect = new RectF(tempRect.left, tempRect.top, tempRect.left + fillW, tempRect.bottom);
-        canvas.drawRoundRect(fillRect, dp(12), dp(12), meterFillPaint);
-
-        sparkPaint.setColor(withAlpha(brightWaveColor, 125));
-        float x = tempRect.left + fillW;
-        canvas.drawCircle(x, tempRect.centerY(), dp(4.2f) + volume01 * dp(2.6f), sparkPaint);
-    }
-
-    private void drawLabels(Canvas canvas, float w, float h) {
-        float pad = dp(16);
-
-        canvas.drawText("Live Theremin Display", pad, pad + sp(18), titlePaint);
-
-        String left = "Freq " + oneDecimal(freqHz) + " Hz";
-        String right = "Vol " + Math.round(volume01 * 100f) + "%";
-
-        canvas.drawText(left, pad, h - dp(16), subtitlePaint);
-
-        float rightWidth = subtitlePaint.measureText(right);
-        canvas.drawText(right, w - pad - rightWidth, h - dp(16), subtitlePaint);
-    }
 
     private int strongPitchColor(float norm) {
         norm = clamp01(norm);
@@ -389,13 +290,6 @@ public class ThereminVisualizerView extends View {
     private int brightenByVolume(int color, float vol) {
         float amount = 0.08f + 0.65f * clamp01(vol);
         return lighten(color, amount);
-    }
-
-    private String oneDecimal(float value) {
-        int scaled = Math.round(value * 10f);
-        int whole = scaled / 10;
-        int frac = Math.abs(scaled % 10);
-        return whole + "." + frac;
     }
 
     private float normalizeFreq(float f, float min, float max) {
@@ -437,9 +331,5 @@ public class ThereminVisualizerView extends View {
 
     private float dp(float v) {
         return v * getResources().getDisplayMetrics().density;
-    }
-
-    private float sp(float v) {
-        return v * getResources().getDisplayMetrics().scaledDensity;
     }
 }

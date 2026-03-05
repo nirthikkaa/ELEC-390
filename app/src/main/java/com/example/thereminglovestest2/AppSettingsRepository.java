@@ -74,8 +74,10 @@ public class AppSettingsRepository {
         );
 
         try {
+            // No saved row yet:
+            // return first-run defaults instead of null.
             if (!c.moveToFirst()) {
-                return null;
+                return new AppSettings();
             }
 
             AppSettings s = new AppSettings();

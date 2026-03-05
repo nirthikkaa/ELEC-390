@@ -12,18 +12,23 @@ public class AppSettings {
     public static final String TONE_TRIANGLE = "TRIANGLE";
     public static final String TONE_SAW = "SAW";
 
+    // First-run defaults requested by user:
+    // angles: 0° -> 90°
+    // frequency: 20 Hz -> 2000 Hz
     public float pitchAngleMinDeg = 0f;
-    public float pitchAngleMaxDeg = 45f;
+    public float pitchAngleMaxDeg = 90f;
 
-    public float freqMinHz = 523.25f;
-    public float freqMaxHz = 880f;
+    public float freqMinHz = 20f;
+    public float freqMaxHz = 2000f;
 
     public float volumeAngleMinDeg = 0f;
-    public float volumeAngleMaxDeg = 45f;
+    public float volumeAngleMaxDeg = 90f;
 
-    // Future app-side toggles / settings
+    // Default direction:
+    // unchecked = not inverted
     public boolean pitchDirectionInverted = false;
     public boolean volumeDirectionInverted = false;
+
     public String toneType = TONE_SINE;
     public boolean pitchEnabled = true;
     public boolean volumeEnabled = true;

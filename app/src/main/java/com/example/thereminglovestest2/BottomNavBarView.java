@@ -2,7 +2,6 @@ package com.example.thereminglovestest2;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.TypedValue;
@@ -140,19 +139,7 @@ public class BottomNavBarView extends LinearLayout {
     private void openScreen(Class<? extends Activity> target) {
         Context c = getContext();
         if (!(c instanceof Activity)) return;
-
-        Activity current = (Activity) c;
-        if (current.getClass().equals(target)) return;
-
-        Intent intent = new Intent(current, target);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-        );
-
-        current.startActivity(intent);
-        current.overridePendingTransition(0, 0);
+        NavigationUtils.openScreen((Activity) c, target);
     }
 
     private int getSelectableItemBackgroundResId() {
