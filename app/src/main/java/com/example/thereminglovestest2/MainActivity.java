@@ -417,7 +417,21 @@ public class MainActivity extends AppCompatActivity {
             btnDisconnectAll.setVisibility(View.GONE);
         }
 
-        btnScanConnect.setOnClickListener(v -> onBleTogglePressed());
+        // NOTE: The reconnect icon button is small, and users naturally tap the label too.
+        // Make BOTH the icon button and its label trigger the same reconnect action.
+        btnScanConnect.setOnClickListener(v -> {
+            appendLogSafe("Reconnect pressed");
+            onBleTogglePressed();
+        });
+
+        if (tvReconnectLabel != null) {
+            tvReconnectLabel.setClickable(true);
+            tvReconnectLabel.setFocusable(true);
+            tvReconnectLabel.setOnClickListener(v -> {
+                appendLogSafe("Reconnect label pressed");
+                onBleTogglePressed();
+            });
+        }
 
         btnAudioStart.setOnClickListener(v -> {
             if (audioEngine == null) return;
@@ -487,6 +501,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onBleTogglePressed() {
+        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
+        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+
+        // Quick user feedback so the button never feels "dead".
+        if (bleSnapshot != null && bleSnapshot.hostReady && !bleSnapshot.bluetoothEnabled) {
+            toastSafe("Bluetooth is OFF");
+            return;
+        }
+
+        boolean pitchConnected = calSnapshot != null && calSnapshot.hostReady && calSnapshot.pitchConnected;
+        boolean volConnected = calSnapshot != null && calSnapshot.hostReady && calSnapshot.volumeConnected;
+        if (pitchConnected && volConnected) {
+            toastSafe("Both gloves are already connected");
+            return;
+        }
+
+        toastSafe("Connecting missing glove(s)...");
         BleHostBridge.requestConnectMissingGloves();
         refreshUiFromBleHost();
         updateBleButtonText();
