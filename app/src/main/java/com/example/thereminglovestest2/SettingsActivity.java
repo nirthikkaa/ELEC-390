@@ -1,6 +1,5 @@
 package com.example.thereminglovestest2;
 
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.TextView;
@@ -9,16 +8,21 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 
+import com.example.thereminglovestest2.databinding.ActivitySettingsBinding;
+
+/**
+ * Small settings screen for the demo app.
+ *
+ * Kept intentionally plain: read current prefs, show them clearly,
+ * and write them back without hidden side effects.
+ */
 public class SettingsActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "theremin_prefs";
-    private static final String PREF_BG_AUDIO_ENABLED = "bg_audio_enabled";
-    private static final String PREF_EXTENDED_FREQ_RANGE_ENABLED = "extended_frequency_range_enabled";
-
-    private static final String UI_PREFS_NAME = "calibration_ui_prefs";
-    private static final String KEY_CALIBRATION_GUIDE_LEARNED = "calibration_guide_learned";
+    private ActivitySettingsBinding binding;
 
     private static final float STANDARD_FREQ_MAX_HZ = 2000f;
+
+    private SettingsStore settingsStore;
 
     private SwitchCompat switchBackgroundAudio;
     private SwitchCompat switchExtendedFrequencyRange;
@@ -26,37 +30,36 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView tvTutorialState;
     private TextView tvFrequencyRangeState;
 
-    private boolean suppressBackgroundAudioCallback = false;
-    private boolean suppressFrequencyRangeCallback = false;
+    private boolean suppressBackgroundAudioCallback;
+    private boolean suppressFrequencyRangeCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_settings);
+        binding = ActivitySettingsBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+        settingsStore = new SettingsStore(this);
 
         bindViews();
         wireActions();
-        refreshUiFromPrefs();
+        refreshUi();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        refreshUiFromPrefs();
+        refreshUi();
     }
 
     private void bindViews() {
-        TopNavBarView topNavBar = findViewById(R.id.topNavBar);
-        if (topNavBar != null) {
-            topNavBar.setTitleText("Settings");
-        }
+        binding.topNavBar.setTitleText("Settings");
 
-        tvBackgroundAudioState = findViewById(R.id.tvBackgroundAudioState);
-        tvTutorialState = findViewById(R.id.tvTutorialState);
-        tvFrequencyRangeState = findViewById(R.id.tvFrequencyRangeState);
+        tvBackgroundAudioState = binding.tvBackgroundAudioState;
+        tvTutorialState = binding.tvTutorialState;
+        tvFrequencyRangeState = binding.tvFrequencyRangeState;
 
-        switchBackgroundAudio = findViewById(R.id.switchBackgroundAudio);
-        switchExtendedFrequencyRange = findViewById(R.id.switchExtendedFrequencyRange);
+        switchBackgroundAudio = binding.switchBackgroundAudio;
+        switchExtendedFrequencyRange = binding.switchExtendedFrequencyRange;
     }
 
     private void wireActions() {
@@ -66,9 +69,8 @@ public class SettingsActivity extends AppCompatActivity {
                     return;
                 }
 
-                setBackgroundAudioEnabled(isChecked);
-                BleHostBridge.requestRefreshBackgroundAudioPreference();
-                refreshUiFromPrefs();
+                AppPrefs.setBgAudioEnabled(this, isChecked);
+                refreshUi();
                 showToast(isChecked ? "Background audio enabled" : "Background audio disabled");
             });
         }
@@ -79,29 +81,28 @@ public class SettingsActivity extends AppCompatActivity {
                     return;
                 }
 
-                setExtendedFrequencyRangeEnabled(isChecked);
-
+                AppPrefs.setExtendedFreqRangeEnabled(this, isChecked);
                 if (!isChecked) {
                     clampSavedFrequencyRangeToStandardCeiling();
                 }
 
-                refreshUiFromPrefs();
+                refreshUi();
                 showToast(isChecked
                         ? "Frequency ceiling raised to 20,000 Hz"
                         : "Frequency ceiling reset to 2,000 Hz");
             });
         }
 
-        Button btnShowTutorialAgain = findViewById(R.id.btnShowTutorialAgain);
+        Button btnShowTutorialAgain = binding.btnShowTutorialAgain;
         if (btnShowTutorialAgain != null) {
             btnShowTutorialAgain.setOnClickListener(v -> {
-                setCalibrationGuideLearned(false);
-                refreshUiFromPrefs();
+                AppPrefs.setCalibrationGuideLearned(this, false);
+                refreshUi();
                 showToast("Calibration guide will show again");
             });
         }
 
-        Button btnOpenCalibration = findViewById(R.id.btnOpenCalibration);
+        Button btnOpenCalibration = binding.btnOpenCalibration;
         if (btnOpenCalibration != null) {
             btnOpenCalibration.setOnClickListener(v ->
                     NavigationUtils.openScreen(this, CalibrationActivity.class)
@@ -109,99 +110,61 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    private void refreshUiFromPrefs() {
-        boolean bgAudioEnabled = isBackgroundAudioEnabled();
-        boolean tutorialLearned = isCalibrationGuideLearned();
-        boolean extendedFrequencyRangeEnabled = isExtendedFrequencyRangeEnabled();
+    private void refreshUi() {
+        boolean bgAudioEnabled = AppPrefs.isBgAudioEnabled(this);
+        boolean tutorialLearned = AppPrefs.isCalibrationGuideLearned(this);
+        boolean extendedRangeEnabled = AppPrefs.isExtendedFreqRangeEnabled(this);
+
+        setSwitchState(switchBackgroundAudio, bgAudioEnabled, true);
+        setSwitchState(switchExtendedFrequencyRange, extendedRangeEnabled, false);
 
         if (tvBackgroundAudioState != null) {
-            tvBackgroundAudioState.setText(
-                    bgAudioEnabled
-                            ? "Background audio is ON."
-                            : "Background audio is OFF."
-            );
-        }
-
-        if (switchBackgroundAudio != null) {
-            suppressBackgroundAudioCallback = true;
-            switchBackgroundAudio.setChecked(bgAudioEnabled);
-            suppressBackgroundAudioCallback = false;
+            tvBackgroundAudioState.setText(bgAudioEnabled
+                    ? "Background audio is ON."
+                    : "Background audio is OFF.");
         }
 
         if (tvTutorialState != null) {
-            tvTutorialState.setText(
-                    tutorialLearned
-                            ? "The calibration guide is hidden because it has already been completed once."
-                            : "The calibration guide is enabled and will appear in Calibration."
-            );
+            tvTutorialState.setText(tutorialLearned
+                    ? "The calibration guide is hidden because you already finished it once."
+                    : "The calibration guide is enabled and will appear in Calibration.");
         }
 
         if (tvFrequencyRangeState != null) {
-            tvFrequencyRangeState.setText(
-                    extendedFrequencyRangeEnabled
-                            ? "Calibration and Play can use 20 Hz to 20,000 Hz."
-                            : "Calibration and Play currently use 20 Hz to 2,000 Hz."
-            );
+            tvFrequencyRangeState.setText(extendedRangeEnabled
+                    ? "Calibration and Play can use 20 Hz to 20,000 Hz."
+                    : "Calibration and Play currently use 20 Hz to 2,000 Hz.");
+        }
+    }
+
+    private void setSwitchState(SwitchCompat switchView, boolean checked, boolean isBackgroundAudio) {
+        if (switchView == null) {
+            return;
         }
 
-        if (switchExtendedFrequencyRange != null) {
+        if (isBackgroundAudio) {
+            suppressBackgroundAudioCallback = true;
+            switchView.setChecked(checked);
+            suppressBackgroundAudioCallback = false;
+        } else {
             suppressFrequencyRangeCallback = true;
-            switchExtendedFrequencyRange.setChecked(extendedFrequencyRangeEnabled);
+            switchView.setChecked(checked);
             suppressFrequencyRangeCallback = false;
         }
     }
 
-    private SharedPreferences getAppPrefs() {
-        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-    }
-
-    private SharedPreferences getUiPrefs() {
-        return getSharedPreferences(UI_PREFS_NAME, MODE_PRIVATE);
-    }
-
-    private boolean isBackgroundAudioEnabled() {
-        return getAppPrefs().getBoolean(PREF_BG_AUDIO_ENABLED, true);
-    }
-
-    private void setBackgroundAudioEnabled(boolean enabled) {
-        getAppPrefs().edit().putBoolean(PREF_BG_AUDIO_ENABLED, enabled).apply();
-    }
-
-    private boolean isExtendedFrequencyRangeEnabled() {
-        return getAppPrefs().getBoolean(PREF_EXTENDED_FREQ_RANGE_ENABLED, false);
-    }
-
-    private void setExtendedFrequencyRangeEnabled(boolean enabled) {
-        getAppPrefs().edit().putBoolean(PREF_EXTENDED_FREQ_RANGE_ENABLED, enabled).apply();
-    }
-
-    private boolean isCalibrationGuideLearned() {
-        return getUiPrefs().getBoolean(KEY_CALIBRATION_GUIDE_LEARNED, false);
-    }
-
-    private void setCalibrationGuideLearned(boolean learned) {
-        getUiPrefs().edit().putBoolean(KEY_CALIBRATION_GUIDE_LEARNED, learned).apply();
-    }
-
     private void clampSavedFrequencyRangeToStandardCeiling() {
-        AppSettingsRepository repo = new AppSettingsRepository(this);
-        AppSettings settings = repo.load();
-        if (settings == null) {
-            return;
-        }
+        AppSettings settings = settingsStore.load();
 
         boolean changed = false;
-
         if (settings.freqMinHz > STANDARD_FREQ_MAX_HZ - 1f) {
             settings.freqMinHz = STANDARD_FREQ_MAX_HZ - 1f;
             changed = true;
         }
-
         if (settings.freqMaxHz > STANDARD_FREQ_MAX_HZ) {
             settings.freqMaxHz = STANDARD_FREQ_MAX_HZ;
             changed = true;
         }
-
         if (settings.freqMaxHz < settings.freqMinHz + 1f) {
             settings.freqMinHz = STANDARD_FREQ_MAX_HZ - 1f;
             settings.freqMaxHz = STANDARD_FREQ_MAX_HZ;
@@ -209,7 +172,7 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         if (changed) {
-            repo.save(settings);
+            settingsStore.save(settings);
         }
     }
 

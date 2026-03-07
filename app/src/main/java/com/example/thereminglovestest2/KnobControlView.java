@@ -71,10 +71,11 @@ public class KnobControlView extends LinearLayout {
 
         setOrientation(VERTICAL);
         setGravity(Gravity.CENTER_HORIZONTAL);
-        setPadding(dp(6), dp(4), dp(6), dp(4));
+        // Keep the calibration screen tight without making the knob feel tiny.
+        setPadding(dp(4), dp(2), dp(4), dp(2));
 
         titleView = new TextView(context);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
         titleView.setGravity(Gravity.CENTER);
         titleView.setMaxLines(2);
         titleView.setTextColor(resolveThemeColor(android.R.attr.textColorPrimary, Color.WHITE));
@@ -85,8 +86,8 @@ public class KnobControlView extends LinearLayout {
         addView(titleView, titleLp);
 
         FrameLayout knobFrame = new FrameLayout(context);
-        LayoutParams frameLp = new LayoutParams(dp(136), dp(136));
-        frameLp.topMargin = dp(6);
+        LayoutParams frameLp = new LayoutParams(dp(116), dp(116));
+        frameLp.topMargin = dp(4);
         knobFrame.setLayoutParams(frameLp);
         knobFrame.setClipChildren(false);
         knobFrame.setClipToPadding(false);
@@ -100,17 +101,17 @@ public class KnobControlView extends LinearLayout {
 
         valueView = new TextView(context);
         valueView.setGravity(Gravity.CENTER);
-        valueView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
+        valueView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
         valueView.setTextColor(resolveThemeColor(android.R.attr.textColorPrimary, Color.WHITE));
         valueView.setTypeface(Typeface.DEFAULT_BOLD);
         valueView.setClickable(true);
         valueView.setFocusable(true);
-        valueView.setMinWidth(dp(76));
-        valueView.setMinHeight(dp(44));
-        valueView.setPadding(dp(12), dp(8), dp(12), dp(8));
+        valueView.setMinWidth(dp(68));
+        valueView.setMinHeight(dp(38));
+        valueView.setPadding(dp(10), dp(6), dp(10), dp(6));
         valueView.setBackgroundColor(Color.TRANSPARENT);
         valueView.setIncludeFontPadding(false);
-        valueView.setShadowLayer(dp(6), 0f, 0f, 0xCC090614);
+        valueView.setShadowLayer(dp(4), 0f, 0f, 0xCC090614);
 
         FrameLayout.LayoutParams valueLp = new FrameLayout.LayoutParams(
                 LayoutParams.WRAP_CONTENT,

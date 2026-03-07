@@ -1,9 +1,11 @@
 package com.example.thereminglovestest2;
 
+import java.util.Locale;
+
 /**
- * App-side persisted settings (SQLite).
- * MVP scope for this step stores mapping values used by MainActivity.
- * Extra fields are included now so later screens (Settings/Calibration) can reuse the same schema.
+ * Saved mapping and sound settings.
+ *
+ * This is just a plain data holder so the rest of the app can stay simple.
  */
 public class AppSettings {
 
@@ -12,24 +14,39 @@ public class AppSettings {
     public static final String TONE_TRIANGLE = "TRIANGLE";
     public static final String TONE_SAW = "SAW";
 
-    // First-run defaults requested by user:
-    // angles: 0° -> 90°
-    // frequency: 20 Hz -> 2000 Hz
-    public float pitchAngleMinDeg = 0f;
-    public float pitchAngleMaxDeg = 90f;
+    public float pitchAngleMinDeg = Defaults.PITCH_ANGLE_MIN_DEG;
+    public float pitchAngleMaxDeg = Defaults.PITCH_ANGLE_MAX_DEG;
+    public float freqMinHz = Defaults.FREQ_MIN_HZ;
+    public float freqMaxHz = Defaults.FREQ_MAX_HZ;
+    public float volumeAngleMinDeg = Defaults.VOLUME_ANGLE_MIN_DEG;
+    public float volumeAngleMaxDeg = Defaults.VOLUME_ANGLE_MAX_DEG;
 
-    public float freqMinHz = 20f;
-    public float freqMaxHz = 2000f;
-
-    public float volumeAngleMinDeg = 0f;
-    public float volumeAngleMaxDeg = 90f;
-
-    // Default direction:
-    // unchecked = not inverted
-    public boolean pitchDirectionInverted = false;
-    public boolean volumeDirectionInverted = false;
+    public boolean pitchDirectionInverted = Defaults.PITCH_DIRECTION_INVERTED;
+    public boolean volumeDirectionInverted = Defaults.VOLUME_DIRECTION_INVERTED;
 
     public String toneType = TONE_SINE;
     public boolean pitchEnabled = true;
     public boolean volumeEnabled = true;
+
+    public static String normalizeToneType(String tone) {
+        if (tone == null) {
+            return TONE_SINE;
+        }
+
+        String normalized = tone.trim().toUpperCase(Locale.US);
+        if (TONE_SQUARE.equals(normalized)
+                || TONE_TRIANGLE.equals(normalized)
+                || TONE_SAW.equals(normalized)) {
+            return normalized;
+        }
+        return TONE_SINE;
+    }
+
+    public static String prettyToneType(String tone) {
+        String normalized = normalizeToneType(tone);
+        if (TONE_TRIANGLE.equals(normalized)) return "Triangle";
+        if (TONE_SAW.equals(normalized)) return "Saw";
+        if (TONE_SQUARE.equals(normalized)) return "Square";
+        return "Sine";
+    }
 }

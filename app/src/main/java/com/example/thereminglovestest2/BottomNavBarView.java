@@ -104,7 +104,7 @@ public class BottomNavBarView extends LinearLayout {
         icon.setImageResource(iconRes);
         icon.setColorFilter(isActive ? colorPrimary : colorOnSurfaceVariant);
 
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(22), dp(22));
+        LayoutParams iconLp = new LayoutParams(dp(22), dp(22));
         item.addView(icon, iconLp);
 
         TextView tv = new TextView(context);
@@ -116,7 +116,7 @@ public class BottomNavBarView extends LinearLayout {
             tv.setTypeface(tv.getTypeface(), Typeface.BOLD);
         }
 
-        LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(
+        LayoutParams textLp = new LayoutParams(
                 LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT
         );
@@ -125,7 +125,7 @@ public class BottomNavBarView extends LinearLayout {
 
         item.setOnClickListener(v -> openScreen(target));
 
-        LinearLayout.LayoutParams itemLp = new LinearLayout.LayoutParams(
+        LayoutParams itemLp = new LayoutParams(
                 0, LayoutParams.WRAP_CONTENT, 1f
         );
         addView(item, itemLp);

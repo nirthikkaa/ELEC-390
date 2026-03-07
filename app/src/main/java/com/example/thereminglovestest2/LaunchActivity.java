@@ -2,30 +2,24 @@ package com.example.thereminglovestest2;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
-
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.example.thereminglovestest2.databinding.ActivityLaunchBinding;
 
 public class LaunchActivity extends AppCompatActivity {
 
+    private ActivityLaunchBinding binding;
     private boolean started = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_launch);
+        binding = ActivityLaunchBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
-        Button btnTapToStart = findViewById(R.id.btnTapToStart);
-        if (btnTapToStart == null) {
-            throw new IllegalStateException("btnTapToStart not found in activity_launch.xml");
-        }
-        btnTapToStart.setOnClickListener(v -> goToSetup());
-
-        Button btnOpenMenu = findViewById(R.id.btnOpenMenu);
-        if (btnOpenMenu == null) {
-            throw new IllegalStateException("btnOpenMenu not found in activity_launch.xml");
-        }
-        btnOpenMenu.setOnClickListener(v -> goToSetup());
+        // View Binding keeps this tiny screen tiny.
+        binding.btnTapToStart.setOnClickListener(v -> goToSetup());
+        binding.btnOpenMenu.setOnClickListener(v -> goToSetup());
     }
 
     private void goToSetup() {

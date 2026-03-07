@@ -1,37 +1,37 @@
 package com.example.thereminglovestest2;
 
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.util.Locale;
+import com.example.thereminglovestest2.databinding.ActivityConnectGlovesBinding;
 
+/**
+ * Manual BLE control screen.
+ *
+ * This page is intentionally boring and honest:
+ * it should tell the user what each glove is doing right now,
+ * and it should let them connect or disconnect each glove on purpose.
+ */
 public class ConnectGlovesActivity extends AppCompatActivity {
 
-    private static final long UI_POLL_MS = 150L;
+    private ActivityConnectGlovesBinding binding;
 
+    private static final long UI_POLL_MS = 150L;
     private static final int REQ_PERMS = 4101;
     private static final int REQ_ENABLE_BT = 4102;
-
-    private TopNavBarView topNavBar;
 
     private TextView tvReadyHeadline;
     private TextView tvReadySubtext;
     private TextView tvBigStatus;
     private TextView tvPairSummary;
     private TextView tvHostNote;
-
     private TextView tvPitchConn;
     private TextView tvPitchLast;
-
     private TextView tvVolConn;
     private TextView tvVolLast;
 
@@ -39,327 +39,233 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private Button btnReconnectVolume;
     private Button btnConnectToggle;
     private Button btnRefreshInfo;
-    private Button btnOpenPlay;
-    private Button btnGoCalibration;
 
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-
-    private boolean autoConnectRequestedThisVisit = false;
-
-    private final Runnable uiPollRunnable = new Runnable() {
-        @Override
-        public void run() {
-            refreshFromBleHost();
-            mainHandler.postDelayed(this, UI_POLL_MS);
-        }
-    };
+    private final UiPoller uiPoller = new UiPoller(UI_POLL_MS, this::refreshUi);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        BleHostBridge.initialize(getApplicationContext());
-        setContentView(R.layout.activity_connect_gloves);
+        BleSessionManager.initialize(getApplicationContext());
+        binding = ActivityConnectGlovesBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
         bindViews();
         wireButtons();
-        refreshFromBleHost();
+        refreshUi();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        BleHostBridge.initialize(getApplicationContext());
-
-        mainHandler.removeCallbacks(uiPollRunnable);
-        mainHandler.post(uiPollRunnable);
-
+        BleSessionManager.initialize(getApplicationContext());
+        uiPoller.start();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        mainHandler.removeCallbacks(uiPollRunnable);
+        uiPoller.stop();
     }
 
     private void bindViews() {
-        topNavBar = findViewById(R.id.topNavBar);
+        binding.topNavBar.setTitleText("Connect Gloves");
 
-        tvReadyHeadline = findViewById(R.id.tvReadyHeadline);
-        tvReadySubtext = findViewById(R.id.tvReadySubtext);
-        tvBigStatus = findViewById(R.id.tvBigStatus);
-        tvPairSummary = findViewById(R.id.tvPairSummary);
-        tvHostNote = findViewById(R.id.tvHostNote);
+        tvReadyHeadline = binding.tvReadyHeadline;
+        tvReadySubtext = binding.tvReadySubtext;
+        tvBigStatus = binding.tvBigStatus;
+        tvPairSummary = binding.tvPairSummary;
+        tvHostNote = binding.tvHostNote;
 
-        tvPitchConn = findViewById(R.id.tvPitchConn);
-        tvPitchLast = findViewById(R.id.tvPitchLast);
+        tvPitchConn = binding.tvPitchConn;
+        tvPitchLast = binding.tvPitchLast;
+        tvVolConn = binding.tvVolConn;
+        tvVolLast = binding.tvVolLast;
 
-        tvVolConn = findViewById(R.id.tvVolConn);
-        tvVolLast = findViewById(R.id.tvVolLast);
+        btnReconnectPitch = binding.btnReconnectPitch;
+        btnReconnectVolume = binding.btnReconnectVolume;
+        btnConnectToggle = binding.btnConnectToggle;
+        btnRefreshInfo = binding.btnRefreshInfo;
 
-        btnReconnectPitch = findViewById(R.id.btnReconnectPitch);
-        btnReconnectVolume = findViewById(R.id.btnReconnectVolume);
-        btnConnectToggle = findViewById(R.id.btnConnectToggle);
-        btnRefreshInfo = findViewById(R.id.btnRefreshInfo);
-        btnOpenPlay = findViewById(R.id.btnOpenPlay);
-        btnGoCalibration = findViewById(R.id.btnGoCalibration);
-
-        if (topNavBar != null) {
-            topNavBar.setTitleText("Connect Gloves");
+        if (btnRefreshInfo != null) {
+            btnRefreshInfo.setText("Sync");
         }
     }
 
     private void wireButtons() {
-        btnReconnectPitch.setOnClickListener(v -> requestSingleGloveReconnect(true));
-        btnReconnectVolume.setOnClickListener(v -> requestSingleGloveReconnect(false));
+        btnReconnectPitch.setOnClickListener(v -> onSingleGloveTogglePressed(true));
+        btnReconnectVolume.setOnClickListener(v -> onSingleGloveTogglePressed(false));
 
-        btnConnectToggle.setOnClickListener(v -> {
-            if (!BleHostBridge.hasRequiredPermissions(this)) {
-                BluetoothRequirements.requestRequiredPermissions(this, REQ_PERMS);
-                return;
+        btnConnectToggle.setOnClickListener(v -> BleActionExecutor.runWhenReady(
+                this,
+                REQ_PERMS,
+                REQ_ENABLE_BT,
+                this::onAllGlovesTogglePressed
+        ));
+
+        btnRefreshInfo.setOnClickListener(v -> BleActionExecutor.runWhenReady(
+                this,
+                REQ_PERMS,
+                REQ_ENABLE_BT,
+                () -> {
+                    // "Sync" does not reconnect anything.
+                    // It only asks already-connected gloves to repeat their current role/direction/neutral info.
+                    BleSessionManager.requestRefreshHandshake();
+                    refreshUi();
+                }
+        ));
+    }
+
+    private void onSingleGloveTogglePressed(boolean isPitch) {
+        BleActionExecutor.runWhenReady(this, REQ_PERMS, REQ_ENABLE_BT, () -> {
+            if (isGloveConnected(isPitch)) {
+                BleSessionManager.requestDisconnectGlove(isPitch);
+            } else {
+                BleSessionManager.requestConnectGlove(isPitch);
             }
-
-            if (!BluetoothRequirements.isBluetoothEnabled(this)) {
-                BluetoothRequirements.requestEnableBluetoothPrompt(this, REQ_ENABLE_BT);
-                return;
-            }
-
-            BleHostBridge.BleUiSnapshot snapshot = BleHostBridge.getBleUiSnapshot();
-            boolean willDisconnect = snapshot != null && snapshot.hostReady && snapshot.busyOrConnected;
-
-            // Manual disconnect from this screen should stay disconnected until the
-            // user explicitly retries from this screen.
-            autoConnectRequestedThisVisit = willDisconnect;
-            if (!willDisconnect) {
-                autoConnectRequestedThisVisit = false;
-            }
-
-            BleHostBridge.requestBleToggle();
-            refreshFromBleHost();
-        });
-
-        btnRefreshInfo.setOnClickListener(v -> {
-            if (!BleHostBridge.hasRequiredPermissions(this)) {
-                BluetoothRequirements.requestRequiredPermissions(this, REQ_PERMS);
-                return;
-            }
-
-            if (!BluetoothRequirements.isBluetoothEnabled(this)) {
-                BluetoothRequirements.requestEnableBluetoothPrompt(this, REQ_ENABLE_BT);
-                return;
-            }
-
-            autoConnectRequestedThisVisit = false;
-            BleHostBridge.requestRefreshHandshake();
-            refreshFromBleHost();
-        });
-
-        btnOpenPlay.setOnClickListener(v -> openPlay());
-
-        btnGoCalibration.setOnClickListener(v -> {
-            Intent intent = new Intent(this, CalibrationActivity.class);
-            intent.addFlags(
-                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                            | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                            | Intent.FLAG_ACTIVITY_NO_ANIMATION
-            );
-            startActivity(intent);
-            overridePendingTransition(0, 0);
+            refreshUi();
         });
     }
 
-    private void maybeAutoConnectNow() {
-        // Connect Gloves is the manual troubleshooting screen.
-        // Keep the method compile-safe, but do not auto-start connections when
-        // this screen opens or when the user navigates back to it.
-    }
-
-    private void requestSingleGloveReconnect(boolean isPitch) {
-        if (!BleHostBridge.hasRequiredPermissions(this)) {
-            BluetoothRequirements.requestRequiredPermissions(this, REQ_PERMS);
-            return;
+    private void onAllGlovesTogglePressed() {
+        BleSnapshot snapshot = BleSessionManager.getSnapshot();
+        if (snapshot != null && snapshot.busyOrConnected) {
+            BleSessionManager.requestBleToggle();
+        } else {
+            BleSessionManager.requestConnectMissingGloves();
         }
-
-        if (!BluetoothRequirements.isBluetoothEnabled(this)) {
-            BluetoothRequirements.requestEnableBluetoothPrompt(this, REQ_ENABLE_BT);
-            return;
-        }
-
-        autoConnectRequestedThisVisit = true;
-        BleHostBridge.requestReconnectGlove(isPitch);
-        refreshFromBleHost();
+        refreshUi();
     }
 
-    private void refreshFromBleHost() {
-        BleHostBridge.BleUiSnapshot snapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+    private void refreshUi() {
+        // One shared snapshot is easier to reason about than separate BLE + calibration reads.
+        BleSnapshot snapshot = BleSessionManager.getSnapshot();
 
         if (snapshot == null || !snapshot.hostReady) {
-            tvReadyHeadline.setText("Preparing Bluetooth");
-            tvReadySubtext.setText("Connection controls will appear when the Bluetooth session is ready.");
-            tvBigStatus.setText("Preparing");
-            tvPairSummary.setText("Waiting for connection engine");
-
-            tvPitchConn.setText("Unavailable");
-            tvPitchLast.setText("—");
-
-            tvVolConn.setText("Unavailable");
-            tvVolLast.setText("—");
-
-            tvHostNote.setText("Waiting for connection events...");
-            btnRefreshInfo.setVisibility(View.GONE);
-            btnGoCalibration.setVisibility(View.GONE);
-            btnReconnectPitch.setEnabled(false);
-            btnReconnectVolume.setEnabled(false);
-            btnConnectToggle.setText("Preparing...");
-            btnConnectToggle.setEnabled(false);
+            showPreparingState();
             return;
         }
 
-        boolean permissionsOk = BleHostBridge.hasRequiredPermissions(this);
-        boolean bluetoothOn = BluetoothRequirements.isBluetoothEnabled(this);
+        boolean permissionsOk = BleSessionManager.hasRequiredPermissions(this);
+        boolean bluetoothOn = BluetoothRequirements.isBluetoothEnabled(this) && snapshot.bluetoothEnabled;
+        boolean pitchConnected = BleUiText.isPitchConnected(snapshot);
+        boolean volumeConnected = BleUiText.isVolumeConnected(snapshot);
+        boolean anyConnecting = BleUiText.isAnyGloveConnecting(snapshot);
 
-        boolean pitchConnected = calSnapshot != null && calSnapshot.pitchConnected;
-        boolean volumeConnected = calSnapshot != null && calSnapshot.volumeConnected;
+        tvBigStatus.setText(BleUiText.stripStatusPrefix(snapshot.statusText));
+        tvPairSummary.setText(BleUiText.pairSummary(snapshot));
+        tvPitchConn.setText(BleUiText.cleanConnectionText(snapshot.pitchConnText));
+        tvPitchLast.setText(BleUiText.cleanLastValue(snapshot.pitchLastText, "Pitch last:"));
+        tvVolConn.setText(BleUiText.cleanConnectionText(snapshot.volumeConnText));
+        tvVolLast.setText(BleUiText.cleanLastValue(snapshot.volumeLastText, "Volume last:"));
+        tvHostNote.setText(snapshot.recentEventsText);
 
-        boolean pitchConnecting = isConnecting(snapshot.pitchConnText);
-        boolean volumeConnecting = isConnecting(snapshot.volumeConnText);
+        updateHeadline(permissionsOk, bluetoothOn, pitchConnected, volumeConnected, anyConnecting);
+        updateButtons(permissionsOk, bluetoothOn, pitchConnected, volumeConnected, anyConnecting);
+    }
 
-        int connectedCount = 0;
-        if (pitchConnected) connectedCount++;
-        if (volumeConnected) connectedCount++;
+    private void showPreparingState() {
+        tvReadyHeadline.setText("Preparing Bluetooth");
+        tvReadySubtext.setText("The connection engine is still waking up.");
+        tvBigStatus.setText("Preparing");
+        tvPairSummary.setText("Waiting for connection engine");
+        tvPitchConn.setText("Unavailable");
+        tvPitchLast.setText("—");
+        tvVolConn.setText("Unavailable");
+        tvVolLast.setText("—");
+        tvHostNote.setText("Waiting for connection events...");
 
-        tvBigStatus.setText(stripStatusPrefix(snapshot.statusText));
-        tvPairSummary.setText(buildPairSummary(connectedCount, pitchConnecting, volumeConnecting));
+        btnConnectToggle.setEnabled(false);
+        btnConnectToggle.setText("Preparing...");
+        btnReconnectPitch.setEnabled(false);
+        btnReconnectVolume.setEnabled(false);
+        btnRefreshInfo.setEnabled(false);
+    }
 
-        tvPitchConn.setText(cleanConnectionText(snapshot.pitchConnText));
-        tvPitchLast.setText(cleanLastValue(snapshot.pitchLastText, "Pitch last:"));
-
-        tvVolConn.setText(cleanConnectionText(snapshot.volumeConnText));
-        tvVolLast.setText(cleanLastValue(snapshot.volumeLastText, "Volume last:"));
-
-        tvHostNote.setVisibility(View.VISIBLE);
-        tvHostNote.setText(buildHostNote(snapshot));
+    private void updateHeadline(boolean permissionsOk,
+                                boolean bluetoothOn,
+                                boolean pitchConnected,
+                                boolean volumeConnected,
+                                boolean anyConnecting) {
+        int connectedCount = (pitchConnected ? 1 : 0) + (volumeConnected ? 1 : 0);
 
         if (!permissionsOk) {
             tvReadyHeadline.setText("Bluetooth permissions needed");
             tvReadySubtext.setText("Allow Bluetooth permissions so the app can scan and connect your gloves.");
-        } else if (!bluetoothOn || !snapshot.bluetoothEnabled) {
+            return;
+        }
+
+        if (!bluetoothOn) {
             tvReadyHeadline.setText("Bluetooth is off");
-            tvReadySubtext.setText("Turn Bluetooth on, then the app will try to connect your gloves.");
-        } else if (pitchConnected && volumeConnected) {
+            tvReadySubtext.setText("Turn Bluetooth on, then connect whichever glove you want.");
+            return;
+        }
+
+        if (connectedCount == 2) {
             tvReadyHeadline.setText("Ready to play");
-            tvReadySubtext.setText("Both gloves are connected. Stay here to manage connections, or tap Play.");
-        } else if (connectedCount == 1) {
+            tvReadySubtext.setText("Both gloves are connected. You can still disconnect either one here.");
+            return;
+        }
+
+        if (connectedCount == 1) {
             tvReadyHeadline.setText("One glove connected");
-            tvReadySubtext.setText("Keep both gloves awake and nearby, then connect the remaining glove.");
-        } else if (snapshot.scanning || pitchConnecting || volumeConnecting) {
+            tvReadySubtext.setText("You can connect the other glove or disconnect the one that is already active.");
+            return;
+        }
+
+        if (anyConnecting) {
             tvReadyHeadline.setText("Connecting gloves");
-            tvReadySubtext.setText("Keep both gloves turned on and close to the phone.");
-        } else {
-            tvReadyHeadline.setText("Connection ready");
-            tvReadySubtext.setText("Tap Connect to start, or retry if your gloves are not found.");
+            tvReadySubtext.setText("Keep the gloves awake and close to the phone for a few seconds.");
+            return;
         }
 
-        btnRefreshInfo.setVisibility(View.VISIBLE);
-        btnGoCalibration.setVisibility(View.VISIBLE);
+        tvReadyHeadline.setText("Connection ready");
+        tvReadySubtext.setText("Connect either glove on its own, or connect both together.");
+    }
 
-        btnReconnectPitch.setEnabled(permissionsOk && bluetoothOn);
-        btnReconnectVolume.setEnabled(permissionsOk && bluetoothOn);
+    private void updateButtons(boolean permissionsOk,
+                               boolean bluetoothOn,
+                               boolean pitchConnected,
+                               boolean volumeConnected,
+                               boolean anyConnecting) {
+        boolean bleReady = permissionsOk && bluetoothOn;
 
-        boolean isBusyOrConnected = snapshot.busyOrConnected;
         btnConnectToggle.setEnabled(permissionsOk);
-        btnConnectToggle.setText(isBusyOrConnected ? "Disconnect All" : "Connect All");
+        boolean anyActive = pitchConnected || volumeConnected || anyConnecting;
+        btnConnectToggle.setText(anyActive ? "Disconnect All" : "Connect All");
 
-        btnOpenPlay.setEnabled(pitchConnected && volumeConnected);
+        btnReconnectPitch.setEnabled(bleReady);
+        btnReconnectPitch.setText(pitchConnected ? "Disconnect Pitch Glove" : "Connect Pitch Glove");
+
+        btnReconnectVolume.setEnabled(bleReady);
+        btnReconnectVolume.setText(volumeConnected ? "Disconnect Volume Glove" : "Connect Volume Glove");
+
+        btnRefreshInfo.setEnabled(bleReady && (pitchConnected || volumeConnected));
     }
 
-    private void openPlay() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-        );
-        startActivity(intent);
-        overridePendingTransition(0, 0);
-    }
-
-    private boolean isConnecting(String text) {
-        return text != null && text.contains("CONNECTING");
-    }
-
-    private String stripStatusPrefix(String text) {
-        if (text == null) return "—";
-        return text.trim().replace("Status: ", "");
-    }
-
-    private String cleanConnectionText(String text) {
-        if (text == null || text.trim().isEmpty()) return "—";
-        return text.trim()
-                .replace("Pitch (ThereminGlove): ", "")
-                .replace("Volume (ThereminGloveVol): ", "");
-    }
-
-    private String cleanLastValue(String text, String prefix) {
-        if (text == null || text.trim().isEmpty()) return "—";
-        String cleaned = text.trim();
-        if (prefix != null && cleaned.startsWith(prefix)) {
-            cleaned = cleaned.substring(prefix.length()).trim();
-        }
-        return cleaned.isEmpty() ? "—" : cleaned;
-    }
-
-    private String buildPairSummary(int connectedCount, boolean pitchConnecting, boolean volumeConnecting) {
-        if (connectedCount == 2) return "Both gloves connected";
-        if (connectedCount == 1) return "One glove connected";
-        if (pitchConnecting || volumeConnecting) return "Connecting...";
-        return "No gloves connected";
-    }
-
-    private String buildHostNote(BleHostBridge.BleUiSnapshot snapshot) {
-        if (snapshot == null) return "—";
-        if (snapshot.scanning) return "Scanning nearby devices...";
-        if (snapshot.busyOrConnected) return "Connection session active.";
-        return "Ready to connect.";
+    private boolean isGloveConnected(boolean isPitch) {
+        return BleUiText.isGloveConnected(BleSessionManager.getSnapshot(), isPitch);
     }
 
     @SuppressWarnings("deprecation")
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
         if (requestCode == REQ_ENABLE_BT) {
-            autoConnectRequestedThisVisit = false;
-            if (BluetoothRequirements.isBluetoothEnabled(this)) {
-            }
-            refreshFromBleHost();
+            refreshUi();
         }
     }
 
     @Override
-    public void onRequestPermissionsResult(
-            int requestCode,
-            @NonNull String[] permissions,
-            @NonNull int[] grantResults
-    ) {
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         if (requestCode != REQ_PERMS) {
             return;
         }
 
-        boolean allGranted = true;
-        for (int result : grantResults) {
-            if (result != PackageManager.PERMISSION_GRANTED) {
-                allGranted = false;
-                break;
-            }
+        if (BleActionExecutor.wereAllPermissionsGranted(grantResults)) {
+            refreshUi();
         }
-
-        if (allGranted) {
-            autoConnectRequestedThisVisit = false;
-        }
-
-        refreshFromBleHost();
     }
 }

@@ -1,31 +1,23 @@
 package com.example.thereminglovestest2;
 
 import android.os.Bundle;
-import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.thereminglovestest2.databinding.ActivityBaseNavPlaceholderBinding;
+
 public class LibraryActivity extends AppCompatActivity {
+
+    private ActivityBaseNavPlaceholderBinding binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_base_nav_placeholder);
+        binding = ActivityBaseNavPlaceholderBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
-        TopNavBarView topNavBar = findViewById(R.id.topNavBar);
-        TextView titleView = findViewById(R.id.tvPlaceholderTitle);
-        TextView bodyView = findViewById(R.id.tvPlaceholderBody);
-
-        if (topNavBar != null) {
-            topNavBar.setTitleText("Library");
-        }
-
-        if (titleView != null) {
-            titleView.setText("Library");
-        }
-
-        if (bodyView != null) {
-            bodyView.setText("Your recordings, presets, and session history will appear here.");
-        }
+        binding.topNavBar.setTitleText("Library");
+        binding.tvPlaceholderTitle.setText("Library");
+        binding.tvPlaceholderBody.setText("Your recordings, presets, and session history will appear here.");
     }
 }

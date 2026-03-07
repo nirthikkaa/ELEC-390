@@ -1,13 +1,7 @@
 package com.example.thereminglovestest2;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.media.AudioFormat;
-import android.media.AudioManager;
-import android.media.AudioTrack;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.SystemClock;
 import android.text.InputType;
 import android.view.View;
@@ -22,45 +16,40 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.thereminglovestest2.databinding.ActivityMainBinding;
 import com.google.android.material.button.MaterialButton;
 
-import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.Locale;
 
 /**
  * Play screen (instrument).
- *
- * IMPORTANT:
- * - BLE is owned by BleSessionManager (via BleHostBridge).
- * - This activity only renders snapshots + plays audio.
- * - Legacy in-activity BLE/GATT code has been removed to avoid double owners.
+ * BLE is owned by BleSessionManager.
+ * This activity only renders snapshots + plays audio.
  */
 public class MainActivity extends AppCompatActivity {
 
-    private static WeakReference<MainActivity> activeHostRef = new WeakReference<>(null);
+    private ActivityMainBinding binding;
+
+    public static final String EXTRA_AUTOSTART_AUDIO = "com.example.thereminglovestest2.extra.AUTOSTART_AUDIO";
 
     // ===== Preferences =====
-    private static final String PREFS_NAME = "theremin_prefs";
-    private static final String PREF_BG_AUDIO_ENABLED = "bg_audio_enabled";
-    private static final String PREF_EXTENDED_FREQ_RANGE_ENABLED = "extended_frequency_range_enabled";
-
     // ===== UI tick =====
     private static final long UI_TICK_MS = 80;
 
     // ===== Log throttling =====
-    private static final int LOG_MAX_LINES = 200;
+    private static final int  LOG_MAX_LINES           = 200;
     private static final long LOG_FLUSH_MIN_INTERVAL_MS = 600;
 
     // ===== Slider ranges =====
     private static final float ANGLE_MIN = -90f;
-    private static final float ANGLE_MAX = 90f;
+    private static final float ANGLE_MAX =  90f;
     private static final float ANGLE_STEP = 0.5f;
-    private static final int ANGLE_PROGRESS_MAX = (int) ((ANGLE_MAX - ANGLE_MIN) / ANGLE_STEP);
+    private static final int   ANGLE_PROGRESS_MAX = (int) ((ANGLE_MAX - ANGLE_MIN) / ANGLE_STEP);
 
-    private static final float FREQ_MIN_UI = 20f;
-    private static final float FREQ_STANDARD_MAX_UI = 2000f;
-    private static final float FREQ_EXTENDED_MAX_UI = 20000f;
+    private static final float FREQ_MIN_UI           = 20f;
+    private static final float FREQ_STANDARD_MAX_UI  = 2000f;
+    private static final float FREQ_EXTENDED_MAX_UI  = 20000f;
 
     // ===== UI =====
     private TextView tvStatus, tvPitchConn, tvVolConn, tvAudio;
@@ -83,95 +72,58 @@ public class MainActivity extends AppCompatActivity {
     private Animation calibrateGlowAnimation;
 
     // ===== State =====
-    private volatile boolean bgAudioEnabled = true;
-    private volatile boolean playUiVisible = false;
-    private volatile float currentFreqMaxUi = FREQ_STANDARD_MAX_UI;
+    private volatile boolean bgAudioEnabled    = true;
+    private volatile boolean playUiVisible     = false;
+    private volatile float currentFreqMaxUi    = FREQ_STANDARD_MAX_UI;
 
     // ===== Mapping settings =====
-    private volatile float pitchAngleMinDeg = -15.0f;
-    private volatile float pitchAngleMaxDeg = 55.0f;
-    private volatile float freqMinHz = 880.0f;
-    private volatile float freqMaxHz = 2000.0f;
+    private volatile float pitchAngleMinDeg  = Defaults.PLAY_PITCH_ANGLE_MIN_DEG;
+    private volatile float pitchAngleMaxDeg  = Defaults.PLAY_PITCH_ANGLE_MAX_DEG;
+    private volatile float freqMinHz         = Defaults.PLAY_FREQ_MIN_HZ;
+    private volatile float freqMaxHz         = Defaults.PLAY_FREQ_MAX_HZ;
+    private volatile float volumeAngleMinDeg = Defaults.PLAY_VOLUME_ANGLE_MIN_DEG;
+    private volatile float volumeAngleMaxDeg = Defaults.PLAY_VOLUME_ANGLE_MAX_DEG;
 
-    private volatile float volumeAngleMinDeg = -10.0f;
-    private volatile float volumeAngleMaxDeg = 55.0f;
-
-    // ===== Latest glove values (from shared manager snapshots) =====
+    // ===== Latest glove values =====
     private volatile float pitchActiveDeltaDeg = 0.0f;
-    private volatile float volActiveDeltaDeg = 0.0f;
-    private volatile boolean pitchHasAngle = false;
-    private volatile boolean volHasAngle = false;
+    private volatile float volActiveDeltaDeg   = 0.0f;
+    private volatile boolean pitchHasAngle     = false;
+    private volatile boolean volHasAngle       = false;
 
-    private volatile float mappedFreqHz = 880.0f;
-    private volatile float mappedVolumeLinear = 0.0f;
-
-    private volatile float audioTargetFreqHz = 880.0f;
+    private volatile float mappedFreqHz          = 880.0f;
+    private volatile float mappedVolumeLinear    = 0.0f;
+    private volatile float audioTargetFreqHz     = 880.0f;
     private volatile float audioTargetVolumeLinear = 0.0f;
 
     private volatile boolean suppressSliderCallbacks = false;
 
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
-
-    // Performance: bounded log buffer
     private final ArrayDeque<String> logLines = new ArrayDeque<>();
     private volatile long lastLogFlushMs = 0;
 
-    private final Runnable uiTicker = new Runnable() {
-        @Override
-        public void run() {
-            refreshUiFast();
-            mainHandler.postDelayed(this, UI_TICK_MS);
-        }
-    };
+    private final UiPoller uiTicker = new UiPoller(UI_TICK_MS, this::refreshUiFast);
 
-    private final Runnable backgroundAudioSyncTicker = new Runnable() {
-        @Override
-        public void run() {
-            syncAudioTargetsFromSharedBleState();
-            if (shouldRunBackgroundAudioSync()) {
-                mainHandler.postDelayed(this, UI_TICK_MS);
-            }
-        }
-    };
-
-    private AudioEngine audioEngine;
-
-    // ===== Persistence =====
-    private AppSettingsRepository settingsRepo;
-
-    private static MainActivity getActiveHost() {
-        return activeHostRef.get();
-    }
-
-    /**
-     * Called from Settings via BleHostBridge when the background-audio toggle changes.
-     * We only apply it if this Activity is alive.
-     */
-    public static void refreshBackgroundAudioPreferenceFromFacade() {
-        MainActivity host = getActiveHost();
-        if (host == null) return;
-        host.mainHandler.post(host::applyBackgroundAudioPreferenceNow);
-    }
+    private ThereminAudioEngine audioEngine;
+    private SettingsStore settingsRepo;
+    private String currentToneType = AppSettings.TONE_SINE;
+    private boolean pendingAutoStartAudio = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
 
-        BleHostBridge.initialize(getApplicationContext());
-        activeHostRef = new WeakReference<>(this);
+        BleSessionManager.initialize(getApplicationContext());
 
         bindViews();
-
-        audioEngine = new AudioEngine();
+        audioEngine = new ThereminAudioEngine();
+        consumeIntent(getIntent());
 
         loadBgAudioPref();
         refreshFrequencyRangeLimit();
-
         setupSlidersAndClickNumbers();
         syncAllMappingControlsFromState();
         recomputeMappedOutputs();
-
         wireButtons();
 
         appendLogSafe("Play opened");
@@ -183,7 +135,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        activeHostRef = new WeakReference<>(this);
         playUiVisible = true;
 
         loadBgAudioPref();
@@ -191,32 +142,32 @@ public class MainActivity extends AppCompatActivity {
         reloadMappingSettingsFromRepository();
         syncAudioTargetsFromSharedBleState();
 
-        mainHandler.removeCallbacks(backgroundAudioSyncTicker);
-        mainHandler.removeCallbacks(uiTicker);
-        mainHandler.post(uiTicker);
-
-        // Play is instrument-focused. Entering this screen should not silently
-        // start a new BLE session; connection is explicit from Home/Connect/Play.
+        maybeTakeAudioBackFromBackgroundService();
+        uiTicker.start();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        activeHostRef = new WeakReference<>(this);
         playUiVisible = true;
 
-        mainHandler.removeCallbacks(backgroundAudioSyncTicker);
+        maybeTakeAudioBackFromBackgroundService();
 
         loadBgAudioPref();
         refreshFrequencyRangeLimit();
-
-        // Preserve user's manual play/pause choice when returning to Play.
         updateAudioStatusText();
-
         reloadMappingSettingsFromRepository();
         syncAudioTargetsFromSharedBleState();
         syncAllMappingControlsFromState();
         updateBleButtonText();
+    }
+
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        consumeIntent(intent);
     }
 
     @Override
@@ -232,65 +183,51 @@ public class MainActivity extends AppCompatActivity {
                 appendLogSafe("onPause -> audio kept running in background");
             }
         }
-
-        restartBackgroundAudioSyncIfNeeded();
+        maybeMoveAudioToBackgroundService();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         playUiVisible = false;
-        mainHandler.removeCallbacks(uiTicker);
+        uiTicker.stop();
 
         if (isChangingConfigurations()) {
-            restartBackgroundAudioSyncIfNeeded();
             return;
         }
 
-        if (bgAudioEnabled) {
-            restartBackgroundAudioSyncIfNeeded();
-        } else {
-            mainHandler.removeCallbacks(backgroundAudioSyncTicker);
+        if (!bgAudioEnabled && audioEngine != null && audioEngine.isRunning()) {
+            audioEngine.stop();
         }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        uiTicker.stop();
 
-        activeHostRef = new WeakReference<>(null);
-
-        mainHandler.removeCallbacks(uiTicker);
-        mainHandler.removeCallbacks(backgroundAudioSyncTicker);
-
-        // If the Activity is finishing, stop audio. If it's being recreated (rotation),
-        // keep behavior consistent with earlier builds (do not force-stop when BG audio is enabled).
-        if (audioEngine != null) {
-            if (!bgAudioEnabled || isFinishing()) {
-                audioEngine.shutdown();
-            }
+        if (audioEngine != null && (!bgAudioEnabled || isFinishing())) {
+            audioEngine.shutdown();
         }
     }
 
+    // ===== Preferences =====
+
     private void loadBgAudioPref() {
-        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        bgAudioEnabled = sp.getBoolean(PREF_BG_AUDIO_ENABLED, true);
+        bgAudioEnabled = AppPrefs.isBgAudioEnabled(this);
     }
 
     private void saveBgAudioPref() {
-        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        sp.edit().putBoolean(PREF_BG_AUDIO_ENABLED, bgAudioEnabled).apply();
+        AppPrefs.setBgAudioEnabled(this, bgAudioEnabled);
     }
 
     private boolean isExtendedFrequencyRangeEnabled() {
-        SharedPreferences sp = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        return sp.getBoolean(PREF_EXTENDED_FREQ_RANGE_ENABLED, false);
+        return AppPrefs.isExtendedFreqRangeEnabled(this);
     }
 
     private void refreshFrequencyRangeLimit() {
         currentFreqMaxUi = isExtendedFrequencyRangeEnabled()
-                ? FREQ_EXTENDED_MAX_UI
-                : FREQ_STANDARD_MAX_UI;
+                ? FREQ_EXTENDED_MAX_UI : FREQ_STANDARD_MAX_UI;
     }
 
     private int getFreqProgressMax() {
@@ -302,123 +239,107 @@ public class MainActivity extends AppCompatActivity {
         loadBgAudioPref();
         updateAudioStatusText();
 
-        if (!bgAudioEnabled && wasEnabled && !playUiVisible && audioEngine != null && audioEngine.isRunning()) {
+        if (!bgAudioEnabled && wasEnabled && !playUiVisible
+                && audioEngine != null && audioEngine.isRunning()) {
             audioEngine.stop();
             appendLogSafe("BG audio pref changed -> audio stopped");
         }
 
-        restartBackgroundAudioSyncIfNeeded();
+        if (!bgAudioEnabled) {
+            ThereminBackgroundAudioService.stopIfRunning(this);
+        }
     }
+    private void maybeMoveAudioToBackgroundService() {
+        if (audioEngine == null || !audioEngine.isRunning()) return;
+        if (!bgAudioEnabled || isChangingConfigurations()) return;
 
-    private boolean shouldRunBackgroundAudioSync() {
-        return !playUiVisible
-                && bgAudioEnabled
-                && audioEngine != null
-                && audioEngine.isRunning();
-    }
-
-    private void restartBackgroundAudioSyncIfNeeded() {
-        mainHandler.removeCallbacks(backgroundAudioSyncTicker);
-        if (shouldRunBackgroundAudioSync()) {
-            mainHandler.post(backgroundAudioSyncTicker);
+        try {
+            pushAudioTargetsToEngine();
+            ThereminBackgroundAudioService.startIfNeeded(this);
+            audioEngine.stop();
+            appendLogSafe("Play hidden -> audio handed to background service");
+        } catch (Exception e) {
+            // If the service fails to start, keep the local engine alive.
+            appendLogSafe("Background service failed: " + e.getClass().getSimpleName());
         }
     }
 
-    /**
-     * Pulls the latest shared BLE state and updates audio targets.
-     * This is the ONLY data path used for audio mapping.
-     */
-    private void syncAudioTargetsFromSharedBleState() {
-        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+    private void maybeTakeAudioBackFromBackgroundService() {
+        if (!ThereminBackgroundAudioService.isServiceActive()) return;
 
-        if (calSnapshot != null && calSnapshot.hostReady) {
-            pitchActiveDeltaDeg = calSnapshot.pitchActiveDeltaDeg;
-            volActiveDeltaDeg = calSnapshot.volumeActiveDeltaDeg;
-            pitchHasAngle = calSnapshot.pitchConnected;
-            volHasAngle = calSnapshot.volumeConnected;
-        } else {
-            pitchHasAngle = false;
-            volHasAngle = false;
-        }
-
-        recomputeMappedOutputs();
-
-        // If Bluetooth is off (per shared manager), hard-mute.
-        if (bleSnapshot != null && bleSnapshot.hostReady && !bleSnapshot.bluetoothEnabled) {
-            audioTargetVolumeLinear = 0f;
-            mappedVolumeLinear = 0f;
+        ThereminBackgroundAudioService.stopIfRunning(this);
+        if (audioEngine != null && !audioEngine.isRunning()) {
+            pushAudioTargetsToEngine();
+            audioEngine.start();
+            appendLogSafe("Play visible -> audio returned from background service");
         }
     }
 
     private void toastSafe(String msg) {
+
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
     }
 
+    // ===== View binding =====
+
     private void bindViews() {
-        TopNavBarView topNavBar = findViewById(R.id.topNavBar);
-        if (topNavBar != null) {
-            topNavBar.setTitleText("Play");
-        }
+        binding.topNavBar.setTitleText("Play");
 
-        tvStatus = findViewById(R.id.tvStatus);
-        tvPitchConn = findViewById(R.id.tvPitchConn);
-        tvVolConn = findViewById(R.id.tvVolConn);
-        tvAudio = findViewById(R.id.tvAudio);
+        tvStatus    = binding.tvStatus;
+        tvPitchConn = binding.tvPitchConn;
+        tvVolConn   = binding.tvVolConn;
+        tvAudio     = binding.tvAudio;
 
-        tvPitchValue = findViewById(R.id.tvPitchValue);
-        tvVolValue = findViewById(R.id.tvVolValue);
-        tvToneValue = findViewById(R.id.tvToneValue);
+        tvPitchValue = binding.tvPitchValue;
+        tvVolValue   = binding.tvVolValue;
+        tvToneValue  = binding.tvToneValue;
 
-        tvPlayRemoteLabel = findViewById(R.id.tvPlayRemoteLabel);
-        tvReconnectLabel = findViewById(R.id.tvReconnectLabel);
-        tvBackgroundLabel = findViewById(R.id.tvBackgroundLabel);
+        tvPlayRemoteLabel  = binding.tvPlayRemoteLabel;
+        tvReconnectLabel   = binding.tvReconnectLabel;
+        tvBackgroundLabel  = binding.tvBackgroundLabel;
 
-        tvPitchLast = findViewById(R.id.tvPitchLast);
-        tvVolLast = findViewById(R.id.tvVolLast);
-        tvLog = findViewById(R.id.tvLog);
+        // These optional text slots are not part of the compact Play layout anymore.
+        tvPitchLast = null;
+        tvVolLast   = null;
+        tvLog       = binding.tvLog;
 
-        tvPitchAngleMinVal = findViewById(R.id.tvPitchAngleMinVal);
-        tvPitchAngleMaxVal = findViewById(R.id.tvPitchAngleMaxVal);
-        tvFreqMinVal = findViewById(R.id.tvFreqMinVal);
-        tvFreqMaxVal = findViewById(R.id.tvFreqMaxVal);
+        tvPitchAngleMinVal = binding.tvPitchAngleMinVal;
+        tvPitchAngleMaxVal = binding.tvPitchAngleMaxVal;
+        tvFreqMinVal       = binding.tvFreqMinVal;
+        tvFreqMaxVal       = binding.tvFreqMaxVal;
+        tvVolAngleMinVal   = binding.tvVolAngleMinVal;
+        tvVolAngleMaxVal   = binding.tvVolAngleMaxVal;
 
-        tvVolAngleMinVal = findViewById(R.id.tvVolAngleMinVal);
-        tvVolAngleMaxVal = findViewById(R.id.tvVolAngleMaxVal);
+        sbPitchAngleMin = binding.sbPitchAngleMin;
+        sbPitchAngleMax = binding.sbPitchAngleMax;
+        sbFreqMin       = binding.sbFreqMin;
+        sbFreqMax       = binding.sbFreqMax;
+        sbVolAngleMin   = binding.sbVolAngleMin;
+        sbVolAngleMax   = binding.sbVolAngleMax;
 
-        sbPitchAngleMin = findViewById(R.id.sbPitchAngleMin);
-        sbPitchAngleMax = findViewById(R.id.sbPitchAngleMax);
-        sbFreqMin = findViewById(R.id.sbFreqMin);
-        sbFreqMax = findViewById(R.id.sbFreqMax);
+        btnScanConnect    = binding.btnScanConnect;
+        btnDisconnectAll  = binding.btnDisconnectAll;
+        btnAudioStart     = binding.btnAudioStart;
+        btnAudioStop      = binding.btnAudioStop;
+        btnOpenCalibration = null;
 
-        sbVolAngleMin = findViewById(R.id.sbVolAngleMin);
-        sbVolAngleMax = findViewById(R.id.sbVolAngleMax);
+        btnNeutralPitch   = binding.btnNeutralPitch;
+        btnNeutralVol     = binding.btnNeutralVol;
+        btnDirectionPitch = binding.btnDirectionPitch;
+        btnDirectionVol   = binding.btnDirectionVol;
+        btnHelpPitch      = binding.btnHelpPitch;
+        btnHelpVol        = binding.btnHelpVol;
 
-        btnScanConnect = findViewById(R.id.btnScanConnect);
-        btnDisconnectAll = findViewById(R.id.btnDisconnectAll);
-        btnAudioStart = findViewById(R.id.btnAudioStart);
-        btnAudioStop = findViewById(R.id.btnAudioStop);
-        btnOpenCalibration = findViewById(R.id.btnOpenCalibration);
+        btnDefaults = binding.btnDefaults;
 
-        btnNeutralPitch = findViewById(R.id.btnNeutralPitch);
-        btnNeutralVol = findViewById(R.id.btnNeutralVol);
-        btnDirectionPitch = findViewById(R.id.btnDirectionPitch);
-        btnDirectionVol = findViewById(R.id.btnDirectionVol);
-        btnHelpPitch = findViewById(R.id.btnHelpPitch);
-        btnHelpVol = findViewById(R.id.btnHelpVol);
-
-        btnDefaults = findViewById(R.id.btnDefaults);
-
-        thereminVisualizerView = findViewById(R.id.thereminVisualizerView);
+        thereminVisualizerView = binding.thereminVisualizerView;
     }
 
-    private void wireButtons() {
-        if (btnDisconnectAll != null) {
-            btnDisconnectAll.setVisibility(View.GONE);
-        }
+    // ===== Button wiring =====
 
-        // NOTE: The reconnect icon button is small, and users naturally tap the label too.
-        // Make BOTH the icon button and its label trigger the same reconnect action.
+    private void wireButtons() {
+        if (btnDisconnectAll != null) btnDisconnectAll.setVisibility(View.GONE);
+
         btnScanConnect.setOnClickListener(v -> {
             appendLogSafe("Reconnect pressed");
             onBleTogglePressed();
@@ -435,19 +356,13 @@ public class MainActivity extends AppCompatActivity {
 
         btnAudioStart.setOnClickListener(v -> {
             if (audioEngine == null) return;
-
-            BleHostBridge.BleUiSnapshot snapshot = BleHostBridge.getBleUiSnapshot();
+            BleSessionManager.BleUiSnapshot snapshot = BleSessionManager.getBleUiSnapshot();
             if (snapshot != null && snapshot.hostReady && !snapshot.bluetoothEnabled) {
                 toastSafe("Bluetooth is OFF");
                 return;
             }
-
-            if (audioEngine.isRunning()) {
-                audioEngine.stop();
-            } else {
-                audioEngine.start();
-            }
-
+            if (audioEngine.isRunning()) audioEngine.stop();
+            else                         audioEngine.start();
             updateAudioStatusText();
         });
 
@@ -462,7 +377,9 @@ public class MainActivity extends AppCompatActivity {
                 appendLogSafe("BG audio disabled while app in background -> audio stopped");
             }
 
-            restartBackgroundAudioSyncIfNeeded();
+            if (!bgAudioEnabled) {
+            ThereminBackgroundAudioService.stopIfRunning(this);
+        }
             updateAudioStatusText();
         });
 
@@ -471,22 +388,20 @@ public class MainActivity extends AppCompatActivity {
             btnOpenCalibration.setOnClickListener(v -> openCalibrationScreen());
         }
 
-        // Hidden command buttons remain compile-safe (layout keeps IDs).
-        btnNeutralPitch.setOnClickListener(v -> BleHostBridge.requestCaptureNeutral(true));
-        btnNeutralVol.setOnClickListener(v -> BleHostBridge.requestCaptureNeutral(false));
+        btnNeutralPitch.setOnClickListener(v -> BleSessionManager.requestCaptureNeutral(true));
+        btnNeutralVol.setOnClickListener(v   -> BleSessionManager.requestCaptureNeutral(false));
 
         btnDirectionPitch.setOnClickListener(v -> {
             appendLogSafe("Pitch: toggle direction");
-            BleHostBridge.requestToggleDirection(true);
+            BleSessionManager.requestToggleDirection(true);
         });
-
         btnDirectionVol.setOnClickListener(v -> {
             appendLogSafe("Volume: toggle direction");
-            BleHostBridge.requestToggleDirection(false);
+            BleSessionManager.requestToggleDirection(false);
         });
 
         btnHelpPitch.setOnClickListener(v -> showHelpDialog("Pitch glove"));
-        btnHelpVol.setOnClickListener(v -> showHelpDialog("Volume glove"));
+        btnHelpVol.setOnClickListener(v   -> showHelpDialog("Volume glove"));
 
         btnDefaults.setOnClickListener(v -> {
             setDefaultMappingValues();
@@ -501,197 +416,148 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onBleTogglePressed() {
-        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+        BleSnapshot snapshot = getSnapshot();
 
-        // Quick user feedback so the button never feels "dead".
-        if (bleSnapshot != null && bleSnapshot.hostReady && !bleSnapshot.bluetoothEnabled) {
+        if (!BleUiText.isBluetoothOn(snapshot)) {
             toastSafe("Bluetooth is OFF");
             return;
         }
-
-        boolean pitchConnected = calSnapshot != null && calSnapshot.hostReady && calSnapshot.pitchConnected;
-        boolean volConnected = calSnapshot != null && calSnapshot.hostReady && calSnapshot.volumeConnected;
-        if (pitchConnected && volConnected) {
+        if (BleUiText.areBothGlovesConnected(snapshot)) {
             toastSafe("Both gloves are already connected");
             return;
         }
 
         toastSafe("Connecting missing glove(s)...");
-        BleHostBridge.requestConnectMissingGloves();
-        refreshUiFromBleHost();
-        updateBleButtonText();
-    }
-
-    private void refreshUiFromBleHost() {
+        BleSessionManager.requestConnectMissingGloves();
         refreshUiFast();
+        updateBleButtonText();
     }
 
     private void updateBleButtonText() {
         if (btnScanConnect == null) return;
 
-        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+        BleSnapshot snapshot = getSnapshot();
+        String label = "Connect";
+        String contentDescription = "Connect gloves";
 
-        String label;
-        String contentDescription;
-
-        if (bleSnapshot == null || !bleSnapshot.hostReady) {
-            label = "Connect";
-            contentDescription = "Connect gloves";
-        } else {
-            boolean bothConnected = calSnapshot != null && calSnapshot.pitchConnected && calSnapshot.volumeConnected;
-            boolean oneConnected = calSnapshot != null && (calSnapshot.pitchConnected || calSnapshot.volumeConnected);
-            boolean connecting = bleSnapshot.scanning
-                    || BleUiText.isConnecting(bleSnapshot.pitchConnText)
-                    || BleUiText.isConnecting(bleSnapshot.volumeConnText);
-
-            if (!bleSnapshot.bluetoothEnabled) {
+        if (snapshot != null && snapshot.hostReady) {
+            if (!snapshot.bluetoothEnabled) {
                 label = "Bluetooth Off";
                 contentDescription = "Bluetooth is off";
-            } else if (bothConnected) {
+            } else if (BleUiText.areBothGlovesConnected(snapshot)) {
                 label = "Connected";
                 contentDescription = "Both gloves are connected";
-            } else if (connecting || oneConnected) {
+            } else if (BleUiText.isAnyGloveConnecting(snapshot) || BleUiText.isAnyGloveConnected(snapshot)) {
                 label = "Reconnect";
                 contentDescription = "Reconnect missing gloves";
-            } else {
-                label = "Connect";
-                contentDescription = "Connect gloves";
             }
         }
 
         btnScanConnect.setText("");
         btnScanConnect.setContentDescription(contentDescription);
-
-        if (tvReconnectLabel != null) {
-            tvReconnectLabel.setText(label);
-        }
+        if (tvReconnectLabel != null) tvReconnectLabel.setText(label);
     }
 
     private void openCalibrationScreen() {
         Intent intent = new Intent(this, CalibrationActivity.class);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-        );
+        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_NO_ANIMATION);
         startActivity(intent);
         overridePendingTransition(0, 0);
     }
 
     private void showHelpDialog(String title) {
-        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
-
+        BleSnapshot snapshot = getSnapshot();
         StringBuilder sb = new StringBuilder();
-        if (bleSnapshot == null || !bleSnapshot.hostReady) {
+
+        if (snapshot == null || !snapshot.hostReady) {
             sb.append("BLE host not ready.\n\n");
         } else {
-            sb.append("Bluetooth: ").append(bleSnapshot.bluetoothEnabled ? "ON" : "OFF").append("\n");
-            sb.append("Scanning: ").append(bleSnapshot.scanning ? "YES" : "NO").append("\n");
-            sb.append("Status: ").append(bleSnapshot.statusText).append("\n\n");
-
-            sb.append("Pitch: ").append(bleSnapshot.pitchConnText).append("\n");
-            sb.append("Volume: ").append(bleSnapshot.volumeConnText).append("\n\n");
-        }
-
-        if (calSnapshot != null && calSnapshot.hostReady) {
-            sb.append("Pitch connected: ").append(calSnapshot.pitchConnected).append("\n");
-            sb.append("Volume connected: ").append(calSnapshot.volumeConnected).append("\n");
-            sb.append(String.format(Locale.US, "Pitch Δ: %.2f°\n", calSnapshot.pitchActiveDeltaDeg));
-            sb.append(String.format(Locale.US, "Volume Δ: %.2f°\n", calSnapshot.volumeActiveDeltaDeg));
-            sb.append("Pitch direction: ").append(calSnapshot.pitchDirectionText).append("\n");
-            sb.append("Volume direction: ").append(calSnapshot.volumeDirectionText).append("\n\n");
+            sb.append("Bluetooth: ").append(snapshot.bluetoothEnabled ? "ON" : "OFF").append("\n");
+            sb.append("Scanning: ").append(snapshot.scanning ? "YES" : "NO").append("\n");
+            sb.append("Status: ").append(snapshot.statusText).append("\n\n");
+            sb.append("Pitch: ").append(snapshot.pitchConnText).append("\n");
+            sb.append("Volume: ").append(snapshot.volumeConnText).append("\n\n");
+            sb.append("Pitch connected: ").append(snapshot.pitchConnected).append("\n");
+            sb.append("Volume connected: ").append(snapshot.volumeConnected).append("\n");
+            sb.append(String.format(Locale.US, "Pitch Δ: %.2f°\n", snapshot.pitchActiveDeltaDeg));
+            sb.append(String.format(Locale.US, "Volume Δ: %.2f°\n", snapshot.volumeActiveDeltaDeg));
+            sb.append("Pitch direction: ").append(snapshot.pitchDirectionText).append("\n");
+            sb.append("Volume direction: ").append(snapshot.volumeDirectionText).append("\n\n");
         }
 
         sb.append("Background audio: ").append(bgAudioEnabled ? "ON" : "OFF").append("\n");
 
         new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(sb.toString())
-                .setPositiveButton("OK", null)
-                .show();
+                .setTitle(title).setMessage(sb.toString())
+                .setPositiveButton("OK", null).show();
     }
 
+    // ===== Settings persistence =====
+
     private void reloadMappingSettingsFromRepository() {
-        if (settingsRepo == null) settingsRepo = new AppSettingsRepository(this);
-
+        if (settingsRepo == null) settingsRepo = new SettingsStore(this);
         AppSettings s = settingsRepo.load();
-        if (s == null) {
-            setDefaultMappingValues();
-            persistSettings();
-            return;
-        }
 
-        pitchAngleMinDeg = s.pitchAngleMinDeg;
-        pitchAngleMaxDeg = s.pitchAngleMaxDeg;
-        freqMinHz = s.freqMinHz;
-        freqMaxHz = s.freqMaxHz;
-
+        pitchAngleMinDeg  = s.pitchAngleMinDeg;
+        pitchAngleMaxDeg  = s.pitchAngleMaxDeg;
+        freqMinHz         = s.freqMinHz;
+        freqMaxHz         = s.freqMaxHz;
         volumeAngleMinDeg = s.volumeAngleMinDeg;
         volumeAngleMaxDeg = s.volumeAngleMaxDeg;
-
+        currentToneType   = AppSettings.normalizeToneType(s.toneType);
         sanitizeMappingValues();
+
+        if (audioEngine != null) {
+            audioEngine.setToneType(currentToneType);
+        }
     }
 
     private void persistSettings() {
-        if (settingsRepo == null) settingsRepo = new AppSettingsRepository(this);
-
+        if (settingsRepo == null) settingsRepo = new SettingsStore(this);
         sanitizeMappingValues();
 
         AppSettings s = settingsRepo.load();
-        if (s == null) s = new AppSettings();
 
-        s.pitchAngleMinDeg = pitchAngleMinDeg;
-        s.pitchAngleMaxDeg = pitchAngleMaxDeg;
-        s.freqMinHz = freqMinHz;
-        s.freqMaxHz = freqMaxHz;
-
+        s.pitchAngleMinDeg  = pitchAngleMinDeg;
+        s.pitchAngleMaxDeg  = pitchAngleMaxDeg;
+        s.freqMinHz         = freqMinHz;
+        s.freqMaxHz         = freqMaxHz;
         s.volumeAngleMinDeg = volumeAngleMinDeg;
         s.volumeAngleMaxDeg = volumeAngleMaxDeg;
-
-        // IMPORTANT:
-        // Do NOT touch direction flags here.
-        // Direction is owned by Calibration + BleSessionManager.
+        // Direction flags are owned by CalibrationActivity + BleSessionManager — not touched here
         settingsRepo.save(s);
     }
 
     private void setDefaultMappingValues() {
-        pitchAngleMinDeg = -15.0f;
-        pitchAngleMaxDeg = 55.0f;
-        freqMinHz = 880.0f;
-        freqMaxHz = 2000.0f;
-
-        volumeAngleMinDeg = -10.0f;
-        volumeAngleMaxDeg = 55.0f;
-
+        pitchAngleMinDeg  = Defaults.PLAY_PITCH_ANGLE_MIN_DEG;
+        pitchAngleMaxDeg  = Defaults.PLAY_PITCH_ANGLE_MAX_DEG;
+        freqMinHz         = Defaults.PLAY_FREQ_MIN_HZ;
+        freqMaxHz         = Defaults.PLAY_FREQ_MAX_HZ;
+        volumeAngleMinDeg = Defaults.PLAY_VOLUME_ANGLE_MIN_DEG;
+        volumeAngleMaxDeg = Defaults.PLAY_VOLUME_ANGLE_MAX_DEG;
         sanitizeMappingValues();
     }
 
     private void sanitizeMappingValues() {
-        pitchAngleMinDeg = clamp(pitchAngleMinDeg, ANGLE_MIN, ANGLE_MAX);
-        pitchAngleMaxDeg = clamp(pitchAngleMaxDeg, ANGLE_MIN, ANGLE_MAX);
+        pitchAngleMinDeg  = clamp(pitchAngleMinDeg,  ANGLE_MIN, ANGLE_MAX);
+        pitchAngleMaxDeg  = clamp(pitchAngleMaxDeg,  ANGLE_MIN, ANGLE_MAX);
         volumeAngleMinDeg = clamp(volumeAngleMinDeg, ANGLE_MIN, ANGLE_MAX);
         volumeAngleMaxDeg = clamp(volumeAngleMaxDeg, ANGLE_MIN, ANGLE_MAX);
-
         freqMinHz = clamp(freqMinHz, FREQ_MIN_UI, currentFreqMaxUi);
         freqMaxHz = clamp(freqMaxHz, FREQ_MIN_UI, currentFreqMaxUi);
 
-        if (pitchAngleMaxDeg < pitchAngleMinDeg + ANGLE_STEP) {
-            pitchAngleMaxDeg = Math.min(ANGLE_MAX, pitchAngleMinDeg + ANGLE_STEP);
-        }
-        if (volumeAngleMaxDeg < volumeAngleMinDeg + ANGLE_STEP) {
-            volumeAngleMaxDeg = Math.min(ANGLE_MAX, volumeAngleMinDeg + ANGLE_STEP);
-        }
-        if (freqMaxHz < freqMinHz + 1f) {
-            freqMaxHz = Math.min(currentFreqMaxUi, freqMinHz + 1f);
-        }
+        if (pitchAngleMaxDeg  < pitchAngleMinDeg  + ANGLE_STEP) pitchAngleMaxDeg  = Math.min(ANGLE_MAX, pitchAngleMinDeg  + ANGLE_STEP);
+        if (volumeAngleMaxDeg < volumeAngleMinDeg + ANGLE_STEP) volumeAngleMaxDeg = Math.min(ANGLE_MAX, volumeAngleMinDeg + ANGLE_STEP);
+        if (freqMaxHz < freqMinHz + 1f) freqMaxHz = Math.min(currentFreqMaxUi, freqMinHz + 1f);
     }
 
     private float clamp(float x, float lo, float hi) {
         return Math.max(lo, Math.min(hi, x));
     }
+
+    // ===== Sliders =====
 
     private void setupSlidersAndClickNumbers() {
         reloadMappingSettingsFromRepository();
@@ -700,27 +566,22 @@ public class MainActivity extends AppCompatActivity {
         sbPitchAngleMax.setMax(ANGLE_PROGRESS_MAX);
         sbVolAngleMin.setMax(ANGLE_PROGRESS_MAX);
         sbVolAngleMax.setMax(ANGLE_PROGRESS_MAX);
-
         sbFreqMin.setMax(getFreqProgressMax());
         sbFreqMax.setMax(getFreqProgressMax());
 
-        SeekBar.OnSeekBarChangeListener commonAngleListener = new SeekBar.OnSeekBarChangeListener() {
+        SeekBar.OnSeekBarChangeListener angleListener = new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (suppressSliderCallbacks) return;
-
                 float value = progressToAngle(progress);
-
-                if (seekBar == sbPitchAngleMin) pitchAngleMinDeg = value;
-                if (seekBar == sbPitchAngleMax) pitchAngleMaxDeg = value;
-                if (seekBar == sbVolAngleMin) volumeAngleMinDeg = value;
-                if (seekBar == sbVolAngleMax) volumeAngleMaxDeg = value;
-
+                if (seekBar == sbPitchAngleMin) pitchAngleMinDeg  = value;
+                if (seekBar == sbPitchAngleMax) pitchAngleMaxDeg  = value;
+                if (seekBar == sbVolAngleMin)   volumeAngleMinDeg = value;
+                if (seekBar == sbVolAngleMax)   volumeAngleMaxDeg = value;
                 sanitizeMappingValues();
                 syncAllMappingControlsFromState();
                 recomputeMappedOutputs();
             }
-
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {
                 persistSettings();
@@ -732,17 +593,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (suppressSliderCallbacks) return;
-
                 float value = progressToFreq(progress);
-
                 if (seekBar == sbFreqMin) freqMinHz = value;
                 if (seekBar == sbFreqMax) freqMaxHz = value;
-
                 sanitizeMappingValues();
                 syncAllMappingControlsFromState();
                 recomputeMappedOutputs();
             }
-
             @Override public void onStartTrackingTouch(SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(SeekBar seekBar) {
                 persistSettings();
@@ -750,55 +607,29 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        sbPitchAngleMin.setOnSeekBarChangeListener(commonAngleListener);
-        sbPitchAngleMax.setOnSeekBarChangeListener(commonAngleListener);
-        sbVolAngleMin.setOnSeekBarChangeListener(commonAngleListener);
-        sbVolAngleMax.setOnSeekBarChangeListener(commonAngleListener);
-
+        sbPitchAngleMin.setOnSeekBarChangeListener(angleListener);
+        sbPitchAngleMax.setOnSeekBarChangeListener(angleListener);
+        sbVolAngleMin.setOnSeekBarChangeListener(angleListener);
+        sbVolAngleMax.setOnSeekBarChangeListener(angleListener);
         sbFreqMin.setOnSeekBarChangeListener(freqListener);
         sbFreqMax.setOnSeekBarChangeListener(freqListener);
 
-        attachNumberClick(tvPitchAngleMinVal, "Pitch angle min (deg)", ANGLE_MIN, ANGLE_MAX,
-                () -> pitchAngleMinDeg,
-                v -> pitchAngleMinDeg = v);
-
-        attachNumberClick(tvPitchAngleMaxVal, "Pitch angle max (deg)", ANGLE_MIN, ANGLE_MAX,
-                () -> pitchAngleMaxDeg,
-                v -> pitchAngleMaxDeg = v);
-
-        attachNumberClick(tvVolAngleMinVal, "Volume angle min (deg)", ANGLE_MIN, ANGLE_MAX,
-                () -> volumeAngleMinDeg,
-                v -> volumeAngleMinDeg = v);
-
-        attachNumberClick(tvVolAngleMaxVal, "Volume angle max (deg)", ANGLE_MIN, ANGLE_MAX,
-                () -> volumeAngleMaxDeg,
-                v -> volumeAngleMaxDeg = v);
-
-        attachNumberClick(tvFreqMinVal, "Frequency min (Hz)", FREQ_MIN_UI, currentFreqMaxUi,
-                () -> freqMinHz,
-                v -> freqMinHz = v);
-
-        attachNumberClick(tvFreqMaxVal, "Frequency max (Hz)", FREQ_MIN_UI, currentFreqMaxUi,
-                () -> freqMaxHz,
-                v -> freqMaxHz = v);
+        attachNumberClick(tvPitchAngleMinVal, "Pitch angle min (deg)", ANGLE_MIN, ANGLE_MAX, () -> pitchAngleMinDeg, v -> pitchAngleMinDeg = v);
+        attachNumberClick(tvPitchAngleMaxVal, "Pitch angle max (deg)", ANGLE_MIN, ANGLE_MAX, () -> pitchAngleMaxDeg, v -> pitchAngleMaxDeg = v);
+        attachNumberClick(tvVolAngleMinVal,   "Volume angle min (deg)", ANGLE_MIN, ANGLE_MAX, () -> volumeAngleMinDeg, v -> volumeAngleMinDeg = v);
+        attachNumberClick(tvVolAngleMaxVal,   "Volume angle max (deg)", ANGLE_MIN, ANGLE_MAX, () -> volumeAngleMaxDeg, v -> volumeAngleMaxDeg = v);
+        attachNumberClick(tvFreqMinVal, "Frequency min (Hz)", FREQ_MIN_UI, currentFreqMaxUi, () -> freqMinHz, v -> freqMinHz = v);
+        attachNumberClick(tvFreqMaxVal, "Frequency max (Hz)", FREQ_MIN_UI, currentFreqMaxUi, () -> freqMaxHz, v -> freqMaxHz = v);
 
         syncAllMappingControlsFromState();
     }
 
-    private interface FloatGetter {
-        float get();
-    }
+    private interface FloatGetter { float get(); }
+    private interface FloatSetter { void set(float v); }
+    private interface FloatConsumer { void accept(float v); }
 
-    private interface FloatSetter {
-        void set(float v);
-    }
-
-    private void attachNumberClick(TextView tv,
-                                   String title,
-                                   float min,
-                                   float max,
-                                   FloatGetter getter,
-                                   FloatSetter setter) {
+    private void attachNumberClick(TextView tv, String title, float min, float max,
+                                   FloatGetter getter, FloatSetter setter) {
         if (tv == null) return;
         tv.setOnClickListener(v -> showNumberEntryDialog(title, min, max, getter.get(), newVal -> {
             setter.set(newVal);
@@ -810,17 +641,11 @@ public class MainActivity extends AppCompatActivity {
         }));
     }
 
-    private interface FloatConsumer {
-        void accept(float v);
-    }
-
-    private void showNumberEntryDialog(String title,
-                                       float min,
-                                       float max,
-                                       float currentValue,
-                                       FloatConsumer onOk) {
+    private void showNumberEntryDialog(String title, float min, float max,
+                                       float currentValue, FloatConsumer onOk) {
         EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL
+                | InputType.TYPE_NUMBER_FLAG_SIGNED);
         input.setText(String.format(Locale.US, "%.2f", currentValue));
         input.setSelection(input.getText().length());
 
@@ -831,155 +656,174 @@ public class MainActivity extends AppCompatActivity {
                 .setPositiveButton("OK", (d, which) -> {
                     try {
                         float v = Float.parseFloat(input.getText().toString().trim());
-                        if (v < min) v = min;
-                        if (v > max) v = max;
+                        v = clamp(v, min, max);
                         onOk.accept(v);
                     } catch (Exception e) {
                         toastSafe("Invalid number");
                     }
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton("Cancel", null).show();
     }
 
-    private float angleToProgress(float angle) {
-        return (angle - ANGLE_MIN) / ANGLE_STEP;
-    }
-
-    private float progressToAngle(int progress) {
-        return ANGLE_MIN + progress * ANGLE_STEP;
-    }
-
-    private float freqToProgress(float hz) {
-        return hz - FREQ_MIN_UI;
-    }
-
-    private float progressToFreq(int progress) {
-        return FREQ_MIN_UI + progress;
-    }
+    private float angleToProgress(float angle) { return (angle - ANGLE_MIN) / ANGLE_STEP; }
+    private float progressToAngle(int progress) { return ANGLE_MIN + progress * ANGLE_STEP; }
+    private float freqToProgress(float hz)      { return hz - FREQ_MIN_UI; }
+    private float progressToFreq(int progress)  { return FREQ_MIN_UI + progress; }
 
     private void syncAllMappingControlsFromState() {
         suppressSliderCallbacks = true;
-
         sanitizeMappingValues();
 
         sbPitchAngleMin.setProgress((int) angleToProgress(pitchAngleMinDeg));
         sbPitchAngleMax.setProgress((int) angleToProgress(pitchAngleMaxDeg));
-
         sbVolAngleMin.setProgress((int) angleToProgress(volumeAngleMinDeg));
         sbVolAngleMax.setProgress((int) angleToProgress(volumeAngleMaxDeg));
-
         sbFreqMin.setProgress((int) freqToProgress(freqMinHz));
         sbFreqMax.setProgress((int) freqToProgress(freqMaxHz));
 
         syncMappingValueTextsOnly();
-
         suppressSliderCallbacks = false;
     }
 
     private void syncMappingValueTextsOnly() {
         if (tvPitchAngleMinVal != null) tvPitchAngleMinVal.setText(String.format(Locale.US, "%.1f°", pitchAngleMinDeg));
         if (tvPitchAngleMaxVal != null) tvPitchAngleMaxVal.setText(String.format(Locale.US, "%.1f°", pitchAngleMaxDeg));
-
-        if (tvVolAngleMinVal != null) tvVolAngleMinVal.setText(String.format(Locale.US, "%.1f°", volumeAngleMinDeg));
-        if (tvVolAngleMaxVal != null) tvVolAngleMaxVal.setText(String.format(Locale.US, "%.1f°", volumeAngleMaxDeg));
-
+        if (tvVolAngleMinVal   != null) tvVolAngleMinVal.setText(String.format(Locale.US, "%.1f°", volumeAngleMinDeg));
+        if (tvVolAngleMaxVal   != null) tvVolAngleMaxVal.setText(String.format(Locale.US, "%.1f°", volumeAngleMaxDeg));
         if (tvFreqMinVal != null) tvFreqMinVal.setText(String.format(Locale.US, "%.1f Hz", freqMinHz));
         if (tvFreqMaxVal != null) tvFreqMaxVal.setText(String.format(Locale.US, "%.1f Hz", freqMaxHz));
     }
 
+    // ===== Mapping =====
+
     private void recomputeMappedOutputs() {
         sanitizeMappingValues();
 
-        float freq = mapLinearClamped(
-                pitchActiveDeltaDeg,
-                pitchAngleMinDeg,
-                pitchAngleMaxDeg,
-                freqMinHz,
-                freqMaxHz
-        );
-
-        float vol = mapLinearClamped(
-                volActiveDeltaDeg,
-                volumeAngleMinDeg,
-                volumeAngleMaxDeg,
-                0f,
-                1f
-        );
+        float freq = mapLinearClamped(pitchActiveDeltaDeg, pitchAngleMinDeg, pitchAngleMaxDeg, freqMinHz, freqMaxHz);
+        float vol  = mapLinearClamped(volActiveDeltaDeg,   volumeAngleMinDeg, volumeAngleMaxDeg, 0f, 1f);
 
         if (!pitchHasAngle) freq = freqMinHz;
-        if (!volHasAngle) vol = 0f;
+        if (!volHasAngle)   vol  = 0f;
 
         mappedFreqHz = freq;
         mappedVolumeLinear = vol;
-
         audioTargetFreqHz = mappedFreqHz;
         audioTargetVolumeLinear = mappedVolumeLinear;
 
-        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
-
-        boolean btEnabled = bleSnapshot != null && bleSnapshot.hostReady && bleSnapshot.bluetoothEnabled;
-        boolean bothConnected = calSnapshot != null && calSnapshot.hostReady
-                && calSnapshot.pitchConnected && calSnapshot.volumeConnected;
-
-        // Product behavior: only produce audible sound when BOTH gloves are connected.
-        if (!btEnabled || !bothConnected) {
+        if (!isInstrumentReady(getSnapshot())) {
             audioTargetVolumeLinear = 0f;
             mappedVolumeLinear = 0f;
         }
+
+        pushAudioTargetsToEngine();
     }
 
     private float mapLinearClamped(float x, float inMin, float inMax, float outMin, float outMax) {
         if (Math.abs(inMax - inMin) < 1e-6f) return outMin;
-        float t = (x - inMin) / (inMax - inMin);
-        if (t < 0f) t = 0f;
-        if (t > 1f) t = 1f;
+        float t = clamp((x - inMin) / (inMax - inMin), 0f, 1f);
         return outMin + t * (outMax - outMin);
     }
 
-    private void refreshUiFast() {
-        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+    private void pushAudioTargetsToEngine() {
+        if (audioEngine == null) return;
+        audioEngine.setToneType(currentToneType);
+        audioEngine.setTargets(audioTargetFreqHz, audioTargetVolumeLinear);
+    }
 
-        boolean hostReady = bleSnapshot != null && bleSnapshot.hostReady;
-        boolean btEnabled = hostReady && bleSnapshot.bluetoothEnabled;
+    private void consumeIntent(Intent intent) {
+        if (intent == null) return;
+        if (intent.getBooleanExtra(EXTRA_AUTOSTART_AUDIO, false)) {
+            pendingAutoStartAudio = true;
+            intent.removeExtra(EXTRA_AUTOSTART_AUDIO);
+        }
+    }
 
-        boolean pitchConnected = calSnapshot != null && calSnapshot.hostReady && calSnapshot.pitchConnected;
-        boolean volConnected = calSnapshot != null && calSnapshot.hostReady && calSnapshot.volumeConnected;
+    private void syncAudioTargetsFromSharedBleState() {
+        applyLiveAnglesFromSnapshot(getSnapshot());
 
-        boolean bothConnected = pitchConnected && volConnected;
-        boolean oneConnected = pitchConnected || volConnected;
-        boolean connecting = hostReady && (bleSnapshot.scanning
-                || BleUiText.isConnecting(bleSnapshot.pitchConnText)
-                || BleUiText.isConnecting(bleSnapshot.volumeConnText));
+        // Keep the synth targets synced even before the first UI poll tick lands.
+        recomputeMappedOutputs();
+    }
 
-        if (hostReady && calSnapshot != null && calSnapshot.hostReady) {
-            pitchActiveDeltaDeg = calSnapshot.pitchActiveDeltaDeg;
-            volActiveDeltaDeg = calSnapshot.volumeActiveDeltaDeg;
-            pitchHasAngle = pitchConnected;
-            volHasAngle = volConnected;
-        } else {
-            pitchHasAngle = false;
-            volHasAngle = false;
+    // MainActivity used to pull two different BLE snapshot objects all over the place.
+    // Keeping one combined snapshot here makes the screen logic easier to follow.
+    private BleSnapshot getSnapshot() {
+        return BleSessionManager.getSnapshot();
+    }
+
+    private void applyLiveAnglesFromSnapshot(BleSnapshot snapshot) {
+        if (snapshot != null && snapshot.hostReady) {
+            pitchActiveDeltaDeg = snapshot.pitchActiveDeltaDeg;
+            volActiveDeltaDeg = snapshot.volumeActiveDeltaDeg;
+            pitchHasAngle = snapshot.pitchConnected;
+            volHasAngle = snapshot.volumeConnected;
+            return;
         }
 
+        pitchHasAngle = false;
+        volHasAngle = false;
+    }
+
+    private boolean isInstrumentReady(BleSnapshot snapshot) {
+        return BleUiText.isBluetoothOn(snapshot) && BleUiText.areBothGlovesConnected(snapshot);
+    }
+
+    // The visualizer is just a view of the current synth output.
+    // Keeping this in one helper avoids repeating the same null checks every UI tick.
+    private void updateVisualizer() {
+        if (thereminVisualizerView == null) return;
+
+        ThereminAudioEngine.VisualizerSnapshot waveSnapshot = audioEngine != null
+                ? audioEngine.getVisualizerSnapshot()
+                : null;
+
+        if (waveSnapshot != null) {
+            thereminVisualizerView.setAudioWave(
+                    waveSnapshot.samples,
+                    waveSnapshot.freqHz,
+                    waveSnapshot.volumeLinear,
+                    freqMinHz,
+                    freqMaxHz
+            );
+        } else {
+            thereminVisualizerView.setAudioWave(null, mappedFreqHz, mappedVolumeLinear, freqMinHz, freqMaxHz);
+        }
+    }
+
+    private void maybeStartAudioAfterCalibration(boolean bothConnected) {
+        if (!pendingAutoStartAudio || !bothConnected || audioEngine == null || audioEngine.isRunning()) {
+            return;
+        }
+
+        pushAudioTargetsToEngine();
+        audioEngine.start();
+        pendingAutoStartAudio = false;
+        appendLogSafe("Calibration returned to Play -> audio started");
+    }
+
+    // ===== UI refresh =====
+
+    private void refreshUiFast() {
+        BleSnapshot snapshot = getSnapshot();
+
+        boolean hostReady = snapshot != null && snapshot.hostReady;
+        boolean btEnabled = BleUiText.isBluetoothOn(snapshot);
+        boolean bothConnected = BleUiText.areBothGlovesConnected(snapshot);
+        boolean oneConnected = BleUiText.isAnyGloveConnected(snapshot);
+        boolean connecting = BleUiText.isAnyGloveConnecting(snapshot);
+
+        applyLiveAnglesFromSnapshot(snapshot);
         recomputeMappedOutputs();
 
-        if (tvStatus != null) tvStatus.setText(buildPlayHeadline(bleSnapshot, bothConnected, oneConnected, connecting));
-        if (tvAudio != null) tvAudio.setText(buildPlaySubtitle(bleSnapshot, bothConnected, oneConnected, connecting));
+        if (tvStatus != null) tvStatus.setText(buildPlayHeadline(snapshot, bothConnected, oneConnected, connecting));
+        if (tvAudio  != null) tvAudio.setText(buildPlaySubtitle(snapshot, bothConnected, oneConnected, connecting));
 
-        if (tvPitchConn != null) {
-            tvPitchConn.setText(buildFriendlyConnectionChip("Pitch glove", bleSnapshot, calSnapshot, true));
-        }
-        if (tvVolConn != null) {
-            tvVolConn.setText(buildFriendlyConnectionChip("Volume glove", bleSnapshot, calSnapshot, false));
-        }
+        if (tvPitchConn != null) tvPitchConn.setText(buildFriendlyConnectionChip("Pitch glove", snapshot, true));
+        if (tvVolConn   != null) tvVolConn.setText(buildFriendlyConnectionChip("Volume glove", snapshot, false));
 
         if (tvPitchValue != null) tvPitchValue.setText(buildFrequencyCardText(mappedFreqHz));
-        if (tvVolValue != null) tvVolValue.setText(buildVolumeCardText(mappedVolumeLinear));
-
-        if (tvToneValue != null) tvToneValue.setText(buildToneSummary(bothConnected, mappedFreqHz, mappedVolumeLinear));
+        if (tvVolValue   != null) tvVolValue.setText(buildVolumeCardText(mappedVolumeLinear));
+        if (tvToneValue  != null) tvToneValue.setText(buildToneSummary(bothConnected, mappedFreqHz, mappedVolumeLinear));
 
         if (tvPitchLast != null && tvVolLast != null) {
             if (bothConnected || !hostReady) {
@@ -988,139 +832,69 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 tvPitchLast.setVisibility(View.VISIBLE);
                 tvVolLast.setVisibility(View.VISIBLE);
-
-                if (hostReady) {
-                    tvPitchLast.setText(bleSnapshot.pitchLastText);
-                    tvVolLast.setText(bleSnapshot.volumeLastText);
-                } else {
-                    tvPitchLast.setText("Pitch last: (none)");
-                    tvVolLast.setText("Volume last: (none)");
-                }
+                tvPitchLast.setText(hostReady ? snapshot.pitchLastText : "Pitch last: (none)");
+                tvVolLast.setText(hostReady ? snapshot.volumeLastText : "Volume last: (none)");
             }
         }
 
         updateCalibrationButtonGlow(bothConnected);
-
+        maybeStartAudioAfterCalibration(bothConnected);
         updateAudioStatusText();
         updateBleButtonText();
-
-        if (thereminVisualizerView != null) {
-            thereminVisualizerView.setThereminState(mappedFreqHz, mappedVolumeLinear, freqMinHz, freqMaxHz);
-        }
-
+        updateVisualizer();
         syncMappingValueTextsOnly();
 
-        // If Bluetooth is off, keep UI consistent (no sound).
         if (!btEnabled) {
             audioTargetVolumeLinear = 0f;
             mappedVolumeLinear = 0f;
         }
     }
 
-    private String buildPlayHeadline(BleHostBridge.BleUiSnapshot bleSnapshot,
-                                     boolean bothConnected,
-                                     boolean oneConnected,
-                                     boolean connecting) {
-        if (bleSnapshot == null || !bleSnapshot.hostReady) {
-            return "Preparing instrument";
-        }
-        if (!bleSnapshot.bluetoothEnabled) {
-            return "Bluetooth is off";
-        }
-        if (bothConnected) {
-            return "Ready to perform";
-        }
-        if (oneConnected) {
-            return "Almost ready";
-        }
-        if (connecting) {
-            return "Connecting your gloves";
-        }
+    private String buildPlayHeadline(BleSnapshot s,
+                                     boolean bothConnected, boolean oneConnected, boolean connecting) {
+        if (s == null || !s.hostReady)  return "Preparing instrument";
+        if (!s.bluetoothEnabled)        return "Bluetooth is off";
+        if (bothConnected)              return "Ready to perform";
+        if (oneConnected)               return "Almost ready";
+        if (connecting)                 return "Connecting your gloves";
         return "Waiting for gloves";
     }
 
-    private String buildPlaySubtitle(BleHostBridge.BleUiSnapshot bleSnapshot,
-                                     boolean bothConnected,
-                                     boolean oneConnected,
-                                     boolean connecting) {
-        if (bleSnapshot == null || !bleSnapshot.hostReady) {
-            return "Setting up the live instrument experience.";
-        }
-        if (!bleSnapshot.bluetoothEnabled) {
-            return "Turn Bluetooth on to reconnect your gloves.";
-        }
-        if (bothConnected) {
-            return "Move your hands to shape pitch and volume. Calibrate anytime for a tighter response.";
-        }
-        if (oneConnected) {
-            return "One glove is connected. Turn on the second glove to complete the instrument.";
-        }
-        if (connecting) {
-            return "Keep both gloves awake and close to your phone.";
-        }
+    private String buildPlaySubtitle(BleSnapshot s,
+                                     boolean bothConnected, boolean oneConnected, boolean connecting) {
+        if (s == null || !s.hostReady)  return "Setting up the live instrument experience.";
+        if (!s.bluetoothEnabled)        return "Turn Bluetooth on to reconnect your gloves.";
+        if (bothConnected)              return "Move your hands to shape pitch and volume. Calibrate anytime for a tighter response.";
+        if (oneConnected)               return "One glove is connected. Turn on the second glove to complete the instrument.";
+        if (connecting)                 return "Keep both gloves awake and close to your phone.";
         return "Turn on both gloves to begin playing.";
     }
 
-    private String buildFriendlyConnectionChip(String label,
-                                               BleHostBridge.BleUiSnapshot bleSnapshot,
-                                               BleHostBridge.CalibrationUiSnapshot calSnapshot,
-                                               boolean isPitch) {
-        boolean hostReady = bleSnapshot != null && bleSnapshot.hostReady;
-        boolean bluetoothEnabled = hostReady && bleSnapshot.bluetoothEnabled;
-        boolean connected = calSnapshot != null && calSnapshot.hostReady
-                && (isPitch ? calSnapshot.pitchConnected : calSnapshot.volumeConnected);
-        String rawLine = hostReady
-                ? (isPitch ? bleSnapshot.pitchConnText : bleSnapshot.volumeConnText)
-                : null;
-        boolean connecting = bluetoothEnabled
-                && !connected
-                && (BleUiText.isConnecting(rawLine) || bleSnapshot.scanning);
-
-        if (!hostReady) {
-            return label + "\nWaiting";
-        }
-        if (!bluetoothEnabled) {
-            return label + "\nBluetooth off";
-        }
-        if (connected) {
-            return label + "\nConnected";
-        }
-        if (connecting) {
-            return label + "\nConnecting…";
-        }
-        return label + "\nWaiting";
+    private String buildFriendlyConnectionChip(String label, BleSnapshot snapshot, boolean isPitch) {
+        return BleUiText.buildPlayChipText(label, snapshot, isPitch);
     }
 
     private String buildFrequencyCardText(float freqHz) {
-        float safeFreq = Math.max(FREQ_MIN_UI, freqHz);
-        if (safeFreq >= 1000f) {
-            return String.format(Locale.US, "Frequency • %.2f kHz", safeFreq / 1000f);
-        }
-        return String.format(Locale.US, "Frequency • %.0f Hz", safeFreq);
+        float f = Math.max(FREQ_MIN_UI, freqHz);
+        return f >= 1000f
+                ? String.format(Locale.US, "Frequency • %.2f kHz", f / 1000f)
+                : String.format(Locale.US, "Frequency • %.0f Hz", f);
     }
 
     private String buildVolumeCardText(float volumeLinear) {
-        int percent = Math.round(clamp(volumeLinear, 0f, 1f) * 100f);
-        return String.format(Locale.US, "Volume level • %d%%", percent);
+        return String.format(Locale.US, "Volume level • %d%%",
+                Math.round(clamp(volumeLinear, 0f, 1f) * 100f));
     }
 
     private String buildToneSummary(boolean bothConnected, float freqHz, float volumeLinear) {
-        if (!bothConnected) {
-            return "Connect both gloves to start shaping sound.";
-        }
-        if (volumeLinear <= 0.01f) {
-            return String.format(Locale.US,
-                    "Live tone ready • %.1f Hz • Raise your volume hand to bring it in",
-                    freqHz);
-        }
-        return String.format(Locale.US,
-                "Live tone • %.1f Hz • %.0f%% intensity",
-                freqHz, volumeLinear * 100f);
+        if (!bothConnected) return "Connect both gloves to start shaping sound.";
+        if (volumeLinear <= 0.01f)
+            return String.format(Locale.US, "Live tone ready • %.1f Hz • Raise your volume hand to bring it in", freqHz);
+        return String.format(Locale.US, "Live tone • %.1f Hz • %.0f%% intensity", freqHz, volumeLinear * 100f);
     }
 
     private void updateCalibrationButtonGlow(boolean shouldGlow) {
         if (btnOpenCalibration == null) return;
-
         if (shouldGlow) {
             btnOpenCalibration.setText("✨ Calibrate Precisely");
             if (calibrateGlowAnimation == null) {
@@ -1144,15 +918,10 @@ public class MainActivity extends AppCompatActivity {
 
         if (btnAudioStart != null) {
             btnAudioStart.setText("");
-            btnAudioStart.setIconResource(running
-                    ? R.drawable.ic_pause_theremin
-                    : R.drawable.ic_play_theremin);
+            btnAudioStart.setIconResource(running ? R.drawable.ic_pause_theremin : R.drawable.ic_play_theremin);
             btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         }
-
-        if (tvPlayRemoteLabel != null) {
-            tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
-        }
+        if (tvPlayRemoteLabel != null) tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
 
         if (btnAudioStop != null) {
             btnAudioStop.setText("");
@@ -1160,13 +929,9 @@ public class MainActivity extends AppCompatActivity {
                     ? R.drawable.ic_background_on
                     : android.R.drawable.ic_menu_close_clear_cancel);
             btnAudioStop.setContentDescription(bgAudioEnabled
-                    ? "Turn background audio off"
-                    : "Turn background audio on");
+                    ? "Turn background audio off" : "Turn background audio on");
         }
-
-        if (tvBackgroundLabel != null) {
-            tvBackgroundLabel.setText(bgAudioEnabled ? "Background On" : "Background Off");
-        }
+        if (tvBackgroundLabel != null) tvBackgroundLabel.setText(bgAudioEnabled ? "Background On" : "Background Off");
     }
 
     private void appendLogSafe(String msg) {
@@ -1176,101 +941,11 @@ public class MainActivity extends AppCompatActivity {
             while (logLines.size() > LOG_MAX_LINES) logLines.removeFirst();
             if (now - lastLogFlushMs < LOG_FLUSH_MIN_INTERVAL_MS) return;
             lastLogFlushMs = now;
-
             StringBuilder sb = new StringBuilder();
             for (String s : logLines) sb.append(s).append('\n');
             final String all = sb.toString();
-
-            runOnUiThread(() -> {
-                if (tvLog != null) tvLog.setText(all);
-            });
+            runOnUiThread(() -> { if (tvLog != null) tvLog.setText(all); });
         }
     }
 
-
-    // ===== Audio engine =====
-    private final class AudioEngine {
-        private static final int SAMPLE_RATE = 48000;
-        private static final int CHANNEL_MASK = AudioFormat.CHANNEL_OUT_MONO;
-        private static final int ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-
-        private AudioTrack track;
-        private Thread audioThread;
-        private volatile boolean running = false;
-
-        private float phase = 0f;
-
-        boolean isRunning() {
-            return running;
-        }
-
-        void start() {
-            if (running) return;
-
-            int minBuffer = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING);
-            int bufferSize = Math.max(minBuffer, 2048);
-
-            track = new AudioTrack(
-                    AudioManager.STREAM_MUSIC,
-                    SAMPLE_RATE,
-                    CHANNEL_MASK,
-                    ENCODING,
-                    bufferSize,
-                    AudioTrack.MODE_STREAM
-            );
-
-            running = true;
-            track.play();
-
-            audioThread = new Thread(() -> {
-                short[] buffer = new short[1024];
-
-                while (running) {
-                    float freq = audioTargetFreqHz;
-                    float vol = audioTargetVolumeLinear;
-
-                    for (int i = 0; i < buffer.length; i++) {
-                        phase += (2f * (float) Math.PI * freq) / SAMPLE_RATE;
-                        if (phase > 2f * Math.PI) phase -= 2f * (float) Math.PI;
-
-                        float sample = (float) Math.sin(phase);
-                        short pcm = (short) (sample * vol * Short.MAX_VALUE * 0.25f);
-                        buffer[i] = pcm;
-                    }
-
-                    if (track != null) {
-                        try {
-                            track.write(buffer, 0, buffer.length);
-                        } catch (Exception ignored) {
-                        }
-                    }
-                }
-            }, "ThereminAudioThread");
-
-            audioThread.start();
-        }
-
-        void stop() {
-            running = false;
-
-            if (audioThread != null) {
-                try {
-                    audioThread.join(300);
-                } catch (InterruptedException ignored) {
-                }
-                audioThread = null;
-            }
-
-            if (track != null) {
-                try { track.pause(); } catch (Exception ignored) {}
-                try { track.flush(); } catch (Exception ignored) {}
-                try { track.release(); } catch (Exception ignored) {}
-                track = null;
-            }
-        }
-
-        void shutdown() {
-            stop();
-        }
-    }
 }

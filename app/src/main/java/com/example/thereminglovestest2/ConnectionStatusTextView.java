@@ -15,7 +15,7 @@ import com.google.android.material.card.MaterialCardView;
  *
  * This view does NOT trust the raw text passed in by MainActivity because old
  * code can still turn DISCONNECTED into READY (since the word DISCONNECTED
- * contains CONNECTED). Instead, it re-reads live BLE state from BleHostBridge,
+ * contains CONNECTED). Instead, it re-reads live BLE state from BleSessionManager,
  * rewrites its own label, and updates the parent card glow.
  */
 public class ConnectionStatusTextView extends AppCompatTextView {
@@ -52,8 +52,8 @@ public class ConnectionStatusTextView extends AppCompatTextView {
         boolean isVolume = isVolumeCard();
         String label = isVolume ? "Volume glove" : "Pitch glove";
 
-        BleHostBridge.BleUiSnapshot bleSnapshot = BleHostBridge.getBleUiSnapshot();
-        BleHostBridge.CalibrationUiSnapshot calSnapshot = BleHostBridge.getCalibrationUiSnapshot();
+        BleSessionManager.BleUiSnapshot bleSnapshot = BleSessionManager.getBleUiSnapshot();
+        BleSessionManager.CalibrationUiSnapshot calSnapshot = BleSessionManager.getCalibrationUiSnapshot();
 
         StatusKind kind = StatusKind.DISCONNECTED;
         String detail = "Waiting";
