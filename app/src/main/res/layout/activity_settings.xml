@@ -220,19 +220,6 @@
                         android:textColor="@color/app_secondary"
                         app:cornerRadius="18dp"
                         app:strokeColor="@color/app_secondary" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnOpenCalibration"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:minHeight="52dp"
-                        android:text="Open Calibration"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_on_primary"
-                        android:textStyle="bold"
-                        app:backgroundTint="@color/app_primary"
-                        app:cornerRadius="18dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

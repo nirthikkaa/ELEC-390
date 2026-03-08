@@ -27,8 +27,9 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // Nordic BLE 2.11.x is built for Java 17+, so match that here.
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     buildFeatures {
@@ -41,6 +42,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+    implementation("no.nordicsemi.android:ble:2.11.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

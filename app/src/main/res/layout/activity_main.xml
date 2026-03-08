@@ -164,7 +164,7 @@
                             app:strokeColor="@color/app_outline"
                             app:strokeWidth="1dp">
 
-                            <com.example.thereminglovestest2.ConnectionStatusTextView
+                            <TextView
                                 android:id="@+id/tvVolConn"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
@@ -191,7 +191,7 @@
                             app:strokeColor="@color/app_outline"
                             app:strokeWidth="1dp">
 
-                            <com.example.thereminglovestest2.ConnectionStatusTextView
+                            <TextView
                                 android:id="@+id/tvPitchConn"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"

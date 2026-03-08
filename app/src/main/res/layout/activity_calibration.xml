@@ -24,7 +24,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="16dp"
-            android:paddingTop="12dp"
+            android:paddingTop="8dp"
             android:paddingEnd="16dp"
             android:paddingBottom="20dp">
 
@@ -153,68 +153,81 @@
                     android:orientation="vertical"
                     android:padding="18dp">
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Pitch"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="22sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvPitchLive"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Pitch ACTIVE_DELTA_DEG: 0.00°"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvPitchMeta"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:maxLines="2"
-                        android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="12sp" />
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:gravity="center_vertical"
+                        android:gravity="top"
                         android:orientation="horizontal">
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPitchNeutral"
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:minHeight="52dp"
-                            android:text="Neutral"
-                            android:textAllCaps="false"
-                            android:textColor="@color/app_on_primary"
-                            android:textStyle="bold"
-                            app:backgroundTint="@color/app_primary"
-                            app:cornerRadius="18dp" />
+                            android:orientation="vertical"
+                            android:paddingEnd="12dp">
 
-                        <androidx.appcompat.widget.SwitchCompat
-                            android:id="@+id/switchPitchDirection"
-                            android:layout_width="0dp"
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Pitch"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="22sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvPitchLive"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Pitch ACTIVE_DELTA_DEG: 0.00°"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvPitchMeta"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:maxLines="2"
+                                android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:showText="true"
-                            android:textOff="POS"
-                            android:textOn="NEG" />
+                            android:gravity="end"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnPitchNeutral"
+                                android:layout_width="104dp"
+                                android:layout_height="wrap_content"
+                                android:minHeight="44dp"
+                                android:text="Neutral"
+                                android:textAllCaps="false"
+                                android:textColor="@color/app_on_primary"
+                                android:textStyle="bold"
+                                app:backgroundTint="@color/app_primary"
+                                app:cornerRadius="18dp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/switchPitchDirection"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="end"
+                                android:layout_marginTop="6dp"
+                                android:showText="true"
+                                android:textOff="POS"
+                                android:textOn="NEG" />
+                        </LinearLayout>
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="6dp"
                         android:orientation="horizontal">
 
                         <com.example.thereminglovestest2.KnobControlView
@@ -227,14 +240,14 @@
                             android:id="@+id/knobPitchAngleMax"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
+                            android:layout_marginStart="8dp"
                             android:layout_weight="1" />
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="2dp"
                         android:orientation="horizontal">
 
                         <com.example.thereminglovestest2.KnobControlView
@@ -247,7 +260,7 @@
                             android:id="@+id/knobFreqMax"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
+                            android:layout_marginStart="8dp"
                             android:layout_weight="1" />
                     </LinearLayout>
 
@@ -271,68 +284,81 @@
                     android:orientation="vertical"
                     android:padding="18dp">
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Volume"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="22sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvVolumeLive"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Volume ACTIVE_DELTA_DEG: 0.00°"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvVolumeMeta"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:maxLines="2"
-                        android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="12sp" />
-
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:gravity="center_vertical"
+                        android:gravity="top"
                         android:orientation="horizontal">
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnVolumeNeutral"
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:minHeight="52dp"
-                            android:text="Neutral"
-                            android:textAllCaps="false"
-                            android:textColor="@color/app_on_primary"
-                            android:textStyle="bold"
-                            app:backgroundTint="@color/app_primary"
-                            app:cornerRadius="18dp" />
+                            android:orientation="vertical"
+                            android:paddingEnd="12dp">
 
-                        <androidx.appcompat.widget.SwitchCompat
-                            android:id="@+id/switchVolumeDirection"
-                            android:layout_width="0dp"
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Volume"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="22sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvVolumeLive"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Volume ACTIVE_DELTA_DEG: 0.00°"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvVolumeMeta"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:maxLines="2"
+                                android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:showText="true"
-                            android:textOff="POS"
-                            android:textOn="NEG" />
+                            android:gravity="end"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnVolumeNeutral"
+                                android:layout_width="104dp"
+                                android:layout_height="wrap_content"
+                                android:minHeight="44dp"
+                                android:text="Neutral"
+                                android:textAllCaps="false"
+                                android:textColor="@color/app_on_primary"
+                                android:textStyle="bold"
+                                app:backgroundTint="@color/app_primary"
+                                app:cornerRadius="18dp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/switchVolumeDirection"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="end"
+                                android:layout_marginTop="6dp"
+                                android:showText="true"
+                                android:textOff="POS"
+                                android:textOn="NEG" />
+                        </LinearLayout>
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
+                        android:layout_marginTop="6dp"
                         android:orientation="horizontal">
 
                         <com.example.thereminglovestest2.KnobControlView
@@ -345,7 +371,7 @@
                             android:id="@+id/knobVolumeAngleMax"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
+                            android:layout_marginStart="8dp"
                             android:layout_weight="1" />
                     </LinearLayout>
 

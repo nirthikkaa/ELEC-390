@@ -10,48 +10,20 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-/**
- * ScrollView that only applies horizontal system insets.
- *
- * Top inset is handled by TopNavBarView.
- * Bottom inset is handled by BottomNavBarView.
- */
 public class InsetAwareScrollView extends ScrollView {
 
-    public InsetAwareScrollView(@NonNull Context context) {
-        super(context);
-        init();
-    }
-
-    public InsetAwareScrollView(@NonNull Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
-        init();
-    }
-
-    public InsetAwareScrollView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        init();
-    }
+    public InsetAwareScrollView(@NonNull Context c) { super(c); init(); }
+    public InsetAwareScrollView(@NonNull Context c, @Nullable AttributeSet a) { super(c, a); init(); }
+    public InsetAwareScrollView(@NonNull Context c, @Nullable AttributeSet a, int d) { super(c, a, d); init(); }
 
     private void init() {
-        final int baseLeft = getPaddingLeft();
-        final int baseTop = getPaddingTop();
-        final int baseRight = getPaddingRight();
-        final int baseBottom = getPaddingBottom();
-
+        int left = getPaddingLeft(), top = getPaddingTop(), right = getPaddingRight(), bottom = getPaddingBottom();
         setClipToPadding(false);
-
         ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
             Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(
-                    baseLeft + sys.left,
-                    baseTop,
-                    baseRight + sys.right,
-                    baseBottom
-            );
+            v.setPadding(left + sys.left, top, right + sys.right, bottom);
             return insets;
         });
-
         ViewCompat.requestApplyInsets(this);
     }
 }

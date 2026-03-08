@@ -14,14 +14,6 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
-/**
- * Background audio owner.
- *
- * Why this exists:
- * - A normal activity thread is fine while Play is on screen.
- * - Once the app leaves the foreground, Android can schedule that activity less reliably.
- * - For smooth continuous sound, background playback needs a real foreground service owner.
- */
 public class ThereminBackgroundAudioService extends Service {
 
     private static final String ACTION_START = "com.example.thereminglovestest2.action.START_BG_AUDIO";
@@ -30,33 +22,29 @@ public class ThereminBackgroundAudioService extends Service {
     private static final long SETTINGS_REFRESH_MS = 500;
     private static final long SYNC_TICK_MS = 20;
 
-    private static volatile boolean serviceActive = false;
+    private static volatile boolean serviceActive;
 
+    private final AppSettings fallbackSettings = new AppSettings();
     private ThereminAudioEngine audioEngine;
     private SettingsStore settingsStore;
     private Thread syncThread;
-    private volatile boolean syncRunning = false;
-    private volatile AppSettings cachedSettings = new AppSettings();
-    private volatile long lastSettingsRefreshMs = 0L;
+    private volatile boolean syncRunning;
+    private volatile AppSettings cachedSettings = fallbackSettings;
+    private volatile long lastSettingsRefreshMs;
 
-    public static boolean isServiceActive() {
-        return serviceActive;
-    }
+    public static boolean isServiceActive() { return serviceActive; }
 
     public static void startIfNeeded(Context context) {
         if (context == null) return;
-        Intent intent = new Intent(context, ThereminBackgroundAudioService.class);
-        intent.setAction(ACTION_START);
-        ContextCompat.startForegroundService(context, intent);
+        Intent i = new Intent(context, ThereminBackgroundAudioService.class).setAction(ACTION_START);
+        ContextCompat.startForegroundService(context, i);
     }
 
     public static void stopIfRunning(Context context) {
-        if (context == null) return;
-        context.stopService(new Intent(context, ThereminBackgroundAudioService.class));
+        if (context != null) context.stopService(new Intent(context, ThereminBackgroundAudioService.class));
     }
 
-    @Override
-    public void onCreate() {
+    @Override public void onCreate() {
         super.onCreate();
         BleSessionManager.initialize(getApplicationContext());
         settingsStore = new SettingsStore(getApplicationContext());
@@ -64,148 +52,94 @@ public class ThereminBackgroundAudioService extends Service {
         createNotificationChannelIfNeeded();
     }
 
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    @Override public int onStartCommand(Intent intent, int flags, int startId) {
         startForeground(NOTIFICATION_ID, buildNotification());
-        startPlaybackLoopIfNeeded();
+        startLoopIfNeeded();
         return START_STICKY;
     }
 
-    @Override
-    public void onDestroy() {
-        stopPlaybackLoop();
-        if (audioEngine != null) {
-            audioEngine.shutdown();
-        }
+    @Override public void onDestroy() {
+        stopLoop();
+        if (audioEngine != null) audioEngine.shutdown();
         serviceActive = false;
         super.onDestroy();
     }
 
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
+    @Nullable @Override public IBinder onBind(Intent intent) { return null; }
 
-    private void startPlaybackLoopIfNeeded() {
+    private void startLoopIfNeeded() {
         if (syncRunning) return;
-
-        serviceActive = true;
-        syncRunning = true;
+        serviceActive = syncRunning = true;
         refreshSettings(true);
-
-        if (audioEngine != null && !audioEngine.isRunning()) {
-            audioEngine.start();
-        }
+        if (!audioEngine.isRunning()) audioEngine.start();
 
         syncThread = new Thread(() -> {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
-
             while (syncRunning) {
                 refreshSettings(false);
-                pushLatestTargets();
-
+                pushTargets(BleSessionManager.getSnapshot(), cachedSettings);
                 try {
                     Thread.sleep(SYNC_TICK_MS);
                 } catch (InterruptedException ignored) {
                     break;
                 }
             }
-
             syncRunning = false;
         }, "ThereminBgServiceSync");
         syncThread.start();
     }
 
-    private void stopPlaybackLoop() {
+    private void stopLoop() {
         syncRunning = false;
-
-        Thread thread = syncThread;
+        Thread t = syncThread;
         syncThread = null;
-        if (thread != null) {
-            thread.interrupt();
-            try {
-                thread.join(250);
-            } catch (InterruptedException ignored) {
-            }
-        }
+        if (t == null) return;
+        t.interrupt();
+        try { t.join(250); } catch (InterruptedException ignored) {}
     }
 
     private void refreshSettings(boolean force) {
         long now = android.os.SystemClock.elapsedRealtime();
         if (!force && now - lastSettingsRefreshMs < SETTINGS_REFRESH_MS) return;
-
         lastSettingsRefreshMs = now;
         try {
-            AppSettings loaded = settingsStore != null ? settingsStore.load() : null;
-            cachedSettings = loaded != null ? loaded : new AppSettings();
+            AppSettings loaded = settingsStore.load();
+            cachedSettings = loaded != null ? loaded : fallbackSettings;
         } catch (Exception ignored) {
-            cachedSettings = new AppSettings();
+            cachedSettings = fallbackSettings;
         }
     }
 
-    private void pushLatestTargets() {
-        if (audioEngine == null) return;
+    private void pushTargets(BleSnapshot s, AppSettings a) {
+        float freq = map(s != null ? s.pitchActiveDeltaDeg : 0f, a.pitchAngleMinDeg, a.pitchAngleMaxDeg, a.freqMinHz, a.freqMaxHz);
+        float volume = map(s != null ? s.volumeActiveDeltaDeg : 0f, a.volumeAngleMinDeg, a.volumeAngleMaxDeg, 0f, 1f);
 
-        BleSnapshot snapshot = BleSessionManager.getSnapshot();
-        AppSettings settings = cachedSettings != null ? cachedSettings : new AppSettings();
+        boolean pitchOk = s != null && s.isPitchConnected() && a.pitchEnabled;
+        boolean volumeOk = s != null && s.isVolumeConnected() && a.volumeEnabled;
+        boolean ready = s != null && s.isBluetoothOn() && pitchOk && volumeOk;
 
-        boolean btEnabled = BleUiText.isBluetoothOn(snapshot);
-        boolean pitchConnected = BleUiText.isGloveConnected(snapshot, true);
-        boolean volumeConnected = BleUiText.isGloveConnected(snapshot, false);
-
-        float freq = mapLinearClamped(
-                snapshot != null ? snapshot.pitchActiveDeltaDeg : 0f,
-                settings.pitchAngleMinDeg,
-                settings.pitchAngleMaxDeg,
-                settings.freqMinHz,
-                settings.freqMaxHz
-        );
-        float volume = mapLinearClamped(
-                snapshot != null ? snapshot.volumeActiveDeltaDeg : 0f,
-                settings.volumeAngleMinDeg,
-                settings.volumeAngleMaxDeg,
-                0f,
-                1f
-        );
-
-        if (!pitchConnected) freq = settings.freqMinHz;
-        if (!volumeConnected) volume = 0f;
-        if (!btEnabled || !(pitchConnected && volumeConnected)) volume = 0f;
-        if (!settings.pitchEnabled) freq = settings.freqMinHz;
-        if (!settings.volumeEnabled) volume = 0f;
-
-        audioEngine.setToneType(settings.toneType);
-        audioEngine.setTargets(freq, volume);
+        audioEngine.setToneType(a.toneType);
+        audioEngine.setTargets(pitchOk ? freq : a.freqMinHz, ready ? volume : 0f);
     }
 
-    private float mapLinearClamped(float x, float inMin, float inMax, float outMin, float outMax) {
+    private static float map(float x, float inMin, float inMax, float outMin, float outMax) {
         if (Math.abs(inMax - inMin) < 1e-6f) return outMin;
-        float t = clamp((x - inMin) / (inMax - inMin), 0f, 1f);
+        float t = Math.max(0f, Math.min(1f, (x - inMin) / (inMax - inMin)));
         return outMin + t * (outMax - outMin);
     }
 
-    private float clamp(float value, float min, float max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
     private Notification buildNotification() {
-        Intent openIntent = new Intent(this, MainActivity.class);
-        openIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(
-                this,
-                0,
-                openIntent,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                        ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-                        : PendingIntent.FLAG_UPDATE_CURRENT
-        );
+        Intent open = new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT |
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0);
+        PendingIntent content = PendingIntent.getActivity(this, 0, open, flags);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setContentTitle("Theremin Gloves")
                 .setContentText("Background audio is active")
-                .setContentIntent(contentIntent)
+                .setContentIntent(content)
                 .setOngoing(true)
                 .setSilent(true)
                 .build();
@@ -213,10 +147,8 @@ public class ThereminBackgroundAudioService extends Service {
 
     private void createNotificationChannelIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager == null) return;
-
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 "Theremin Background Audio",

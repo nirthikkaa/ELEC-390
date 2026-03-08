@@ -4,14 +4,13 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.SwitchCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityCalibrationBinding;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -22,84 +21,44 @@ import java.util.Locale;
 
 public class CalibrationActivity extends AppCompatActivity {
 
-    private ActivityCalibrationBinding binding;
-
     private static final long UI_POLL_MS = 150L;
+    private static final float ANGLE_MIN_LIMIT = -90f;
+    private static final float ANGLE_MAX_LIMIT = 90f;
+    private static final float FREQ_MIN_LIMIT = 20f;
+    private static final float FREQ_STANDARD_MAX_LIMIT = 2000f;
+    private static final float FREQ_EXTENDED_MAX_LIMIT = 20000f;
 
-    private static final float DEFAULT_PITCH_ANGLE_MIN  = Defaults.PITCH_ANGLE_MIN_DEG;
-    private static final float DEFAULT_PITCH_ANGLE_MAX  = Defaults.PITCH_ANGLE_MAX_DEG;
-    private static final float DEFAULT_FREQ_MIN         = Defaults.FREQ_MIN_HZ;
-    private static final float DEFAULT_FREQ_MAX         = Defaults.FREQ_MAX_HZ;
-    private static final float DEFAULT_VOLUME_ANGLE_MIN = Defaults.VOLUME_ANGLE_MIN_DEG;
-    private static final float DEFAULT_VOLUME_ANGLE_MAX = Defaults.VOLUME_ANGLE_MAX_DEG;
-
-    private static final float ANGLE_MIN_LIMIT = -90.0f;
-    private static final float ANGLE_MAX_LIMIT = 90.0f;
-    private static final float FREQ_MIN_LIMIT = 20.0f;
-    private static final float FREQ_STANDARD_MAX_LIMIT = 2000.0f;
-    private static final float FREQ_EXTENDED_MAX_LIMIT = 20000.0f;
-
-    private static final int CALIBRATION_PROGRESS_NOT_READY = 10;
-    private static final int CALIBRATION_PROGRESS_CONNECTED = 35;
-    private static final int CALIBRATION_PROGRESS_ONE_NEUTRAL = 65;
-    private static final int CALIBRATION_PROGRESS_READY = 100;
-
-
-    private final UiPoller uiPoller = new UiPoller(UI_POLL_MS, this::refreshLiveCalibration);
-
+    private ActivityCalibrationBinding binding;
+    private final NavigationUtils.Poller uiPoller = new NavigationUtils.Poller(UI_POLL_MS, this::refreshLiveCalibration);
     private SettingsStore settingsRepo;
 
-    private float pitchAngleMinDeg = DEFAULT_PITCH_ANGLE_MIN;
-    private float pitchAngleMaxDeg = DEFAULT_PITCH_ANGLE_MAX;
-    private float freqMinHz = DEFAULT_FREQ_MIN;
-    private float freqMaxHz = DEFAULT_FREQ_MAX;
-    private float volumeAngleMinDeg = DEFAULT_VOLUME_ANGLE_MIN;
-    private float volumeAngleMaxDeg = DEFAULT_VOLUME_ANGLE_MAX;
-
-    private boolean pitchDirectionInverted = false;
+    private float pitchAngleMinDeg = AppSettings.DEFAULT_PITCH_ANGLE_MIN_DEG;
+    private float pitchAngleMaxDeg = AppSettings.DEFAULT_PITCH_ANGLE_MAX_DEG;
+    private float freqMinHz = AppSettings.DEFAULT_FREQ_MIN_HZ;
+    private float freqMaxHz = AppSettings.DEFAULT_FREQ_MAX_HZ;
+    private float volumeAngleMinDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MIN_DEG;
+    private float volumeAngleMaxDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MAX_DEG;
+    private boolean pitchDirectionInverted;
     private boolean volumeDirectionInverted = true;
-    private boolean suppressDirectionSwitchCallbacks = false;
+    private boolean suppressDirectionSwitchCallbacks;
+    private boolean hasUnsavedChanges;
+    private boolean pitchNeutralCapturedThisVisit;
+    private boolean volumeNeutralCapturedThisVisit;
+    private boolean calibrationGuideLearned;
     private float freqMaxLimitHz = FREQ_STANDARD_MAX_LIMIT;
-
-    /**
-     * Calibration changes are local-only until SAVE & PLAY.
-     */
-    private boolean hasUnsavedChanges = false;
-    private boolean pitchNeutralCapturedThisVisit = false;
-    private boolean volumeNeutralCapturedThisVisit = false;
-    private boolean calibrationGuideLearned = false;
-
-    private TextView tvLiveStatus;
-    private TextView tvCalibrationProgress;
-    private TextView tvHostNote;
-    private TextView tvSavedSummary;
-    private TextView tvPitchLive;
-    private TextView tvPitchMeta;
-    private TextView tvVolumeLive;
-    private TextView tvVolumeMeta;
-
-    private ProgressBar progressCalibration;
-
-    private SwitchCompat switchPitchDirection;
-    private SwitchCompat switchVolumeDirection;
-
-    private KnobControlView knobPitchAngleMin;
-    private KnobControlView knobPitchAngleMax;
-    private KnobControlView knobFreqMin;
-    private KnobControlView knobFreqMax;
-    private KnobControlView knobVolumeAngleMin;
-    private KnobControlView knobVolumeAngleMax;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         settingsRepo = new SettingsStore(this);
         refreshFrequencyRangeLimit();
-        loadCalibrationUiPrefs();
-        loadStateFromRepositoryOrDefaults();
+        calibrationGuideLearned = SettingsStore.isCalibrationGuideLearned(this);
+        applySettings(settingsRepo.load());
+
         binding = ActivityCalibrationBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        bindViews();
+        binding.topNavBar.setTitleText("Calibration");
+
         setupControls();
         syncAllViewsFromState();
         refreshLiveCalibration();
@@ -108,19 +67,14 @@ public class CalibrationActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-
         boolean wasGuideLearned = calibrationGuideLearned;
         refreshFrequencyRangeLimit();
-        loadCalibrationUiPrefs();
-
+        calibrationGuideLearned = SettingsStore.isCalibrationGuideLearned(this);
         if (wasGuideLearned && !calibrationGuideLearned) {
-            pitchNeutralCapturedThisVisit = false;
-            volumeNeutralCapturedThisVisit = false;
+            resetNeutralCaptureProgress();
             setHostNote("Calibration tutorial restored. Start from step 1.");
         }
-
         syncAllViewsFromState();
-
         uiPoller.start();
     }
 
@@ -130,184 +84,77 @@ public class CalibrationActivity extends AppCompatActivity {
         uiPoller.stop();
     }
 
-    private void bindViews() {
-        binding.topNavBar.setTitleText("Calibration");
-
-        tvLiveStatus = binding.tvLiveStatus;
-        tvCalibrationProgress = binding.tvCalibrationProgress;
-        tvHostNote = binding.tvHostNote;
-        tvSavedSummary = binding.tvSavedSummary;
-        tvPitchLive = binding.tvPitchLive;
-        tvPitchMeta = binding.tvPitchMeta;
-        tvVolumeLive = binding.tvVolumeLive;
-        tvVolumeMeta = binding.tvVolumeMeta;
-
-        progressCalibration = binding.progressCalibration;
-
-        switchPitchDirection = binding.switchPitchDirection;
-        switchVolumeDirection = binding.switchVolumeDirection;
-
-        knobPitchAngleMin = binding.knobPitchAngleMin;
-        knobPitchAngleMax = binding.knobPitchAngleMax;
-        knobFreqMin = binding.knobFreqMin;
-        knobFreqMax = binding.knobFreqMax;
-        knobVolumeAngleMin = binding.knobVolumeAngleMin;
-        knobVolumeAngleMax = binding.knobVolumeAngleMax;
-    }
-
-    private boolean isExtendedFrequencyRangeEnabled() {
-        return AppPrefs.isExtendedFreqRangeEnabled(this);
-    }
-
-    private void refreshFrequencyRangeLimit() {
-        freqMaxLimitHz = isExtendedFrequencyRangeEnabled()
-                ? FREQ_EXTENDED_MAX_LIMIT
-                : FREQ_STANDARD_MAX_LIMIT;
-    }
-
-    private void refreshFrequencyKnobRanges() {
-        if (knobFreqMin != null) {
-            knobFreqMin.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
-        }
-        if (knobFreqMax != null) {
-            knobFreqMax.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
-        }
-    }
-
     private void setupControls() {
-        setupKnob(
-                knobPitchAngleMin,
-                "Pitch Angle Min",
-                ANGLE_MIN_LIMIT,
-                ANGLE_MAX_LIMIT,
-                0.5f,
-                true,
-                () -> pitchAngleMinDeg,
-                value -> pitchAngleMinDeg = value
-        );
-
-        setupKnob(
-                knobPitchAngleMax,
-                "Pitch Angle Max",
-                ANGLE_MIN_LIMIT,
-                ANGLE_MAX_LIMIT,
-                0.5f,
-                true,
-                () -> pitchAngleMaxDeg,
-                value -> pitchAngleMaxDeg = value
-        );
-
-        setupKnob(
-                knobFreqMin,
-                "Freq Min",
-                FREQ_MIN_LIMIT,
-                freqMaxLimitHz,
-                1.0f,
-                false,
-                () -> freqMinHz,
-                value -> freqMinHz = value
-        );
-
-        setupKnob(
-                knobFreqMax,
-                "Freq Max",
-                FREQ_MIN_LIMIT,
-                freqMaxLimitHz,
-                1.0f,
-                false,
-                () -> freqMaxHz,
-                value -> freqMaxHz = value
-        );
-
-        setupKnob(
-                knobVolumeAngleMin,
-                "Volume Angle Min",
-                ANGLE_MIN_LIMIT,
-                ANGLE_MAX_LIMIT,
-                0.5f,
-                true,
-                () -> volumeAngleMinDeg,
-                value -> volumeAngleMinDeg = value
-        );
-
-        setupKnob(
-                knobVolumeAngleMax,
-                "Volume Angle Max",
-                ANGLE_MIN_LIMIT,
-                ANGLE_MAX_LIMIT,
-                0.5f,
-                true,
-                () -> volumeAngleMaxDeg,
-                value -> volumeAngleMaxDeg = value
-        );
-
+        setupKnob(binding.knobPitchAngleMin, "Pitch Angle Min", ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT, 0.5f, true,
+                () -> pitchAngleMinDeg, value -> pitchAngleMinDeg = value);
+        setupKnob(binding.knobPitchAngleMax, "Pitch Angle Max", ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT, 0.5f, true,
+                () -> pitchAngleMaxDeg, value -> pitchAngleMaxDeg = value);
+        setupKnob(binding.knobFreqMin, "Freq Min", FREQ_MIN_LIMIT, freqMaxLimitHz, 1f, false,
+                () -> freqMinHz, value -> freqMinHz = value);
+        setupKnob(binding.knobFreqMax, "Freq Max", FREQ_MIN_LIMIT, freqMaxLimitHz, 1f, false,
+                () -> freqMaxHz, value -> freqMaxHz = value);
+        setupKnob(binding.knobVolumeAngleMin, "Volume Angle Min", ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT, 0.5f, true,
+                () -> volumeAngleMinDeg, value -> volumeAngleMinDeg = value);
+        setupKnob(binding.knobVolumeAngleMax, "Volume Angle Max", ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT, 0.5f, true,
+                () -> volumeAngleMaxDeg, value -> volumeAngleMaxDeg = value);
         refreshFrequencyKnobRanges();
 
-        Button btnPing = binding.btnPing;
-        btnPing.setOnClickListener(v -> {
-            BleSessionManager.requestRefreshHandshake();
-            setHostNote("Requested BLE refresh from the Play host.");
-        });
-
-        Button btnPitchNeutral = binding.btnPitchNeutral;
-        btnPitchNeutral.setOnClickListener(v -> handleNeutralCapture(true));
-
-        switchPitchDirection.setOnCheckedChangeListener((buttonView, isChecked) ->
-                handleDirectionToggle(true, isChecked)
-        );
-
-        Button btnVolumeNeutral = binding.btnVolumeNeutral;
-        btnVolumeNeutral.setOnClickListener(v -> handleNeutralCapture(false));
-
-        switchVolumeDirection.setOnCheckedChangeListener((buttonView, isChecked) ->
-                handleDirectionToggle(false, isChecked)
-        );
-
-        Button btnDefaults = binding.btnDefaults;
-        btnDefaults.setOnClickListener(v -> {
-            applyDefaultsToState();
-            hasUnsavedChanges = true;
-            resetNeutralCaptureProgress();
-            syncAllViewsFromState();
-            updateCalibrationProgress(getCalibrationSnapshot());
-            setHostNote("Defaults loaded locally.");
-        });
-
-        Button btnReload = binding.btnReload;
-        btnReload.setOnClickListener(v -> {
-            loadStateFromRepositoryOrDefaults();
-            hasUnsavedChanges = false;
-            resetNeutralCaptureProgress();
-            syncAllViewsFromState();
-            updateCalibrationProgress(getCalibrationSnapshot());
-            setHostNote("Loaded the last saved calibration from local storage.");
-        });
-
-        Button btnSaveAndPlay = binding.btnSaveAndPlay;
-        btnSaveAndPlay.setOnClickListener(v -> {
-            sanitizeState();
-            persistSettings();
-            setHostNote("Calibration saved. Returning to Play.");
-            returnToExistingPlay();
-        });
+        binding.btnPing.setOnClickListener(v -> runHostAction(BleSessionManager::requestRefreshHandshake,
+                "Requested BLE refresh from the Play host."));
+        binding.btnPitchNeutral.setOnClickListener(v -> handleNeutralCapture(true));
+        binding.btnVolumeNeutral.setOnClickListener(v -> handleNeutralCapture(false));
+        binding.switchPitchDirection.setOnCheckedChangeListener((buttonView, isChecked) -> handleDirectionToggle(true, isChecked));
+        binding.switchVolumeDirection.setOnCheckedChangeListener((buttonView, isChecked) -> handleDirectionToggle(false, isChecked));
+        binding.btnDefaults.setOnClickListener(v -> restoreDefaults());
+        binding.btnReload.setOnClickListener(v -> reloadSavedSettings());
+        binding.btnSaveAndPlay.setOnClickListener(v -> saveAndPlay());
     }
 
-    private void setupKnob(
-            KnobControlView knob,
-            String label,
-            float rangeMin,
-            float rangeMax,
-            float step,
-            boolean isAngle,
-            FloatGetter getter,
-            FloatSetter setter
-    ) {
+    private void runHostAction(Runnable action, String note) {
+        action.run();
+        setHostNote(note);
+    }
+
+    private void restoreDefaults() {
+        applySettings(new AppSettings());
+        hasUnsavedChanges = true;
+        resetNeutralCaptureProgress();
+        syncAllViewsFromState();
+        updateCalibrationProgress(BleSessionManager.getSnapshot());
+        setHostNote("Defaults loaded locally.");
+    }
+
+    private void reloadSavedSettings() {
+        applySettings(settingsRepo.load());
+        hasUnsavedChanges = false;
+        resetNeutralCaptureProgress();
+        syncAllViewsFromState();
+        updateCalibrationProgress(BleSessionManager.getSnapshot());
+        setHostNote("Loaded the last saved calibration from local storage.");
+    }
+
+    private void saveAndPlay() {
+        sanitizeState();
+        settingsRepo.save(buildSettings());
+        hasUnsavedChanges = false;
+        setHostNote("Calibration saved. Returning to Play.");
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+        intent.putExtra(MainActivity.EXTRA_AUTOSTART_AUDIO, true);
+        startActivity(intent);
+        overridePendingTransition(0, 0);
+        finish();
+    }
+
+    private void setupKnob(KnobControlView knob, String label, float rangeMin, float rangeMax, float step,
+                           boolean isAngle, FloatGetter getter, FloatSetter setter) {
         knob.setLabelText(label);
         knob.setRange(rangeMin, rangeMax);
         knob.setStepSize(step);
         knob.setValue(getter.get());
         knob.setValueText(formatValue(getter.get(), isAngle));
-
         knob.setOnKnobValueChangedListener((view, value, fromUser) -> {
             if (!fromUser) return;
             setter.set(value);
@@ -315,42 +162,26 @@ public class CalibrationActivity extends AppCompatActivity {
             hasUnsavedChanges = true;
             syncAllViewsFromState();
         });
-
         knob.setOnKnobCommitListener((view, value) -> {
             sanitizeState();
             hasUnsavedChanges = true;
             updateSummaryText();
         });
-
         knob.setOnClickListener(v -> showNumberEditDialog(label, getter.get(), setter, isAngle));
     }
 
-    private interface FloatGetter {
-        float get();
-    }
-
-    private interface FloatSetter {
-        void set(float value);
-    }
-
     private void showNumberEditDialog(String label, float current, FloatSetter setter, boolean isAngle) {
-        final float min = isAngle ? ANGLE_MIN_LIMIT : FREQ_MIN_LIMIT;
-        final float max = isAngle ? ANGLE_MAX_LIMIT : freqMaxLimitHz;
-        final String unit = isAngle ? "°" : " Hz";
-        final String initialText = String.format(Locale.US, isAngle ? "%.2f" : "%.0f", current);
+        float min = isAngle ? ANGLE_MIN_LIMIT : FREQ_MIN_LIMIT;
+        float max = isAngle ? ANGLE_MAX_LIMIT : freqMaxLimitHz;
+        String unit = isAngle ? "°" : " Hz";
 
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.VERTICAL);
         container.setPadding(dp(8), dp(8), dp(8), 0);
 
         TextView helper = new TextView(this);
-        helper.setText(String.format(
-                Locale.US,
-                "Enter a value from %s to %s%s",
-                formatRangeValue(min, isAngle),
-                formatRangeValue(max, isAngle),
-                unit
-        ));
+        helper.setText(String.format(Locale.US, "Enter a value from %s to %s%s",
+                formatPlainValue(min, isAngle), formatPlainValue(max, isAngle), unit));
         helper.setTextSize(14f);
         helper.setPadding(dp(4), 0, dp(4), dp(10));
 
@@ -360,33 +191,19 @@ public class CalibrationActivity extends AppCompatActivity {
         inputLayout.setHelperText(isAngle ? "Decimals allowed" : "Whole numbers recommended");
 
         TextInputEditText input = new TextInputEditText(inputLayout.getContext());
-        input.setInputType(
-                InputType.TYPE_CLASS_NUMBER
-                        | InputType.TYPE_NUMBER_FLAG_DECIMAL
-                        | InputType.TYPE_NUMBER_FLAG_SIGNED
-        );
-        input.setText(initialText);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        input.setText(String.format(Locale.US, isAngle ? "%.2f" : "%.0f", current));
         input.setSelectAllOnFocus(true);
         input.setGravity(Gravity.START);
         input.setTextSize(20f);
         input.setSingleLine(true);
-
         inputLayout.addView(input, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        container.addView(helper, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
+        container.addView(helper);
+        container.addView(inputLayout);
 
-        container.addView(inputLayout, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
-
-        final AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
                 .setTitle(label)
                 .setView(container)
                 .setNegativeButton("Cancel", null)
@@ -397,189 +214,130 @@ public class CalibrationActivity extends AppCompatActivity {
             input.requestFocus();
             input.post(() -> {
                 input.requestFocus();
-                if (input.getText() != null) {
-                    input.setSelection(0, input.getText().length());
-                }
+                if (input.getText() != null) input.setSelection(0, input.getText().length());
             });
-
-            Button positive = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            positive.setOnClickListener(v -> {
-                String raw = input.getText() == null ? "" : input.getText().toString().trim();
-                if (raw.isEmpty()) {
-                    inputLayout.setError("Enter a value.");
-                    return;
-                }
-
-                try {
-                    float value = Float.parseFloat(raw);
-                    if (value < min || value > max) {
-                        inputLayout.setError(String.format(
-                                Locale.US,
-                                "Use %s to %s%s",
-                                formatRangeValue(min, isAngle),
-                                formatRangeValue(max, isAngle),
-                                unit
-                        ));
-                        return;
-                    }
-
-                    inputLayout.setError(null);
-                    setter.set(value);
-                    sanitizeState();
-                    hasUnsavedChanges = true;
-                    syncAllViewsFromState();
-                    dialog.dismiss();
-                } catch (Exception ignored) {
-                    inputLayout.setError("Enter a valid number.");
-                }
-            });
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> applyTypedValue(inputLayout, input, setter, min, max, unit, isAngle, dialog));
         });
-
         dialog.show();
     }
 
-    private String formatRangeValue(float value, boolean isAngle) {
-        return String.format(Locale.US, isAngle ? "%.1f" : "%.0f", value);
+    private void applyTypedValue(TextInputLayout inputLayout, TextInputEditText input, FloatSetter setter,
+                                 float min, float max, String unit, boolean isAngle, AlertDialog dialog) {
+        String raw = input.getText() == null ? "" : input.getText().toString().trim();
+        if (raw.isEmpty()) {
+            inputLayout.setError("Enter a value.");
+            return;
+        }
+        try {
+            float value = Float.parseFloat(raw);
+            if (value < min || value > max) {
+                inputLayout.setError(String.format(Locale.US, "Use %s to %s%s",
+                        formatPlainValue(min, isAngle), formatPlainValue(max, isAngle), unit));
+                return;
+            }
+            inputLayout.setError(null);
+            setter.set(value);
+            sanitizeState();
+            hasUnsavedChanges = true;
+            syncAllViewsFromState();
+            dialog.dismiss();
+        } catch (Exception ignored) {
+            inputLayout.setError("Enter a valid number.");
+        }
     }
 
     private void refreshLiveCalibration() {
-        BleSessionManager.CalibrationUiSnapshot snapshot = getCalibrationSnapshot();
-
+        BleSnapshot snapshot = BleSessionManager.getSnapshot();
         if (snapshot == null || !snapshot.hostReady) {
-            tvLiveStatus.setText("Live status: host unavailable");
-
-            if (!hasUnsavedChanges) {
-                setHostNote("Open Play once to initialize BLE, then come back here.");
-            }
-
-            tvPitchLive.setText("Pitch ACTIVE_DELTA_DEG: —");
-            tvPitchMeta.setText(String.format(
-                    Locale.US,
-                    "Conn: — | Dir: %s | Neutral: —",
-                    pitchDirectionInverted ? "NEGATIVE" : "POSITIVE"
-            ));
-
-            tvVolumeLive.setText("Volume ACTIVE_DELTA_DEG: —");
-            tvVolumeMeta.setText(String.format(
-                    Locale.US,
-                    "Conn: — | Dir: %s | Neutral: —",
-                    volumeDirectionInverted ? "NEGATIVE" : "POSITIVE"
-            ));
-
-            syncDirectionToggleViews(false);
-            updateCalibrationProgress(null);
+            showDisconnectedLiveState();
             return;
         }
 
-        String liveStatusText = snapshot.bluetoothEnabled
-                ? ("Pitch: " + (snapshot.pitchConnected ? "CONNECTED" : "DISCONNECTED")
-                + " | Volume: " + (snapshot.volumeConnected ? "CONNECTED" : "DISCONNECTED"))
-                : "BLUETOOTH OFF";
-
-        tvLiveStatus.setText(liveStatusText);
+        binding.tvLiveStatus.setText(snapshot.bluetoothEnabled
+                ? String.format(Locale.US, "Pitch: %s | Volume: %s",
+                snapshot.pitchConnected ? "CONNECTED" : "DISCONNECTED",
+                snapshot.volumeConnected ? "CONNECTED" : "DISCONNECTED")
+                : "BLUETOOTH OFF");
 
         if (!hasUnsavedChanges) {
             setHostNote("Tap a value to type. Turn a knob to adjust. Save & Play stores the current values.");
         }
 
-        tvPitchLive.setText(String.format(Locale.US, "Pitch ACTIVE_DELTA_DEG: %.2f°", snapshot.pitchActiveDeltaDeg));
-        tvPitchMeta.setText(String.format(
-                Locale.US,
-                "Conn: %s | Dir: %s | Neutral: %.2f°",
-                snapshot.pitchConnected ? "ON" : "OFF",
-                snapshot.pitchDirectionText,
-                snapshot.pitchNeutralRollDeg
-        ));
+        applyLiveSection(binding.tvPitchLive, binding.tvPitchMeta, "Pitch",
+                snapshot.pitchActiveDeltaDeg, snapshot.pitchConnected,
+                snapshot.pitchDirectionText, snapshot.pitchNeutralRollDeg);
+        applyLiveSection(binding.tvVolumeLive, binding.tvVolumeMeta, "Volume",
+                snapshot.volumeActiveDeltaDeg, snapshot.volumeConnected,
+                snapshot.volumeDirectionText, snapshot.volumeNeutralRollDeg);
 
-        tvVolumeLive.setText(String.format(Locale.US, "Volume ACTIVE_DELTA_DEG: %.2f°", snapshot.volumeActiveDeltaDeg));
-        tvVolumeMeta.setText(String.format(
-                Locale.US,
-                "Conn: %s | Dir: %s | Neutral: %.2f°",
-                snapshot.volumeConnected ? "ON" : "OFF",
-                snapshot.volumeDirectionText,
-                snapshot.volumeNeutralRollDeg
-        ));
-
-        if (directionTextIsKnown(snapshot.pitchDirectionText)) {
-            pitchDirectionInverted = directionTextMeansInverted(snapshot.pitchDirectionText);
-        }
-        if (directionTextIsKnown(snapshot.volumeDirectionText)) {
-            volumeDirectionInverted = directionTextMeansInverted(snapshot.volumeDirectionText);
-        }
-
+        if (isKnownDirection(snapshot.pitchDirectionText)) pitchDirectionInverted = isInvertedDirection(snapshot.pitchDirectionText);
+        if (isKnownDirection(snapshot.volumeDirectionText)) volumeDirectionInverted = isInvertedDirection(snapshot.volumeDirectionText);
         syncDirectionToggleViews(snapshot.bluetoothEnabled);
         updateCalibrationProgress(snapshot);
     }
 
-    private void updateCalibrationProgress(BleSessionManager.CalibrationUiSnapshot snapshot) {
-        if (progressCalibration == null || tvCalibrationProgress == null) {
-            return;
-        }
+    private void showDisconnectedLiveState() {
+        binding.tvLiveStatus.setText("Live status: host unavailable");
+        if (!hasUnsavedChanges) setHostNote("Open Play once to initialize BLE, then come back here.");
+        applyLiveSection(binding.tvPitchLive, binding.tvPitchMeta, "Pitch", null, false,
+                pitchDirectionInverted ? "NEGATIVE" : "POSITIVE", null);
+        applyLiveSection(binding.tvVolumeLive, binding.tvVolumeMeta, "Volume", null, false,
+                volumeDirectionInverted ? "NEGATIVE" : "POSITIVE", null);
+        syncDirectionToggleViews(false);
+        updateCalibrationProgress(null);
+    }
 
+    private void applyLiveSection(TextView live, TextView meta, String name, Float delta,
+                                  boolean connected, String direction, Float neutral) {
+        live.setText(delta == null
+                ? name + " ACTIVE_DELTA_DEG: —"
+                : String.format(Locale.US, "%s ACTIVE_DELTA_DEG: %.2f°", name, delta));
+        meta.setText(neutral == null
+                ? String.format(Locale.US, "Conn: — | Dir: %s | Neutral: —", direction)
+                : String.format(Locale.US, "Conn: %s | Dir: %s | Neutral: %.2f°",
+                connected ? "ON" : "OFF", direction, neutral));
+    }
+
+    private void updateCalibrationProgress(BleSnapshot snapshot) {
         if (calibrationGuideLearned) {
-            progressCalibration.setVisibility(android.view.View.GONE);
-            tvCalibrationProgress.setVisibility(android.view.View.GONE);
+            setProgressVisible(false);
             return;
         }
 
+        int progress = 0;
+        String label = "Progress 0/3 • Open Play once so the BLE host becomes available.";
         boolean hostReady = snapshot != null && snapshot.hostReady;
         boolean bothConnected = hostReady && snapshot.pitchConnected && snapshot.volumeConnected;
 
-        int progress;
-        String label;
-
-        if (!hostReady) {
-            progress = 0;
-            label = "Progress 0/3 • Open Play once so the BLE host becomes available.";
-        } else if (!bothConnected) {
-            progress = CALIBRATION_PROGRESS_NOT_READY;
+        if (bothConnected) {
+            int steps = 1 + (pitchNeutralCapturedThisVisit ? 1 : 0) + (volumeNeutralCapturedThisVisit ? 1 : 0);
+            if (steps >= 3) {
+                calibrationGuideLearned = true;
+                SettingsStore.setCalibrationGuideLearned(this, true);
+                setProgressVisible(false);
+                return;
+            }
+            progress = steps == 1 ? 35 : 65;
+            label = steps == 1
+                    ? "Progress 1/3 • Both gloves connected. Capture pitch neutral first."
+                    : "Progress 2/3 • One neutral captured. Capture the remaining glove.";
+        } else if (hostReady) {
+            progress = 10;
             label = "Progress 0/3 • Connect both gloves before calibrating.";
-        } else if (!pitchNeutralCapturedThisVisit && !volumeNeutralCapturedThisVisit) {
-            progress = CALIBRATION_PROGRESS_CONNECTED;
-            label = "Progress 1/3 • Both gloves connected. Capture pitch neutral first.";
-        } else if (pitchNeutralCapturedThisVisit ^ volumeNeutralCapturedThisVisit) {
-            progress = CALIBRATION_PROGRESS_ONE_NEUTRAL;
-            label = "Progress 2/3 • One neutral captured. Capture the remaining glove.";
-        } else {
-            progress = CALIBRATION_PROGRESS_READY;
-            label = "Progress 3/3 • Calibration steps complete.";
-            calibrationGuideLearned = true;
-            saveCalibrationUiPrefs();
-            progressCalibration.setVisibility(android.view.View.GONE);
-            tvCalibrationProgress.setVisibility(android.view.View.GONE);
-            return;
         }
 
-        progressCalibration.setVisibility(android.view.View.VISIBLE);
-        tvCalibrationProgress.setVisibility(android.view.View.VISIBLE);
-        progressCalibration.setProgress(progress);
-        tvCalibrationProgress.setText(label);
+        setProgressVisible(true);
+        binding.progressCalibration.setProgress(progress);
+        binding.tvCalibrationProgress.setText(label);
     }
 
-    private boolean directionTextIsKnown(String directionText) {
-        if (directionText == null) return false;
-        String d = directionText.trim().toUpperCase(Locale.US);
-        return d.contains("POS") || d.contains("NEG");
+    private void setProgressVisible(boolean visible) {
+        int v = visible ? View.VISIBLE : View.GONE;
+        binding.progressCalibration.setVisibility(v);
+        binding.tvCalibrationProgress.setVisibility(v);
     }
 
-    private boolean directionTextMeansInverted(String directionText) {
-        return directionText != null
-                && directionText.trim().toUpperCase(Locale.US).contains("NEG");
-    }
-
-    private void syncDirectionToggleViews(boolean enabled) {
-        suppressDirectionSwitchCallbacks = true;
-        switchPitchDirection.setChecked(pitchDirectionInverted);
-        switchVolumeDirection.setChecked(volumeDirectionInverted);
-        suppressDirectionSwitchCallbacks = false;
-
-        switchPitchDirection.setEnabled(enabled);
-        switchVolumeDirection.setEnabled(enabled);
-    }
-
-    private void loadStateFromRepositoryOrDefaults() {
-        AppSettings s = settingsRepo.load();
-
+    private void applySettings(AppSettings s) {
         pitchAngleMinDeg = s.pitchAngleMinDeg;
         pitchAngleMaxDeg = s.pitchAngleMaxDeg;
         freqMinHz = s.freqMinHz;
@@ -588,56 +346,11 @@ public class CalibrationActivity extends AppCompatActivity {
         volumeAngleMaxDeg = s.volumeAngleMaxDeg;
         pitchDirectionInverted = s.pitchDirectionInverted;
         volumeDirectionInverted = s.volumeDirectionInverted;
-
         sanitizeState();
     }
 
-    private void applyDefaultsToState() {
-        pitchAngleMinDeg = DEFAULT_PITCH_ANGLE_MIN;
-        pitchAngleMaxDeg = DEFAULT_PITCH_ANGLE_MAX;
-        freqMinHz = DEFAULT_FREQ_MIN;
-        freqMaxHz = DEFAULT_FREQ_MAX;
-        volumeAngleMinDeg = DEFAULT_VOLUME_ANGLE_MIN;
-        volumeAngleMaxDeg = DEFAULT_VOLUME_ANGLE_MAX;
-
-        sanitizeState();
-    }
-
-    private void syncAllViewsFromState() {
-        sanitizeState();
-
-        refreshFrequencyKnobRanges();
-
-        knobPitchAngleMin.setValue(pitchAngleMinDeg);
-        knobPitchAngleMax.setValue(pitchAngleMaxDeg);
-        knobFreqMin.setValue(freqMinHz);
-        knobFreqMax.setValue(freqMaxHz);
-        knobVolumeAngleMin.setValue(volumeAngleMinDeg);
-        knobVolumeAngleMax.setValue(volumeAngleMaxDeg);
-
-        knobPitchAngleMin.setValueText(formatValue(pitchAngleMinDeg, true));
-        knobPitchAngleMax.setValueText(formatValue(pitchAngleMaxDeg, true));
-        knobFreqMin.setValueText(formatValue(freqMinHz, false));
-        knobFreqMax.setValueText(formatValue(freqMaxHz, false));
-        knobVolumeAngleMin.setValueText(formatValue(volumeAngleMinDeg, true));
-        knobVolumeAngleMax.setValueText(formatValue(volumeAngleMaxDeg, true));
-
-        syncDirectionToggleViews(BleSessionManager.isHostAvailable());
-        updateSummaryText();
-        updateCalibrationProgress(getCalibrationSnapshot());
-    }
-
-    private String formatValue(float value, boolean isAngle) {
-        return isAngle
-                ? String.format(Locale.US, "%.1f°", value)
-                : String.format(Locale.US, "%.0f Hz", value);
-    }
-
-    private void persistSettings() {
-        sanitizeState();
-
+    private AppSettings buildSettings() {
         AppSettings s = settingsRepo.load();
-
         s.pitchAngleMinDeg = pitchAngleMinDeg;
         s.pitchAngleMaxDeg = pitchAngleMaxDeg;
         s.freqMinHz = freqMinHz;
@@ -646,38 +359,79 @@ public class CalibrationActivity extends AppCompatActivity {
         s.volumeAngleMaxDeg = volumeAngleMaxDeg;
         s.pitchDirectionInverted = pitchDirectionInverted;
         s.volumeDirectionInverted = volumeDirectionInverted;
+        return s;
+    }
 
-        settingsRepo.save(s);
-        hasUnsavedChanges = false;
+    private void syncAllViewsFromState() {
+        sanitizeState();
+        refreshFrequencyKnobRanges();
+        applyKnob(binding.knobPitchAngleMin, pitchAngleMinDeg, true);
+        applyKnob(binding.knobPitchAngleMax, pitchAngleMaxDeg, true);
+        applyKnob(binding.knobFreqMin, freqMinHz, false);
+        applyKnob(binding.knobFreqMax, freqMaxHz, false);
+        applyKnob(binding.knobVolumeAngleMin, volumeAngleMinDeg, true);
+        applyKnob(binding.knobVolumeAngleMax, volumeAngleMaxDeg, true);
+
+        BleSnapshot snapshot = BleSessionManager.getSnapshot();
+        syncDirectionToggleViews(snapshot != null && snapshot.isBluetoothOn());
         updateSummaryText();
-        setHostNote("Calibration saved.");
+        updateCalibrationProgress(snapshot);
+    }
+
+    private void applyKnob(KnobControlView knob, float value, boolean isAngle) {
+        knob.setValue(value);
+        knob.setValueText(formatValue(value, isAngle));
     }
 
     private void updateSummaryText() {
-        String summary = String.format(
-                Locale.US,
+        binding.tvSavedSummary.setText((hasUnsavedChanges ? "Unsaved • " : "Saved • ") + String.format(Locale.US,
                 "Pitch %.1f°→%.1f° | Freq %.0f→%.0f Hz | Volume %.1f°→%.1f°",
-                pitchAngleMinDeg,
-                pitchAngleMaxDeg,
-                freqMinHz,
-                freqMaxHz,
-                volumeAngleMinDeg,
-                volumeAngleMaxDeg
-        );
+                pitchAngleMinDeg, pitchAngleMaxDeg, freqMinHz, freqMaxHz, volumeAngleMinDeg, volumeAngleMaxDeg));
+    }
 
-        if (hasUnsavedChanges) {
-            tvSavedSummary.setText("Unsaved • " + summary);
-        } else {
-            tvSavedSummary.setText("Saved • " + summary);
+    private void refreshFrequencyRangeLimit() {
+        freqMaxLimitHz = SettingsStore.isExtendedFreqRangeEnabled(this) ? FREQ_EXTENDED_MAX_LIMIT : FREQ_STANDARD_MAX_LIMIT;
+    }
+
+    private void refreshFrequencyKnobRanges() {
+        binding.knobFreqMin.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
+        binding.knobFreqMax.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
+    }
+
+    private void handleNeutralCapture(boolean isPitch) {
+        BleSnapshot snapshot = BleSessionManager.getSnapshot();
+        if (snapshot != null && snapshot.hostReady) {
+            if (isPitch && snapshot.pitchConnected) pitchNeutralCapturedThisVisit = true;
+            if (!isPitch && snapshot.volumeConnected) volumeNeutralCapturedThisVisit = true;
         }
+        BleSessionManager.requestCaptureNeutral(isPitch);
+        setHostNote(isPitch
+                ? "Pitch neutral captured. Now capture the volume glove."
+                : "Volume neutral captured. If both steps are done, SAVE & PLAY will finish calibration.");
+        updateCalibrationProgress(snapshot);
     }
 
-    private void loadCalibrationUiPrefs() {
-        calibrationGuideLearned = AppPrefs.isCalibrationGuideLearned(this);
+    private void handleDirectionToggle(boolean isPitch, boolean isChecked) {
+        if (suppressDirectionSwitchCallbacks) return;
+        if (!BleSessionManager.isHostAvailable()) {
+            setHostNote("Open Play first so the BLE host can apply direction changes.");
+            syncDirectionToggleViews(false);
+            return;
+        }
+        if (isPitch) pitchDirectionInverted = isChecked; else volumeDirectionInverted = isChecked;
+        BleSessionManager.requestToggleDirection(isPitch);
+        hasUnsavedChanges = true;
+        setHostNote(isPitch ? "Pitch direction toggle requested." : "Volume direction toggle requested.");
+        updateSummaryText();
     }
 
-    private void saveCalibrationUiPrefs() {
-        AppPrefs.setCalibrationGuideLearned(this, calibrationGuideLearned);
+    private void syncDirectionToggleViews(boolean enabled) {
+        suppressDirectionSwitchCallbacks = true;
+        binding.switchPitchDirection.setChecked(pitchDirectionInverted);
+        binding.switchVolumeDirection.setChecked(volumeDirectionInverted);
+        suppressDirectionSwitchCallbacks = false;
+        binding.switchPitchDirection.setEnabled(enabled);
+        binding.switchVolumeDirection.setEnabled(enabled);
     }
 
     private void sanitizeState() {
@@ -687,69 +441,19 @@ public class CalibrationActivity extends AppCompatActivity {
         volumeAngleMaxDeg = clamp(volumeAngleMaxDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
         freqMinHz = clamp(freqMinHz, FREQ_MIN_LIMIT, freqMaxLimitHz);
         freqMaxHz = clamp(freqMaxHz, FREQ_MIN_LIMIT, freqMaxLimitHz);
-
-        if (pitchAngleMaxDeg < pitchAngleMinDeg + 0.5f) {
-            pitchAngleMaxDeg = Math.min(ANGLE_MAX_LIMIT, pitchAngleMinDeg + 0.5f);
-        }
-
-        if (volumeAngleMaxDeg < volumeAngleMinDeg + 0.5f) {
-            volumeAngleMaxDeg = Math.min(ANGLE_MAX_LIMIT, volumeAngleMinDeg + 0.5f);
-        }
-
-        if (freqMaxHz < freqMinHz + 1.0f) {
-            freqMaxHz = Math.min(freqMaxLimitHz, freqMinHz + 1.0f);
-        }
+        if (pitchAngleMaxDeg < pitchAngleMinDeg + 0.5f) pitchAngleMaxDeg = Math.min(ANGLE_MAX_LIMIT, pitchAngleMinDeg + 0.5f);
+        if (volumeAngleMaxDeg < volumeAngleMinDeg + 0.5f) volumeAngleMaxDeg = Math.min(ANGLE_MAX_LIMIT, volumeAngleMinDeg + 0.5f);
+        if (freqMaxHz < freqMinHz + 1f) freqMaxHz = Math.min(freqMaxLimitHz, freqMinHz + 1f);
     }
 
-    private void handleNeutralCapture(boolean isPitch) {
-        BleSessionManager.CalibrationUiSnapshot snapshot = getCalibrationSnapshot();
-        markNeutralCapturedIfConnected(isPitch, snapshot);
-        BleSessionManager.requestCaptureNeutral(isPitch);
-
-        if (isPitch) {
-            setHostNote("Pitch neutral captured. Now capture the volume glove.");
-        } else {
-            setHostNote("Volume neutral captured. If both steps are done, SAVE & PLAY will finish calibration.");
-        }
-
-        updateCalibrationProgress(snapshot);
+    private boolean isKnownDirection(String text) {
+        if (text == null) return false;
+        String d = text.trim().toUpperCase(Locale.US);
+        return d.contains("POS") || d.contains("NEG");
     }
 
-    private void handleDirectionToggle(boolean isPitch, boolean isChecked) {
-        if (suppressDirectionSwitchCallbacks) return;
-
-        if (!BleSessionManager.isHostAvailable()) {
-            setHostNote("Open Play first so the BLE host can apply direction changes.");
-            syncDirectionToggleViews(false);
-            return;
-        }
-
-        if (isPitch) {
-            pitchDirectionInverted = isChecked;
-        } else {
-            volumeDirectionInverted = isChecked;
-        }
-
-        BleSessionManager.requestToggleDirection(isPitch);
-        hasUnsavedChanges = true;
-        setHostNote(isPitch ? "Pitch direction toggle requested." : "Volume direction toggle requested.");
-        updateSummaryText();
-    }
-
-    private BleSessionManager.CalibrationUiSnapshot getCalibrationSnapshot() {
-        return BleSessionManager.getCalibrationUiSnapshot();
-    }
-
-    private void markNeutralCapturedIfConnected(boolean isPitch, BleSessionManager.CalibrationUiSnapshot snapshot) {
-        if (snapshot == null || !snapshot.hostReady) {
-            return;
-        }
-
-        if (isPitch && snapshot.pitchConnected) {
-            pitchNeutralCapturedThisVisit = true;
-        } else if (!isPitch && snapshot.volumeConnected) {
-            volumeNeutralCapturedThisVisit = true;
-        }
+    private boolean isInvertedDirection(String text) {
+        return text != null && text.trim().toUpperCase(Locale.US).contains("NEG");
     }
 
     private void resetNeutralCaptureProgress() {
@@ -757,39 +461,26 @@ public class CalibrationActivity extends AppCompatActivity {
         volumeNeutralCapturedThisVisit = false;
     }
 
-    private void openPlayHost(boolean autoStartAudio) {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        | Intent.FLAG_ACTIVITY_NO_ANIMATION
-        );
-        if (autoStartAudio) {
-            intent.putExtra(MainActivity.EXTRA_AUTOSTART_AUDIO, true);
-        }
-        startActivity(intent);
-        overridePendingTransition(0, 0);
-    }
-
-    private void returnToExistingPlay() {
-        openPlayHost(true);
-        finish();
-    }
-
     private void setHostNote(String text) {
-        if (tvHostNote != null) {
-            tvHostNote.setText(text);
-        }
+        binding.tvHostNote.setText(text);
+    }
+
+    private String formatValue(float value, boolean isAngle) {
+        return String.format(Locale.US, isAngle ? "%.1f°" : "%.0f Hz", value);
+    }
+
+    private String formatPlainValue(float value, boolean isAngle) {
+        return String.format(Locale.US, isAngle ? "%.1f" : "%.0f", value);
     }
 
     private float clamp(float value, float min, float max) {
-        if (value < min) return min;
-        if (value > max) return max;
-        return value;
+        return Math.max(min, Math.min(max, value));
     }
 
     private int dp(int value) {
-        float density = getResources().getDisplayMetrics().density;
-        return Math.round(value * density);
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
+
+    private interface FloatGetter { float get(); }
+    private interface FloatSetter { void set(float value); }
 }

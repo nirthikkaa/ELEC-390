@@ -16,147 +16,104 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-/**
- * Persistent bottom navigation bar with exactly 5 items (one row).
- * Reuses existing activities when possible to reduce lifecycle churn.
- */
 public class BottomNavBarView extends LinearLayout {
 
-    private int colorSurface;
-    private int colorPrimary;
-    private int colorOnSurfaceVariant;
-    private int colorActiveBackground;
+    private static final NavItem[] ITEMS = {
+            new NavItem("Play", android.R.drawable.ic_media_play, MainActivity.class),
+            new NavItem("Connect", android.R.drawable.stat_sys_data_bluetooth, ConnectGlovesActivity.class),
+            new NavItem("Cal", android.R.drawable.ic_menu_compass, CalibrationActivity.class),
+            new NavItem("Library", android.R.drawable.ic_menu_slideshow, LibraryActivity.class),
+            new NavItem("Settings", android.R.drawable.ic_menu_manage, SettingsActivity.class)
+    };
 
-    public BottomNavBarView(Context context) {
-        super(context);
-        init(context);
-    }
+    private final int colorPrimary;
+    private final int colorOnSurfaceVariant;
+    private final int colorActiveBackground;
 
-    public BottomNavBarView(Context context, @Nullable AttributeSet attrs) {
-        super(context, attrs);
-        init(context);
-    }
+    public BottomNavBarView(Context context) { this(context, null); }
+    public BottomNavBarView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
 
     public BottomNavBarView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init(context);
-    }
-
-    private void init(Context context) {
-        setOrientation(HORIZONTAL);
-        setGravity(Gravity.CENTER_VERTICAL);
-
-        colorSurface = ContextCompat.getColor(context, R.color.app_surface);
+        int pad = dp(4);
         colorPrimary = ContextCompat.getColor(context, R.color.app_primary);
         colorOnSurfaceVariant = ContextCompat.getColor(context, R.color.app_on_surface_variant);
         colorActiveBackground = withAlpha(colorPrimary, 46);
 
-        // Plain translucent fill only. Lowered alpha for more transparency.
-        setBackgroundColor(withAlpha(colorSurface, 90));
+        setOrientation(HORIZONTAL);
+        setGravity(Gravity.CENTER_VERTICAL);
+        setBackgroundColor(withAlpha(ContextCompat.getColor(context, R.color.app_surface), 90));
         setElevation(dp(8));
-
-        int hPad = dp(4);
-        int vPad = dp(4);
-        setPadding(hPad, vPad, hPad, vPad);
         setClipToPadding(false);
-
-        final int baseLeft = getPaddingLeft();
-        final int baseTop = getPaddingTop();
-        final int baseRight = getPaddingRight();
-        final int baseBottom = getPaddingBottom();
-
+        setPadding(pad, pad, pad, pad);
         ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
             Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(
-                    baseLeft + sys.left,
-                    baseTop,
-                    baseRight + sys.right,
-                    baseBottom + sys.bottom
-            );
+            v.setPadding(pad + sys.left, pad, pad + sys.right, pad + sys.bottom);
             return insets;
         });
-
-        addNavItem(context, "Play", android.R.drawable.ic_media_play, MainActivity.class);
-        addNavItem(context, "Connect", android.R.drawable.stat_sys_data_bluetooth, ConnectGlovesActivity.class);
-        addNavItem(context, "Cal", android.R.drawable.ic_menu_compass, CalibrationActivity.class);
-        addNavItem(context, "Library", android.R.drawable.ic_menu_slideshow, LibraryActivity.class);
-        addNavItem(context, "Settings", android.R.drawable.ic_menu_manage, SettingsActivity.class);
-
+        for (NavItem item : ITEMS) addView(itemView(item), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         ViewCompat.requestApplyInsets(this);
     }
 
-    private void addNavItem(Context context, String label, int iconRes, Class<? extends Activity> target) {
-        boolean isActive = isCurrentActivity(target);
-
-        LinearLayout item = new LinearLayout(context);
-        item.setOrientation(VERTICAL);
-        item.setGravity(Gravity.CENTER);
-        item.setClickable(true);
-        item.setFocusable(true);
-        item.setPadding(dp(4), dp(6), dp(4), dp(6));
-        item.setBackgroundResource(getSelectableItemBackgroundResId());
-
-        if (isActive) {
-            item.setBackgroundColor(colorActiveBackground);
-        }
+    private LinearLayout itemView(NavItem item) {
+        boolean active = isCurrent(item.target);
+        Context context = getContext();
+        LinearLayout layout = new LinearLayout(context);
+        layout.setOrientation(VERTICAL);
+        layout.setGravity(Gravity.CENTER);
+        layout.setClickable(true);
+        layout.setFocusable(true);
+        layout.setPadding(dp(4), dp(6), dp(4), dp(6));
+        layout.setBackgroundResource(selectable());
+        if (active) layout.setBackgroundColor(colorActiveBackground);
 
         ImageView icon = new ImageView(context);
-        icon.setImageResource(iconRes);
-        icon.setColorFilter(isActive ? colorPrimary : colorOnSurfaceVariant);
+        icon.setImageResource(item.iconRes);
+        icon.setColorFilter(active ? colorPrimary : colorOnSurfaceVariant);
+        layout.addView(icon, new LayoutParams(dp(22), dp(22)));
 
-        LayoutParams iconLp = new LayoutParams(dp(22), dp(22));
-        item.addView(icon, iconLp);
-
-        TextView tv = new TextView(context);
-        tv.setText(label);
-        tv.setTextSize(11f);
-        tv.setGravity(Gravity.CENTER);
-        tv.setTextColor(isActive ? colorPrimary : colorOnSurfaceVariant);
-        if (isActive) {
-            tv.setTypeface(tv.getTypeface(), Typeface.BOLD);
-        }
-
-        LayoutParams textLp = new LayoutParams(
-                LayoutParams.WRAP_CONTENT,
-                LayoutParams.WRAP_CONTENT
-        );
+        TextView label = new TextView(context);
+        label.setText(item.label);
+        label.setTextSize(11f);
+        label.setGravity(Gravity.CENTER);
+        label.setTextColor(active ? colorPrimary : colorOnSurfaceVariant);
+        if (active) label.setTypeface(label.getTypeface(), Typeface.BOLD);
+        LayoutParams textLp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         textLp.topMargin = dp(2);
-        item.addView(tv, textLp);
+        layout.addView(label, textLp);
 
-        item.setOnClickListener(v -> openScreen(target));
-
-        LayoutParams itemLp = new LayoutParams(
-                0, LayoutParams.WRAP_CONTENT, 1f
-        );
-        addView(item, itemLp);
+        layout.setOnClickListener(v -> {
+            Context c = getContext();
+            if (c instanceof Activity) NavigationUtils.openScreen((Activity) c, item.target);
+        });
+        return layout;
     }
 
-    private boolean isCurrentActivity(Class<? extends Activity> target) {
-        Context c = getContext();
-        return (c instanceof Activity) && ((Activity) c).getClass().equals(target);
+    private boolean isCurrent(Class<? extends Activity> target) {
+        Context context = getContext();
+        return context instanceof Activity && context.getClass().equals(target);
     }
 
-    private void openScreen(Class<? extends Activity> target) {
-        Context c = getContext();
-        if (!(c instanceof Activity)) return;
-        NavigationUtils.openScreen((Activity) c, target);
-    }
-
-    private int getSelectableItemBackgroundResId() {
+    private int selectable() {
         TypedValue tv = new TypedValue();
-        boolean ok = getContext().getTheme().resolveAttribute(
-                android.R.attr.selectableItemBackground, tv, true
-        );
-        return ok ? tv.resourceId : android.R.color.transparent;
+        return getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
+                ? tv.resourceId : android.R.color.transparent;
     }
+
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
     private static int withAlpha(int color, int alpha255) {
-        alpha255 = Math.max(0, Math.min(255, alpha255));
-        return (color & 0x00FFFFFF) | (alpha255 << 24);
+        return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, alpha255)) << 24);
     }
 
-    private int dp(int value) {
-        float d = getResources().getDisplayMetrics().density;
-        return Math.round(value * d);
+    private static final class NavItem {
+        final String label;
+        final int iconRes;
+        final Class<? extends Activity> target;
+        NavItem(String label, int iconRes, Class<? extends Activity> target) {
+            this.label = label;
+            this.iconRes = iconRes;
+            this.target = target;
+        }
     }
 }
