@@ -212,15 +212,6 @@
                                 app:backgroundTint="@color/app_primary"
                                 app:cornerRadius="18dp" />
 
-                            <androidx.appcompat.widget.SwitchCompat
-                                android:id="@+id/switchPitchDirection"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="end"
-                                android:layout_marginTop="6dp"
-                                android:showText="true"
-                                android:textOff="POS"
-                                android:textOn="NEG" />
                         </LinearLayout>
                     </LinearLayout>
 
@@ -343,15 +334,6 @@
                                 app:backgroundTint="@color/app_primary"
                                 app:cornerRadius="18dp" />
 
-                            <androidx.appcompat.widget.SwitchCompat
-                                android:id="@+id/switchVolumeDirection"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="end"
-                                android:layout_marginTop="6dp"
-                                android:showText="true"
-                                android:textOff="POS"
-                                android:textOn="NEG" />
                         </LinearLayout>
                     </LinearLayout>
 

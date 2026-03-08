@@ -9,6 +9,12 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.thereminglovestest2.databinding.ActivityHomeBinding;
 
+/**
+ * Friendly setup screen.
+ *
+ * The job of this screen is simple:
+ * get Bluetooth ready, try auto-connect, and get out of the way.
+ */
 public class HomeActivity extends AppCompatActivity {
 
     private static final long UI_POLL_MS = 200L;
@@ -41,7 +47,8 @@ public class HomeActivity extends AppCompatActivity {
         refreshHomeSnapshot();
     }
 
-    @Override protected void onStart() {
+    @Override
+    protected void onStart() {
         super.onStart();
         BleSessionManager.initialize(getApplicationContext());
         autoNavigatedToPlayThisVisit = false;
@@ -50,7 +57,8 @@ public class HomeActivity extends AppCompatActivity {
         kickAutomaticSetupFlow();
     }
 
-    @Override protected void onStop() {
+    @Override
+    protected void onStop() {
         super.onStop();
         uiPoller.stop();
     }
@@ -58,11 +66,12 @@ public class HomeActivity extends AppCompatActivity {
     private void handlePrimaryAction() {
         BleSessionManager.runWhenReady(this, REQ_BLE_PERMS, REQ_ENABLE_BT, () -> {
             BleSnapshot snapshot = BleSessionManager.getSnapshot();
-            if (snapshot != null && snapshot.areBothGlovesConnected()) openPlay();
-            else {
-                autoConnectRequestedThisVisit = false;
-                kickAutomaticSetupFlow();
+            if (snapshot != null && snapshot.areBothGlovesConnected()) {
+                openPlay();
+                return;
             }
+            autoConnectRequestedThisVisit = false;
+            kickAutomaticSetupFlow();
         });
     }
 
@@ -102,11 +111,8 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void openPlay() {
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
-                | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-        startActivity(intent);
+        startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NO_ANIMATION));
         overridePendingTransition(0, 0);
         finish();
     }
@@ -116,23 +122,21 @@ public class HomeActivity extends AppCompatActivity {
         renderPitchAndVolume(snapshot);
 
         if (snapshot == null || !snapshot.hostReady) {
-            consecutiveFullyConnectedPolls = 0;
-            showState("Starting connection", "Getting Bluetooth ready...", "Please Wait", false, null, false);
+            setWaitingState("Starting connection", "Getting Bluetooth ready...", "Please Wait", false, null, false);
             return;
         }
 
         boolean permissionsOk = BleSessionManager.hasRequiredPermissions(this);
         boolean bluetoothOn = snapshot.isBluetoothOn() && BleSessionManager.isBluetoothEnabled(this);
+
         if (!permissionsOk) {
-            consecutiveFullyConnectedPolls = 0;
-            showState("Bluetooth permissions needed",
+            setWaitingState("Bluetooth permissions needed",
                     "Allow Bluetooth permissions so the app can find and connect your gloves.",
                     "Grant Bluetooth Permissions", true, null, false);
             return;
         }
         if (!bluetoothOn) {
-            consecutiveFullyConnectedPolls = 0;
-            showState("Bluetooth is off",
+            setWaitingState("Bluetooth is off",
                     "Turn Bluetooth on and the app will start looking for your gloves automatically.",
                     "Turn On Bluetooth", true, null, false);
             return;
@@ -157,6 +161,12 @@ public class HomeActivity extends AppCompatActivity {
         showState("Looking for gloves", "The app is ready and trying to connect automatically.",
                 "Retry Connection", true, "Connection Details", false);
         maybeAutoConnectIfPossible();
+    }
+
+    private void setWaitingState(String status, String hint, String button, boolean primaryEnabled,
+                                 String secondary, boolean showCalibrate) {
+        consecutiveFullyConnectedPolls = 0;
+        showState(status, hint, button, primaryEnabled, secondary, showCalibrate);
     }
 
     private void renderPitchAndVolume(BleSnapshot snapshot) {
@@ -189,13 +199,14 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQ_BLE_PERMS) return;
-        if (BleSessionManager.wereAllPermissionsGranted(grantResults)) {
+        if (requestCode == REQ_BLE_PERMS && BleSessionManager.wereAllPermissionsGranted(grantResults)) {
             autoConnectRequestedThisVisit = false;
             if (!BleSessionManager.isBluetoothEnabled(this)) {
                 bluetoothPromptShownThisVisit = false;
                 kickAutomaticSetupFlow();
-            } else maybeAutoConnectIfPossible();
+            } else {
+                maybeAutoConnectIfPossible();
+            }
         }
         refreshHomeSnapshot();
     }

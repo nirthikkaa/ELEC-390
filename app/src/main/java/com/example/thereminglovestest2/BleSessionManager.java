@@ -230,12 +230,19 @@ public final class BleSessionManager {
         MAIN.post(() -> send(glove(isPitch), "N"));
     }
     public static void requestToggleDirection(boolean isPitch) {
+        MAIN.post(() -> setDesiredDirection(isPitch, !currentDirection(isPitch)));
+    }
+    public static void setDesiredDirection(boolean isPitch, boolean inverted) {
         MAIN.post(() -> {
-            reloadDirectionSettings();
-            if (isPitch) pitchDirectionInverted = !pitchDirectionInverted;
-            else volumeDirectionInverted = !volumeDirectionInverted;
+            if (isPitch) pitchDirectionInverted = inverted;
+            else volumeDirectionInverted = inverted;
             saveDirectionSettings();
-            send(glove(isPitch), "D");
+            Glove glove = glove(isPitch);
+            if (glove == null) return;
+            glove.directionText = inverted ? "NEGATIVE" : "POSITIVE";
+            if (!glove.connected) return;
+            glove.lastDirectionSyncCommandMs = 0L;
+            syncDirectionIfNeeded(glove);
         });
     }
     public static void requestRefreshHandshake() {
@@ -304,6 +311,9 @@ public final class BleSessionManager {
         settings.pitchDirectionInverted = pitchDirectionInverted;
         settings.volumeDirectionInverted = volumeDirectionInverted;
         settingsStore.save(settings);
+    }
+    private static boolean currentDirection(boolean isPitch) {
+        return isPitch ? pitchDirectionInverted : volumeDirectionInverted;
     }
     private static void clearManualHolds() {
         for (Glove glove : GLOVES) glove.manualHold = false;

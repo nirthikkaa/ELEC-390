@@ -2,12 +2,17 @@ package com.example.thereminglovestest2;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.thereminglovestest2.databinding.ActivityConnectGlovesBinding;
 
+/**
+ * Manual BLE control screen.
+ * Keep it honest: show each glove clearly and let the user act directly.
+ */
 public class ConnectGlovesActivity extends AppCompatActivity {
 
     private static final long UI_POLL_MS = 150L;
@@ -33,24 +38,30 @@ public class ConnectGlovesActivity extends AppCompatActivity {
             BleSessionManager.requestRefreshHandshake();
             refreshUi();
         }));
+
         refreshUi();
     }
 
-    @Override protected void onStart() {
+    @Override
+    protected void onStart() {
         super.onStart();
         BleSessionManager.initialize(getApplicationContext());
         uiPoller.start();
     }
 
-    @Override protected void onStop() {
+    @Override
+    protected void onStop() {
         super.onStop();
         uiPoller.stop();
     }
 
     private void toggleGlove(boolean isPitch) {
         BleSnapshot snapshot = BleSessionManager.getSnapshot();
-        if (snapshot != null && snapshot.isGloveConnected(isPitch)) BleSessionManager.requestDisconnectGlove(isPitch);
-        else BleSessionManager.requestConnectGlove(isPitch);
+        if (snapshot != null && snapshot.isGloveConnected(isPitch)) {
+            BleSessionManager.requestDisconnectGlove(isPitch);
+        } else {
+            BleSessionManager.requestConnectGlove(isPitch);
+        }
         refreshUi();
     }
 
@@ -74,59 +85,76 @@ public class ConnectGlovesActivity extends AppCompatActivity {
 
         boolean permissionsOk = BleSessionManager.hasRequiredPermissions(this);
         boolean bluetoothOn = snapshot.isBluetoothOn() && BleSessionManager.isBluetoothEnabled(this);
+
         binding.tvBigStatus.setText(BleSnapshot.stripStatusPrefix(snapshot.statusText));
         binding.tvPairSummary.setText(snapshot.pairSummary());
-        binding.tvPitchConn.setText(snapshot.connectionDetail(true));
-        binding.tvPitchLast.setText(BleSnapshot.cleanLastValue(snapshot.pitchLastText, "Pitch last:"));
-        binding.tvVolConn.setText(snapshot.connectionDetail(false));
-        binding.tvVolLast.setText(BleSnapshot.cleanLastValue(snapshot.volumeLastText, "Volume last:"));
+        setGlove(binding.tvPitchConn, binding.tvPitchLast,
+                snapshot.connectionDetail(true), BleSnapshot.cleanLastValue(snapshot.pitchLastText, "Pitch last:"));
+        setGlove(binding.tvVolConn, binding.tvVolLast,
+                snapshot.connectionDetail(false), BleSnapshot.cleanLastValue(snapshot.volumeLastText, "Volume last:"));
         binding.tvHostNote.setText(snapshot.recentEventsText);
 
-        if (!permissionsOk) {
-            binding.tvReadyHeadline.setText("Bluetooth permissions needed");
-            binding.tvReadySubtext.setText("Allow Bluetooth permissions so the app can scan and connect your gloves.");
-        } else if (!bluetoothOn) {
-            binding.tvReadyHeadline.setText("Bluetooth is off");
-            binding.tvReadySubtext.setText("Turn Bluetooth on, then connect whichever glove you want.");
-        } else if (snapshot.areBothGlovesConnected()) {
-            binding.tvReadyHeadline.setText("Ready to play");
-            binding.tvReadySubtext.setText("Both gloves are connected. You can still disconnect either one here.");
-        } else if (snapshot.isAnyGloveConnected()) {
-            binding.tvReadyHeadline.setText("One glove connected");
-            binding.tvReadySubtext.setText("You can connect the other glove or disconnect the one that is already active.");
-        } else if (snapshot.isAnyGloveConnecting()) {
-            binding.tvReadyHeadline.setText("Connecting gloves");
-            binding.tvReadySubtext.setText("Keep the gloves awake and close to the phone for a few seconds.");
-        } else {
-            binding.tvReadyHeadline.setText("Connection ready");
-            binding.tvReadySubtext.setText("Connect either glove on its own, or connect both together.");
-        }
-
-        boolean bleReady = permissionsOk && bluetoothOn;
-        binding.btnConnectToggle.setEnabled(permissionsOk);
-        binding.btnConnectToggle.setText(snapshot.isBusy() ? "Disconnect All" : "Connect All");
-        binding.btnReconnectPitch.setEnabled(bleReady);
-        binding.btnReconnectPitch.setText(snapshot.isPitchConnected() ? "Disconnect Pitch Glove" : "Connect Pitch Glove");
-        binding.btnReconnectVolume.setEnabled(bleReady);
-        binding.btnReconnectVolume.setText(snapshot.isVolumeConnected() ? "Disconnect Volume Glove" : "Connect Volume Glove");
-        binding.btnRefreshInfo.setEnabled(bleReady && snapshot.isAnyGloveConnected());
+        updateReadyText(snapshot, permissionsOk, bluetoothOn);
+        updateButtons(snapshot, permissionsOk, bluetoothOn);
     }
 
     private void showPreparingState() {
-        binding.tvReadyHeadline.setText("Preparing Bluetooth");
-        binding.tvReadySubtext.setText("The connection engine is still waking up.");
+        setReady("Preparing Bluetooth", "The connection engine is still waking up.");
         binding.tvBigStatus.setText("Preparing");
         binding.tvPairSummary.setText("Waiting for connection engine");
-        binding.tvPitchConn.setText("Unavailable");
-        binding.tvPitchLast.setText("—");
-        binding.tvVolConn.setText("Unavailable");
-        binding.tvVolLast.setText("—");
+        setGlove(binding.tvPitchConn, binding.tvPitchLast, "Unavailable", "—");
+        setGlove(binding.tvVolConn, binding.tvVolLast, "Unavailable", "—");
         binding.tvHostNote.setText("Waiting for connection events...");
+
         binding.btnConnectToggle.setEnabled(false);
         binding.btnConnectToggle.setText("Preparing...");
         binding.btnReconnectPitch.setEnabled(false);
         binding.btnReconnectVolume.setEnabled(false);
         binding.btnRefreshInfo.setEnabled(false);
+    }
+
+    private void updateReadyText(BleSnapshot snapshot, boolean permissionsOk, boolean bluetoothOn) {
+        if (!permissionsOk) {
+            setReady("Bluetooth permissions needed",
+                    "Allow Bluetooth permissions so the app can scan and connect your gloves.");
+        } else if (!bluetoothOn) {
+            setReady("Bluetooth is off", "Turn Bluetooth on, then connect whichever glove you want.");
+        } else if (snapshot.areBothGlovesConnected()) {
+            setReady("Ready to play", "Both gloves are connected. You can still disconnect either one here.");
+        } else if (snapshot.isAnyGloveConnected()) {
+            setReady("One glove connected",
+                    "You can connect the other glove or disconnect the one that is already active.");
+        } else if (snapshot.isAnyGloveConnecting()) {
+            setReady("Connecting gloves", "Keep the gloves awake and close to the phone for a few seconds.");
+        } else {
+            setReady("Connection ready", "Connect either glove on its own, or connect both together.");
+        }
+    }
+
+    private void updateButtons(BleSnapshot snapshot, boolean permissionsOk, boolean bluetoothOn) {
+        boolean bleReady = permissionsOk && bluetoothOn;
+        binding.btnConnectToggle.setEnabled(permissionsOk);
+        binding.btnConnectToggle.setText(snapshot.isBusy() ? "Disconnect All" : "Connect All");
+        setButton(binding.btnReconnectPitch, bleReady,
+                snapshot.isPitchConnected() ? "Disconnect Pitch Glove" : "Connect Pitch Glove");
+        setButton(binding.btnReconnectVolume, bleReady,
+                snapshot.isVolumeConnected() ? "Disconnect Volume Glove" : "Connect Volume Glove");
+        binding.btnRefreshInfo.setEnabled(bleReady && snapshot.isAnyGloveConnected());
+    }
+
+    private void setReady(String headline, String subtext) {
+        binding.tvReadyHeadline.setText(headline);
+        binding.tvReadySubtext.setText(subtext);
+    }
+
+    private void setGlove(TextView conn, TextView last, String connText, String lastText) {
+        conn.setText(connText);
+        last.setText(lastText);
+    }
+
+    private void setButton(TextView button, boolean enabled, String text) {
+        button.setEnabled(enabled);
+        button.setText(text);
     }
 
     @SuppressWarnings("deprecation")
@@ -137,7 +165,9 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQ_PERMS && BleSessionManager.wereAllPermissionsGranted(grantResults)) refreshUi();
     }

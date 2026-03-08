@@ -35,11 +35,11 @@ public class BottomNavBarView extends LinearLayout {
 
     public BottomNavBarView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        int pad = dp(4);
         colorPrimary = ContextCompat.getColor(context, R.color.app_primary);
         colorOnSurfaceVariant = ContextCompat.getColor(context, R.color.app_on_surface_variant);
         colorActiveBackground = withAlpha(colorPrimary, 46);
 
+        int pad = dp(4);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
         setBackgroundColor(withAlpha(ContextCompat.getColor(context, R.color.app_surface), 90));
@@ -51,41 +51,40 @@ public class BottomNavBarView extends LinearLayout {
             v.setPadding(pad + sys.left, pad, pad + sys.right, pad + sys.bottom);
             return insets;
         });
-        for (NavItem item : ITEMS) addView(itemView(item), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+
+        for (NavItem item : ITEMS) addView(buildItem(item), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         ViewCompat.requestApplyInsets(this);
     }
 
-    private LinearLayout itemView(NavItem item) {
+    private LinearLayout buildItem(NavItem item) {
         boolean active = isCurrent(item.target);
-        Context context = getContext();
-        LinearLayout layout = new LinearLayout(context);
+        int itemColor = active ? colorPrimary : colorOnSurfaceVariant;
+
+        LinearLayout layout = new LinearLayout(getContext());
         layout.setOrientation(VERTICAL);
         layout.setGravity(Gravity.CENTER);
         layout.setClickable(true);
         layout.setFocusable(true);
         layout.setPadding(dp(4), dp(6), dp(4), dp(6));
-        layout.setBackgroundResource(selectable());
+        layout.setBackgroundResource(selectableRes());
         if (active) layout.setBackgroundColor(colorActiveBackground);
 
-        ImageView icon = new ImageView(context);
+        ImageView icon = new ImageView(getContext());
         icon.setImageResource(item.iconRes);
-        icon.setColorFilter(active ? colorPrimary : colorOnSurfaceVariant);
+        icon.setColorFilter(itemColor);
         layout.addView(icon, new LayoutParams(dp(22), dp(22)));
 
-        TextView label = new TextView(context);
+        TextView label = new TextView(getContext());
         label.setText(item.label);
         label.setTextSize(11f);
         label.setGravity(Gravity.CENTER);
-        label.setTextColor(active ? colorPrimary : colorOnSurfaceVariant);
+        label.setTextColor(itemColor);
         if (active) label.setTypeface(label.getTypeface(), Typeface.BOLD);
         LayoutParams textLp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         textLp.topMargin = dp(2);
         layout.addView(label, textLp);
 
-        layout.setOnClickListener(v -> {
-            Context c = getContext();
-            if (c instanceof Activity) NavigationUtils.openScreen((Activity) c, item.target);
-        });
+        layout.setOnClickListener(v -> open(item.target));
         return layout;
     }
 
@@ -94,22 +93,28 @@ public class BottomNavBarView extends LinearLayout {
         return context instanceof Activity && context.getClass().equals(target);
     }
 
-    private int selectable() {
+    private void open(Class<? extends Activity> target) {
+        Context context = getContext();
+        if (context instanceof Activity) NavigationUtils.openScreen((Activity) context, target);
+    }
+
+    private int selectableRes() {
         TypedValue tv = new TypedValue();
         return getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
                 ? tv.resourceId : android.R.color.transparent;
     }
 
-    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
-
     private static int withAlpha(int color, int alpha255) {
         return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, alpha255)) << 24);
     }
+
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
     private static final class NavItem {
         final String label;
         final int iconRes;
         final Class<? extends Activity> target;
+
         NavItem(String label, int iconRes, Class<? extends Activity> target) {
             this.label = label;
             this.iconRes = iconRes;

@@ -55,7 +55,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:text="Playback defaults, calibration guide controls, and advanced range options."
+                        android:text="Playback defaults, direction controls, calibration guide controls, and advanced range options."
                         android:textColor="@color/app_on_surface_variant"
                         android:textSize="15sp" />
                 </LinearLayout>
@@ -109,6 +109,69 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:text="This keeps the current Play behavior configurable without changing the instrument screen."
+                        android:textColor="@color/app_on_surface_variant"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/app_surface"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/app_outline"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Direction"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDirectionState"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="Pitch: POSITIVE | Volume: NEGATIVE"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="15sp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchPitchDirection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:text="Invert pitch glove direction (NEG when ON)"
+                        android:textColor="@color/app_on_surface" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/switchVolumeDirection"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:text="Invert volume glove direction (NEG when ON)"
+                        android:textColor="@color/app_on_surface" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="These are global direction settings. They stay out of Calibration so they are harder to change by accident."
                         android:textColor="@color/app_on_surface_variant"
                         android:textSize="13sp" />
                 </LinearLayout>
