@@ -8,6 +8,8 @@ package com.example.thereminglovestest2;
  * sudden jumps in pitch and volume, and exposes a downsampled copy of the waveform for the UI
  * visualizer. The rest of the app only tells it the latest target frequency, target volume, and
  * tone type.
+ *
+ * Sprint 2: Added PcmListener interface so RecordingManager can tap the raw PCM stream.
  */
 
 import android.media.AudioFormat;
@@ -49,12 +51,29 @@ public final class ThereminAudioEngine {
     private volatile float targetVolumeLinear;
     private volatile String toneType = AppSettings.TONE_SINE;
 
+    // Sprint 2: PCM tap for recording. Listener receives each filled buffer from the audio thread.
+    // Volatile so the recording start/stop from the UI thread is immediately visible to audio thread.
+    private volatile PcmListener pcmListener;
+
     private float phase;
     private float vibratoPhase;
     private float smoothFreqHz = 880f;
     private float smoothVolumeLinear;
     private float lastFreqHz = 880f;
     private float lastVolumeLinear;
+
+    // --- Sprint 2: PCM tap interface ---
+    // Implemented by RecordingManager. Called from the audio thread on every buffer fill (~2048
+    // samples at 48kHz = ~43ms per call). Implementations must be fast and non-blocking.
+    public interface PcmListener {
+        void onPcmSamples(short[] samples, int count);
+    }
+
+    public void setPcmListener(PcmListener listener) {
+        pcmListener = listener;
+    }
+
+    // --- Existing API (unchanged) ---
 
     public static final class VisualizerSnapshot {
         public final float[] samples;
@@ -107,6 +126,10 @@ public final class ThereminAudioEngine {
             while (running) {
                 fillBuffer(buffer);
                 updateVisualizer(buffer);
+                // Sprint 2: PCM tap — capture local reference to avoid race on volatile field.
+                // The listener (RecordingManager) must be non-blocking; this runs on the audio thread.
+                PcmListener l = pcmListener;
+                if (l != null) l.onPcmSamples(buffer, buffer.length);
                 try { track.write(buffer, 0, buffer.length); } catch (Exception ignored) {}
             }
         }, "ThereminAudioThread");
