@@ -1,5 +1,10 @@
 package com.example.thereminglovestest2;
 
+/**
+ * File guide:
+ * Small ScrollView helper that adds padding for system bars so content does not get hidden behind insets.
+ */
+
 import android.content.Context;
 import android.util.AttributeSet;
 import android.widget.ScrollView;

@@ -23,6 +23,8 @@ public class ThereminBackgroundAudioService extends Service {
     private static final long SYNC_TICK_MS = 20;
 
     private static volatile boolean serviceActive;
+    private static volatile AppSettings calibrationPreviewSettings;
+    private static volatile ThereminBackgroundAudioService activeInstance;
 
     private final AppSettings fallbackSettings = new AppSettings();
     private ThereminAudioEngine audioEngine;
@@ -33,6 +35,10 @@ public class ThereminBackgroundAudioService extends Service {
     private volatile long lastSettingsRefreshMs;
 
     public static boolean isServiceActive() { return serviceActive; }
+    public static ThereminAudioEngine.VisualizerSnapshot getVisualizerSnapshot() {
+        ThereminBackgroundAudioService service = activeInstance;
+        return service != null && service.audioEngine != null ? service.audioEngine.getVisualizerSnapshot() : null;
+    }
 
     public static void startIfNeeded(Context context) {
         if (context == null) return;
@@ -44,8 +50,18 @@ public class ThereminBackgroundAudioService extends Service {
         if (context != null) context.stopService(new Intent(context, ThereminBackgroundAudioService.class));
     }
 
+    public static void beginCalibrationPreview(Context context, AppSettings settings) {
+        calibrationPreviewSettings = copySettings(settings);
+        if (serviceActive && context != null) startIfNeeded(context);
+    }
+
+    public static void endCalibrationPreview() {
+        calibrationPreviewSettings = null;
+    }
+
     @Override public void onCreate() {
         super.onCreate();
+        activeInstance = this;
         BleSessionManager.initialize(getApplicationContext());
         settingsStore = new SettingsStore(getApplicationContext());
         audioEngine = new ThereminAudioEngine();
@@ -61,7 +77,9 @@ public class ThereminBackgroundAudioService extends Service {
     @Override public void onDestroy() {
         stopLoop();
         if (audioEngine != null) audioEngine.shutdown();
+        calibrationPreviewSettings = null;
         serviceActive = false;
+        if (activeInstance == this) activeInstance = null;
         super.onDestroy();
     }
 
@@ -111,15 +129,35 @@ public class ThereminBackgroundAudioService extends Service {
     }
 
     private void pushTargets(BleSnapshot s, AppSettings a) {
-        float freq = map(s != null ? s.pitchActiveDeltaDeg : 0f, a.pitchAngleMinDeg, a.pitchAngleMaxDeg, a.freqMinHz, a.freqMaxHz);
-        float volume = map(s != null ? s.volumeActiveDeltaDeg : 0f, a.volumeAngleMinDeg, a.volumeAngleMaxDeg, 0f, 1f);
+        AppSettings active = calibrationPreviewSettings != null ? calibrationPreviewSettings : a;
+        float freq = map(s != null ? s.pitchActiveDeltaDeg : 0f,
+                active.pitchAngleMinDeg, active.pitchAngleMaxDeg, active.freqMinHz, active.freqMaxHz);
+        float volume = map(s != null ? s.volumeActiveDeltaDeg : 0f,
+                active.volumeAngleMinDeg, active.volumeAngleMaxDeg, 0f, 1f);
 
-        boolean pitchOk = s != null && s.isPitchConnected() && a.pitchEnabled;
-        boolean volumeOk = s != null && s.isVolumeConnected() && a.volumeEnabled;
+        boolean pitchOk = s != null && s.isPitchConnected() && active.pitchEnabled;
+        boolean volumeOk = s != null && s.isVolumeConnected() && active.volumeEnabled;
         boolean ready = s != null && s.isBluetoothOn() && pitchOk && volumeOk;
 
-        audioEngine.setToneType(a.toneType);
-        audioEngine.setTargets(pitchOk ? freq : a.freqMinHz, ready ? volume : 0f);
+        audioEngine.setToneType(active.toneType);
+        audioEngine.setTargets(pitchOk ? freq : active.freqMinHz, ready ? volume : 0f);
+    }
+
+    private static AppSettings copySettings(AppSettings source) {
+        AppSettings copy = new AppSettings();
+        if (source == null) return copy;
+        copy.pitchAngleMinDeg = source.pitchAngleMinDeg;
+        copy.pitchAngleMaxDeg = source.pitchAngleMaxDeg;
+        copy.freqMinHz = source.freqMinHz;
+        copy.freqMaxHz = source.freqMaxHz;
+        copy.volumeAngleMinDeg = source.volumeAngleMinDeg;
+        copy.volumeAngleMaxDeg = source.volumeAngleMaxDeg;
+        copy.pitchDirectionInverted = source.pitchDirectionInverted;
+        copy.volumeDirectionInverted = source.volumeDirectionInverted;
+        copy.toneType = AppSettings.normalizeToneType(source.toneType);
+        copy.pitchEnabled = source.pitchEnabled;
+        copy.volumeEnabled = source.volumeEnabled;
+        return copy;
     }
 
     private static float map(float x, float inMin, float inMax, float outMin, float outMax) {

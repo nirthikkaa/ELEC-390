@@ -1,5 +1,10 @@
 package com.example.thereminglovestest2;
 
+/**
+ * File guide:
+ * Placeholder library screen. It is there to reserve the navigation route for future saved content.
+ */
+
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;

@@ -1,4 +1,5 @@
 package com.example.thereminglovestest2;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -21,24 +22,30 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Locale;
 import java.util.UUID;
+
 import no.nordicsemi.android.ble.BleManager;
 import no.nordicsemi.android.ble.BleManagerCallbacks;
-/**
- * Shared BLE owner for both theremin gloves.
- *
- * The screens only talk to this class and read one BleSnapshot back.
- * That keeps the BLE surface small even though there are still two real devices underneath.
- */
+
 public final class BleSessionManager {
     private static final String PITCH_NAME = "ThereminGlove";
     private static final String VOLUME_NAME = "ThereminGloveVol";
+    private static final String UNKNOWN = "UNKNOWN";
+    private static final String NONE = "(none)";
+    private static final String POSITIVE = "POSITIVE";
+    private static final String NEGATIVE = "NEGATIVE";
+    private static final String HANDSHAKE = "H";
+    private static final String CAPTURE_NEUTRAL = "N";
+    private static final String TOGGLE_DIRECTION = "D";
+
     private static final long SCAN_TIMEOUT_MS = 12_000L;
     private static final long CONNECT_TIMEOUT_MS = 12_000L;
     private static final long AUTO_RECONNECT_DELAY_MS = 1_500L;
@@ -47,11 +54,13 @@ public final class BleSessionManager {
     private static final long STALE_RECONNECT_MS = 20_000L;
     private static final long WATCHDOG_PERIOD_MS = 1_000L;
     private static final int EVENT_LOG_MAX_LINES = 8;
+
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final ArrayDeque<String> EVENTS = new ArrayDeque<>();
-    private static final Glove PITCH = new Glove("PITCH", PITCH_NAME, true);
-    private static final Glove VOLUME = new Glove("VOLUME", VOLUME_NAME, false);
+    private static final Glove PITCH = new Glove("PITCH", true);
+    private static final Glove VOLUME = new Glove("VOLUME", false);
     private static final Glove[] GLOVES = {PITCH, VOLUME};
+
     private static Context appContext;
     private static BluetoothAdapter bluetoothAdapter;
     private static BluetoothLeScanner scanner;
@@ -60,14 +69,15 @@ public final class BleSessionManager {
     private static boolean scanning;
     private static boolean manualDisconnectRequested;
     private static boolean receiverRegistered;
-    /** null means connect both gloves, otherwise only this glove should reconnect. */
     private static Glove connectTarget;
     private static String statusText = "Connect both gloves to start playing";
     private static boolean pitchDirectionInverted = AppSettings.DEFAULT_PITCH_DIRECTION_INVERTED;
     private static boolean volumeDirectionInverted = AppSettings.DEFAULT_VOLUME_DIRECTION_INVERTED;
     private static float pitchActiveDeltaDeg;
     private static float volumeActiveDeltaDeg;
+
     private BleSessionManager() {}
+
     private static final Runnable SCAN_TIMEOUT = BleSessionManager::onScanTimeout;
     private static final Runnable AUTO_RECONNECT = BleSessionManager::runAutoReconnect;
     private static final Runnable WATCHDOG = new Runnable() {
@@ -76,12 +86,15 @@ public final class BleSessionManager {
             MAIN.postDelayed(this, WATCHDOG_PERIOD_MS);
         }
     };
+
     private static final BroadcastReceiver BT_RECEIVER = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            if (intent == null || !BluetoothAdapter.ACTION_STATE_CHANGED.equals(intent.getAction())) return;
-            onBluetoothStateChanged(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR));
+            if (intent != null && BluetoothAdapter.ACTION_STATE_CHANGED.equals(intent.getAction())) {
+                onBluetoothStateChanged(intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR));
+            }
         }
     };
+
     private static final ScanCallback SCAN_CALLBACK = new ScanCallback() {
         @Override public void onScanResult(int callbackType, @NonNull ScanResult result) {
             Glove glove = gloveForName(deviceName(result.getDevice()));
@@ -90,9 +103,9 @@ public final class BleSessionManager {
             updateStatus();
         }
     };
+
     public static synchronized void initialize(Context context) {
-        if (context == null) return;
-        if (initialized && appContext != null) return;
+        if (context == null || initialized && appContext != null) return;
         appContext = context.getApplicationContext();
         BluetoothManager manager = (BluetoothManager) appContext.getSystemService(Context.BLUETOOTH_SERVICE);
         bluetoothAdapter = manager == null ? null : manager.getAdapter();
@@ -105,35 +118,35 @@ public final class BleSessionManager {
         log("BLE session initialized");
         updateStatus();
     }
+
     public static boolean isHostAvailable() {
         return initialized && appContext != null;
     }
+
     public static boolean hasRequiredPermissions(Context context) {
         if (context == null) return false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
-                    && ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
-        }
-        return ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                ? hasPermission(context, Manifest.permission.BLUETOOTH_SCAN)
+                && hasPermission(context, Manifest.permission.BLUETOOTH_CONNECT)
+                : hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION);
     }
+
     public static boolean isBluetoothEnabled(Context context) {
         if (context == null) return false;
         BluetoothManager manager = (BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE);
         BluetoothAdapter adapter = manager == null ? null : manager.getAdapter();
         return adapter != null && adapter.isEnabled();
     }
+
     public static void requestRequiredPermissions(Activity activity, int requestCode) {
         if (activity == null) return;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            ActivityCompat.requestPermissions(activity,
-                    new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT},
-                    requestCode);
-        } else {
-            ActivityCompat.requestPermissions(activity,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    requestCode);
-        }
+        ActivityCompat.requestPermissions(activity,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                        ? new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}
+                        : new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                requestCode);
     }
+
     @SuppressWarnings("deprecation")
     public static void requestEnableBluetoothPrompt(AppCompatActivity activity, int requestCode) {
         if (activity == null) return;
@@ -142,82 +155,88 @@ public final class BleSessionManager {
         } catch (Exception ignored) {
         }
     }
+
     public static boolean wereAllPermissionsGranted(int[] grantResults) {
         if (grantResults == null || grantResults.length == 0) return false;
         for (int result : grantResults) if (result != PackageManager.PERMISSION_GRANTED) return false;
         return true;
     }
+
     public static void runWhenReady(AppCompatActivity activity, int permissionsRequestCode,
                                     int enableBluetoothRequestCode, Runnable action) {
         if (!hasRequiredPermissions(activity)) requestRequiredPermissions(activity, permissionsRequestCode);
         else if (!isBluetoothEnabled(activity)) requestEnableBluetoothPrompt(activity, enableBluetoothRequestCode);
         else if (action != null) action.run();
     }
-    public static BleSnapshot getSnapshot() {
+
+    static BleSnapshot getSnapshot() {
         return new BleSnapshot(
-                isHostAvailable(),
-                bluetoothOn(),
-                scanning,
+                isHostAvailable(), bluetoothOn(), scanning,
                 bluetoothOn() ? "Status: " + statusText : "⚠️ BLUETOOTH OFF — Turn Bluetooth ON to play",
                 "Pitch last: " + PITCH.lastPacket,
                 "Volume last: " + VOLUME.lastPacket,
                 buildEventText(),
-                PITCH.connected,
-                VOLUME.connected,
-                PITCH.connecting,
-                VOLUME.connecting,
-                PITCH.manualHold,
-                VOLUME.manualHold,
-                PITCH.telemetryStale,
-                VOLUME.telemetryStale,
-                pitchActiveDeltaDeg,
-                volumeActiveDeltaDeg,
-                PITCH.neutralRollDeg,
-                VOLUME.neutralRollDeg,
-                safeDirection(PITCH),
-                safeDirection(VOLUME)
+                PITCH.connected, VOLUME.connected, PITCH.connecting, VOLUME.connecting,
+                PITCH.manualHold, VOLUME.manualHold, PITCH.telemetryStale, VOLUME.telemetryStale,
+                pitchActiveDeltaDeg, volumeActiveDeltaDeg,
+                PITCH.neutralRollDeg, VOLUME.neutralRollDeg,
+                safeDirection(PITCH), safeDirection(VOLUME)
         );
     }
+
     public static void requestBleToggle() {
         MAIN.post(() -> {
             if (busyOrConnected()) {
                 manualDisconnectRequested = true;
                 for (Glove glove : GLOVES) glove.manualHold = true;
                 log("Manual disconnect requested");
-                disconnectAll(false);
-                return;
+                disconnectAll();
+            } else {
+                manualDisconnectRequested = false;
+                connectTarget = null;
+                setManualHolds(false);
+                log("Manual connect requested");
+                startScan();
             }
-            manualDisconnectRequested = false;
-            connectTarget = null;
-            clearManualHolds();
-            log("Manual connect requested");
-            startScan();
         });
     }
+
     public static void requestConnectGlove(boolean isPitch) {
-        MAIN.post(() -> connectGlove(glove(isPitch), false));
+        MAIN.post(() -> connectGlove(glove(isPitch)));
     }
-    public static void requestReconnectGlove(boolean isPitch) {
-        MAIN.post(() -> connectGlove(glove(isPitch), true));
-    }
+
     public static void requestDisconnectGlove(boolean isPitch) {
-        MAIN.post(() -> disconnectGlove(glove(isPitch), true, true));
+        MAIN.post(() -> disconnectGlove(glove(isPitch)));
     }
+
+    public static void requestCaptureNeutral(boolean isPitch) {
+        MAIN.post(() -> send(glove(isPitch), CAPTURE_NEUTRAL));
+    }
+
+    public static void requestToggleDirection(boolean isPitch) {
+        MAIN.post(() -> setDesiredDirection(isPitch, !currentDirection(isPitch)));
+    }
+
+    public static void requestRefreshHandshake() {
+        MAIN.post(() -> forEachGlove(glove -> send(glove, HANDSHAKE)));
+    }
+
     public static void requestConnectMissingGloves() {
         MAIN.post(() -> {
-            if (!readyForBle()) return;
+            if (bleUnavailable()) return;
             manualDisconnectRequested = false;
             connectTarget = null;
-            clearManualHolds();
+            setManualHolds(false);
             if (!hasPendingConnections()) {
                 updateStatus();
                 return;
             }
-            for (Glove glove : GLOVES) if (glove.shouldConnect(connectTarget)) close(glove);
+            forEachGlove(glove -> { if (glove.shouldConnect(connectTarget)) close(glove); });
             log("Connect missing gloves requested");
             startScan();
         });
     }
+
     public static void maybeStartAutoConnect() {
         MAIN.post(() -> {
             if (!initialized || !bluetoothOn() || !hasRequiredPermissions(appContext)) return;
@@ -226,49 +245,36 @@ public final class BleSessionManager {
             startScan();
         });
     }
-    public static void requestCaptureNeutral(boolean isPitch) {
-        MAIN.post(() -> send(glove(isPitch), "N"));
-    }
-    public static void requestToggleDirection(boolean isPitch) {
-        MAIN.post(() -> setDesiredDirection(isPitch, !currentDirection(isPitch)));
-    }
+
     public static void setDesiredDirection(boolean isPitch, boolean inverted) {
-        MAIN.post(() -> {
-            if (isPitch) pitchDirectionInverted = inverted;
-            else volumeDirectionInverted = inverted;
-            saveDirectionSettings();
-            Glove glove = glove(isPitch);
-            if (glove == null) return;
-            glove.directionText = inverted ? "NEGATIVE" : "POSITIVE";
-            if (!glove.connected) return;
-            glove.lastDirectionSyncCommandMs = 0L;
-            syncDirectionIfNeeded(glove);
-        });
+        setDirection(isPitch, inverted);
+        saveDirectionSettings();
+        Glove glove = glove(isPitch);
+        glove.directionText = directionText(inverted);
+        if (!glove.connected) return;
+        glove.lastDirectionSyncCommandMs = 0L;
+        syncDirectionIfNeeded(glove);
     }
-    public static void requestRefreshHandshake() {
-        MAIN.post(() -> {
-            for (Glove glove : GLOVES) send(glove, "H");
-        });
+
+    private interface GloveAction { void run(Glove glove); }
+
+    private static void forEachGlove(GloveAction action) {
+        for (Glove glove : GLOVES) action.run(glove);
     }
+
     private static Glove glove(boolean isPitch) {
         return isPitch ? PITCH : VOLUME;
     }
+
     private static Glove gloveForName(String name) {
-        if (PITCH_NAME.equals(name)) return PITCH;
-        if (VOLUME_NAME.equals(name)) return VOLUME;
-        return null;
+        return PITCH_NAME.equals(name) ? PITCH : VOLUME_NAME.equals(name) ? VOLUME : null;
     }
-    private static void connectGlove(Glove glove, boolean forceReconnect) {
-        if (!readyForBle() || glove == null) return;
+
+    private static void connectGlove(Glove glove) {
+        if (glove == null || bleUnavailable()) return;
         manualDisconnectRequested = false;
         connectTarget = glove;
         glove.manualHold = false;
-        if (forceReconnect) {
-            log("Manual reconnect requested for " + glove.label + " glove");
-            close(glove);
-            startScan();
-            return;
-        }
         if (glove.connected || glove.connecting) {
             updateStatus();
             return;
@@ -277,34 +283,39 @@ public final class BleSessionManager {
         log("Manual connect requested for " + glove.label + " glove");
         startScan();
     }
-    private static void disconnectGlove(Glove glove, boolean manual, boolean logIt) {
+
+    private static void disconnectGlove(Glove glove) {
         if (glove == null) return;
-        glove.manualHold = manual;
-        if (logIt) log((manual ? "Manual" : "Auto") + " disconnect for " + glove.label + " glove");
+        glove.manualHold = true;
+        log("Manual disconnect for " + glove.label + " glove");
         close(glove);
         stopScan();
         updateStatus();
     }
-    private static boolean readyForBle() {
-        if (!initialized || appContext == null) return false;
+
+    private static boolean bleUnavailable() {
+        if (!initialized || appContext == null) return true;
         if (!hasRequiredPermissions(appContext)) return fail("BLE permissions required");
         if (!bluetoothOn()) {
             handleBluetoothOff();
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
+
     private static boolean fail(String message) {
         statusText = message;
         log(message);
-        return false;
+        return true;
     }
+
     private static void reloadDirectionSettings() {
         if (settingsStore == null) return;
         AppSettings settings = settingsStore.load();
         pitchDirectionInverted = settings.pitchDirectionInverted;
         volumeDirectionInverted = settings.volumeDirectionInverted;
     }
+
     private static void saveDirectionSettings() {
         if (settingsStore == null) return;
         AppSettings settings = settingsStore.load();
@@ -312,34 +323,46 @@ public final class BleSessionManager {
         settings.volumeDirectionInverted = volumeDirectionInverted;
         settingsStore.save(settings);
     }
+
+    private static void setDirection(boolean isPitch, boolean inverted) {
+        if (isPitch) pitchDirectionInverted = inverted;
+        else volumeDirectionInverted = inverted;
+    }
+
     private static boolean currentDirection(boolean isPitch) {
         return isPitch ? pitchDirectionInverted : volumeDirectionInverted;
     }
-    private static void clearManualHolds() {
-        for (Glove glove : GLOVES) glove.manualHold = false;
+
+    private static void setManualHolds(boolean value) {
+        forEachGlove(glove -> glove.manualHold = value);
     }
+
     private static boolean canAutoReconnect(Glove glove) {
         return glove != null && !manualDisconnectRequested && !glove.manualHold;
     }
+
     private static boolean bluetoothOn() {
         return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
     }
+
     private static boolean hasPendingConnections() {
         for (Glove glove : GLOVES) if (glove.shouldConnect(connectTarget)) return true;
         return false;
     }
+
     private static boolean busyOrConnected() {
         return scanning || PITCH.isBusy() || VOLUME.isBusy();
     }
+
     private static void startScan() {
         cancelReconnect();
-        if (!readyForBle()) return;
+        if (bleUnavailable()) return;
         if (!hasPendingConnections()) {
             updateStatus();
             return;
         }
         if (scanning) stopScan();
-        scanner = bluetoothAdapter == null ? null : bluetoothAdapter.getBluetoothLeScanner();
+        scanner = getScanner();
         if (scanner == null) {
             fail("Bluetooth scanner unavailable");
             return;
@@ -351,6 +374,9 @@ public final class BleSessionManager {
             scanner.startScan(SCAN_CALLBACK);
             MAIN.removeCallbacks(SCAN_TIMEOUT);
             MAIN.postDelayed(SCAN_TIMEOUT, SCAN_TIMEOUT_MS);
+        } catch (SecurityException e) {
+            scanning = false;
+            fail("BLE scan permission missing");
         } catch (Exception e) {
             scanning = false;
             log("Scan failed — retry scheduled");
@@ -358,13 +384,20 @@ public final class BleSessionManager {
             updateStatus();
         }
     }
+
     private static void stopScan() {
         MAIN.removeCallbacks(SCAN_TIMEOUT);
         if (!scanning || scanner == null) return;
-        try { scanner.stopScan(SCAN_CALLBACK); } catch (Exception ignored) {}
+        try {
+            scanner.stopScan(SCAN_CALLBACK);
+        } catch (SecurityException e) {
+            log("Scan stop blocked by permission state");
+        } catch (Exception ignored) {
+        }
         scanning = false;
         updateStatus();
     }
+
     private static void onScanTimeout() {
         if (!scanning) return;
         stopScan();
@@ -373,17 +406,35 @@ public final class BleSessionManager {
             scheduleReconnect("scan timeout");
         }
     }
-    @SuppressLint("MissingPermission")
+
+    private static BluetoothLeScanner getScanner() {
+        if (bluetoothAdapter == null || appContext == null || !hasRequiredPermissions(appContext)) return null;
+        try {
+            return bluetoothAdapter.getBluetoothLeScanner();
+        } catch (SecurityException e) {
+            log("Bluetooth scanner blocked by permission state");
+            return null;
+        }
+    }
+
     private static void maybeConnect(Glove glove, BluetoothDevice device) {
-        if (glove == null || !glove.shouldConnect(connectTarget)) return;
+        if (glove == null || !glove.shouldConnect(connectTarget) || bleUnavailable()) return;
         close(glove);
         glove.connecting = true;
         glove.connectAttemptStartMs = SystemClock.elapsedRealtime();
-        glove.manager = new ThereminGloveBleManager(appContext, glove.label, new GloveListener(glove));
-        glove.manager.connectTo(device, CONNECT_TIMEOUT_MS);
+        glove.manager = new ThereminGloveBleManager(appContext, new GloveListener(glove));
+        try {
+            glove.manager.connectTo(device, CONNECT_TIMEOUT_MS);
+        } catch (SecurityException e) {
+            glove.manager = null;
+            glove.connecting = false;
+            fail("BLE connect permission missing");
+            return;
+        }
         log("Connecting to " + glove.label + " glove");
         updateStatus();
     }
+
     private static void refreshTruth() {
         if (!initialized) return;
         if (!bluetoothOn()) {
@@ -391,12 +442,11 @@ public final class BleSessionManager {
             return;
         }
         long now = SystemClock.elapsedRealtime();
-        for (Glove glove : GLOVES) refreshTruth(glove, now);
+        forEachGlove(glove -> refreshTruth(glove, now));
     }
+
     private static void refreshTruth(Glove glove, long now) {
-        if (glove == null) return;
-        if (glove.connecting && glove.connectAttemptStartMs > 0L
-                && now - glove.connectAttemptStartMs >= CONNECT_TIMEOUT_MS) {
+        if (glove.connecting && glove.connectAttemptStartMs > 0L && now - glove.connectAttemptStartMs >= CONNECT_TIMEOUT_MS) {
             drop(glove, glove.label + " connect timeout", true);
             return;
         }
@@ -405,47 +455,55 @@ public final class BleSessionManager {
         glove.telemetryStale = age > STALE_WARNING_MS;
         if (age > PING_AFTER_MS && now - glove.lastPingMs > 2_000L) {
             glove.lastPingMs = now;
-            send(glove, "H");
+            send(glove, HANDSHAKE);
         }
         if (age > STALE_RECONNECT_MS) drop(glove, glove.label + " telemetry stale — reconnecting", true);
     }
+
     private static void drop(Glove glove, String reason, boolean reconnect) {
         close(glove);
         log(reason);
         updateStatus();
         if (reconnect && canAutoReconnect(glove)) scheduleReconnect(reason);
     }
+
     private static void scheduleReconnect(String reason) {
         if (!initialized || manualDisconnectRequested || !bluetoothOn() || !hasPendingConnections()) return;
         cancelReconnect();
         log("Auto-reconnect scheduled: " + reason);
         MAIN.postDelayed(AUTO_RECONNECT, AUTO_RECONNECT_DELAY_MS);
     }
+
     private static void cancelReconnect() {
         MAIN.removeCallbacks(AUTO_RECONNECT);
     }
+
     private static void runAutoReconnect() {
         if (!initialized || manualDisconnectRequested) return;
         if (!bluetoothOn()) handleBluetoothOff();
         else if (!scanning && hasPendingConnections()) startScan();
     }
-    private static void disconnectAll(boolean silent) {
+
+    private static void disconnectAll() {
         cancelReconnect();
         stopScan();
-        if (!silent) log("Disconnecting all gloves");
-        for (Glove glove : GLOVES) close(glove);
+        log("Disconnecting all gloves");
+        forEachGlove(BleSessionManager::close);
         updateStatus();
     }
+
     private static void close(Glove glove) {
         if (glove == null) return;
         ThereminGloveBleManager manager = glove.manager;
         glove.manager = null;
         glove.reset();
         setActiveDelta(glove, 0f);
-        if (manager != null) {
-            try { manager.disconnectAndClose(); } catch (Exception ignored) {}
+        if (manager != null) try {
+            manager.disconnectAndClose();
+        } catch (Exception ignored) {
         }
     }
+
     private static void send(Glove glove, String command) {
         if (glove == null || glove.manager == null || !glove.connected || !hasRequiredPermissions(appContext)) return;
         if (!bluetoothOn()) {
@@ -454,6 +512,7 @@ public final class BleSessionManager {
         }
         glove.manager.sendCommand(command);
     }
+
     private static void handleNotification(Glove glove, String line) {
         if (glove == null || line == null) return;
         glove.lastPacket = line;
@@ -466,9 +525,7 @@ public final class BleSessionManager {
         if (line.startsWith("ACTIVE_DELTA_DEG:")) {
             Float value = parseTailFloat(line);
             if (value != null) setActiveDelta(glove, value);
-            return;
-        }
-        if (line.startsWith("NEUTRAL_ROLL_DEG:")) {
+        } else if (line.startsWith("NEUTRAL_ROLL_DEG:")) {
             Float value = parseTailFloat(line);
             if (value != null) glove.neutralRollDeg = value;
         } else if (line.startsWith("DIRECTION:")) {
@@ -476,19 +533,25 @@ public final class BleSessionManager {
             syncDirectionIfNeeded(glove);
         }
     }
+
     private static void syncDirectionIfNeeded(Glove glove) {
         if (glove == null || !glove.connected) return;
-        reloadDirectionSettings();
         String reported = safeDirection(glove).toUpperCase(Locale.US);
-        String desired = glove.isPitch
-                ? (pitchDirectionInverted ? "NEGATIVE" : "POSITIVE")
-                : (volumeDirectionInverted ? "NEGATIVE" : "POSITIVE");
-        if ((!reported.contains("POS") && !reported.contains("NEG")) || reported.contains(desired)) return;
+        String desired = directionText(currentDirection(glove.isPitch));
         long now = SystemClock.elapsedRealtime();
-        if (now - glove.lastDirectionSyncCommandMs < 1_000L) return;
+        if (!isRealDirection(reported) || reported.contains(desired) || now - glove.lastDirectionSyncCommandMs < 1_000L) return;
         glove.lastDirectionSyncCommandMs = now;
-        send(glove, "D");
+        send(glove, TOGGLE_DIRECTION);
     }
+
+    private static String directionText(boolean inverted) {
+        return inverted ? NEGATIVE : POSITIVE;
+    }
+
+    private static boolean isRealDirection(String value) {
+        return value.contains("POS") || value.contains("NEG");
+    }
+
     private static Float parseTailFloat(String line) {
         int idx = line.indexOf(':');
         if (idx < 0 || idx >= line.length() - 1) return null;
@@ -498,50 +561,53 @@ public final class BleSessionManager {
             return null;
         }
     }
+
     private static void setActiveDelta(Glove glove, float value) {
-        if (glove == null) return;
         if (glove.isPitch) pitchActiveDeltaDeg = value;
         else volumeActiveDeltaDeg = value;
     }
+
     private static void updateStatus() {
-        if (!bluetoothOn()) statusText = "Bluetooth is off — turn it on to play";
-        else if (PITCH.connected && VOLUME.connected) statusText = "Both gloves connected — ready to play";
-        else if (PITCH.connected || VOLUME.connected) statusText = "One glove connected — connect the other glove";
-        else if (scanning) statusText = "Scanning for gloves...";
-        else if (PITCH.manualHold || VOLUME.manualHold) statusText = "One or more gloves are paused manually";
-        else statusText = "Connect both gloves to start playing";
+        statusText = !bluetoothOn() ? "Bluetooth is off — turn it on to play"
+                : PITCH.connected && VOLUME.connected ? "Both gloves connected — ready to play"
+                : PITCH.connected || VOLUME.connected ? "One glove connected — connect the other glove"
+                : scanning ? "Scanning for gloves..."
+                : PITCH.manualHold || VOLUME.manualHold ? "One or more gloves are paused manually"
+                : "Connect both gloves to start playing";
     }
+
     private static void onBluetoothStateChanged(int state) {
         switch (state) {
             case BluetoothAdapter.STATE_OFF:
             case BluetoothAdapter.STATE_TURNING_OFF:
                 handleBluetoothOff();
-                break;
+                return;
             case BluetoothAdapter.STATE_ON:
                 log("Bluetooth turned on");
                 updateStatus();
                 if (!manualDisconnectRequested) scheduleReconnect("Bluetooth on");
-                break;
+                return;
             case BluetoothAdapter.STATE_TURNING_ON:
                 statusText = "Bluetooth is turning on...";
                 log("Bluetooth is turning on");
-                break;
+                return;
             default:
-                break;
         }
     }
+
     private static void handleBluetoothOff() {
         cancelReconnect();
         stopScan();
-        for (Glove glove : GLOVES) {
+        forEachGlove(glove -> {
             close(glove);
-            glove.lastPacket = "(none)";
-        }
+            glove.lastPacket = NONE;
+        });
         pitchActiveDeltaDeg = 0f;
         volumeActiveDeltaDeg = 0f;
         statusText = "⚠️ BLUETOOTH OFF — Turn Bluetooth ON to play";
         log("Bluetooth turned off");
     }
+
     private static void registerBluetoothReceiver() {
         if (appContext == null || receiverRegistered) return;
         try {
@@ -550,11 +616,16 @@ public final class BleSessionManager {
         } catch (Exception ignored) {
         }
     }
+
     private static String safeDirection(Glove glove) {
-        if (glove == null || glove.directionText == null) return "UNKNOWN";
-        String value = glove.directionText.trim();
-        return value.isEmpty() ? "UNKNOWN" : value;
+        String value = glove == null || glove.directionText == null ? "" : glove.directionText.trim();
+        return value.isEmpty() ? UNKNOWN : value;
     }
+
+    private static boolean hasPermission(Context context, String permission) {
+        return ActivityCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED;
+    }
+
     @SuppressLint("MissingPermission")
     private static String deviceName(BluetoothDevice device) {
         if (device == null) return null;
@@ -564,6 +635,7 @@ public final class BleSessionManager {
             return null;
         }
     }
+
     private static void log(String message) {
         if (message == null || message.trim().isEmpty()) return;
         String stamped = String.format(Locale.US, "%1$tH:%1$tM:%1$tS  %2$s", System.currentTimeMillis(), message.trim());
@@ -572,6 +644,7 @@ public final class BleSessionManager {
             while (EVENTS.size() > EVENT_LOG_MAX_LINES) EVENTS.removeFirst();
         }
     }
+
     private static String buildEventText() {
         synchronized (EVENTS) {
             if (EVENTS.isEmpty()) return "No connection events yet.";
@@ -584,9 +657,9 @@ public final class BleSessionManager {
             return sb.toString();
         }
     }
+
     private static final class Glove {
         final String label;
-        final String advertisedName;
         final boolean isPitch;
         ThereminGloveBleManager manager;
         boolean connecting;
@@ -599,20 +672,23 @@ public final class BleSessionManager {
         long lastPingMs;
         long connectAttemptStartMs;
         long lastDirectionSyncCommandMs;
-        String lastPacket = "(none)";
+        String lastPacket = NONE;
         String directionText = "";
         float neutralRollDeg;
-        Glove(String label, String advertisedName, boolean isPitch) {
+
+        Glove(String label, boolean isPitch) {
             this.label = label;
-            this.advertisedName = advertisedName;
             this.isPitch = isPitch;
         }
+
         boolean shouldConnect(Glove only) {
             return !manualHold && !connected && !connecting && (only == null || only == this);
         }
+
         boolean isBusy() {
             return connected || connecting;
         }
+
         void reset() {
             connecting = false;
             connected = false;
@@ -626,14 +702,18 @@ public final class BleSessionManager {
             directionText = "";
         }
     }
+
     private static final class GloveListener implements ThereminGloveBleManager.Listener {
         private final Glove glove;
+
         GloveListener(Glove glove) {
             this.glove = glove;
         }
+
         private boolean owns(@NonNull ThereminGloveBleManager manager) {
             return glove.manager == manager;
         }
+
         @Override public void onConnecting(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device) {
             if (!owns(manager)) return;
             glove.connecting = true;
@@ -643,6 +723,7 @@ public final class BleSessionManager {
             glove.connectAttemptStartMs = SystemClock.elapsedRealtime();
             updateStatus();
         }
+
         @Override public void onConnected(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device) {
             if (!owns(manager)) return;
             glove.connecting = false;
@@ -656,29 +737,38 @@ public final class BleSessionManager {
             log(glove.label + " glove connected");
             updateStatus();
         }
+
         @Override public void onReady(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device) {
             if (!owns(manager)) return;
             glove.connected = true;
             glove.connecting = false;
             log(glove.label + " glove ready");
-            send(glove, "H");
+            send(glove, HANDSHAKE);
             updateStatus();
         }
+
         @Override public void onDisconnecting(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device) {
             if (owns(manager)) log(glove.label + " glove disconnecting");
         }
+
         @Override public void onDisconnected(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device) {
-            if (!owns(manager)) return;
-            glove.manager = null;
-            drop(glove, glove.label + " glove disconnected", true);
-            try { manager.disconnectAndClose(); } catch (Exception ignored) {}
+            finishDisconnect(manager, true, glove.label + " glove disconnected");
         }
+
         @Override public void onNotSupported(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device) {
+            finishDisconnect(manager, false, glove.label + " glove not supported");
+        }
+
+        private void finishDisconnect(@NonNull ThereminGloveBleManager manager, boolean reconnect, String reason) {
             if (!owns(manager)) return;
             glove.manager = null;
-            drop(glove, glove.label + " glove not supported", false);
-            try { manager.disconnectAndClose(); } catch (Exception ignored) {}
+            drop(glove, reason, reconnect);
+            try {
+                manager.disconnectAndClose();
+            } catch (Exception ignored) {
+            }
         }
+
         @Override public void onNotifications(@NonNull ThereminGloveBleManager manager, boolean enabled) {
             if (!owns(manager)) return;
             glove.notificationsEnabled = enabled;
@@ -690,13 +780,16 @@ public final class BleSessionManager {
                 drop(glove, glove.label + " notify failed", true);
             }
         }
+
         @Override public void onLine(@NonNull ThereminGloveBleManager manager, @NonNull String line) {
             if (owns(manager)) handleNotification(glove, line);
         }
+
         @Override public void onError(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device,
                                       @NonNull String message, int errorCode) {
             if (owns(manager)) log(glove.label + " error: " + message + " (" + errorCode + ")");
         }
+
         @Override public void onConnectFailed(@NonNull ThereminGloveBleManager manager, int status) {
             if (!owns(manager)) return;
             glove.manager = null;
@@ -704,14 +797,17 @@ public final class BleSessionManager {
         }
     }
 }
+
 final class BleSnapshot {
     private static final String FALLBACK = "—";
+
     final boolean hostReady, bluetoothEnabled, scanning;
     final boolean pitchConnected, volumeConnected, pitchConnecting, volumeConnecting;
     final boolean pitchManualHold, volumeManualHold, pitchTelemetryStale, volumeTelemetryStale;
     final String statusText, pitchLastText, volumeLastText, recentEventsText;
     final float pitchActiveDeltaDeg, volumeActiveDeltaDeg, pitchNeutralRollDeg, volumeNeutralRollDeg;
     final String pitchDirectionText, volumeDirectionText;
+
     BleSnapshot(boolean hostReady, boolean bluetoothEnabled, boolean scanning,
                 String statusText, String pitchLastText, String volumeLastText, String recentEventsText,
                 boolean pitchConnected, boolean volumeConnected, boolean pitchConnecting, boolean volumeConnecting,
@@ -741,6 +837,7 @@ final class BleSnapshot {
         this.pitchDirectionText = pitchDirectionText;
         this.volumeDirectionText = volumeDirectionText;
     }
+
     boolean isBluetoothOn() { return hostReady && bluetoothEnabled; }
     boolean isPitchConnected() { return hostReady && pitchConnected; }
     boolean isVolumeConnected() { return hostReady && volumeConnected; }
@@ -749,36 +846,43 @@ final class BleSnapshot {
     boolean isAnyGloveConnected() { return isPitchConnected() || isVolumeConnected(); }
     boolean isAnyGloveConnecting() { return hostReady && (scanning || pitchConnecting || volumeConnecting); }
     boolean isBusy() { return isAnyGloveConnected() || isAnyGloveConnecting(); }
+
     String pairSummary() {
-        if (areBothGlovesConnected()) return "Both gloves connected";
-        if (isAnyGloveConnected()) return "One glove connected";
-        return isAnyGloveConnecting() ? "Connecting..." : "No gloves connected";
+        return areBothGlovesConnected() ? "Both gloves connected"
+                : isAnyGloveConnected() ? "One glove connected"
+                : isAnyGloveConnecting() ? "Connecting..."
+                : "No gloves connected";
     }
+
     String connectionDetail(boolean isPitch) {
         if (!hostReady) return "Waiting";
         if (!bluetoothEnabled) return "Bluetooth off";
-        if (isGloveConnected(isPitch)) return stale(isPitch) ? "Connected • no data" : "Connected";
+        if (isGloveConnected(isPitch)) return (isPitch ? pitchTelemetryStale : volumeTelemetryStale) ? "Connected • no data" : "Connected";
         if (isAnyGloveConnecting()) return "Connecting…";
-        return manualHold(isPitch) ? "Disconnected" : "Waiting";
+        return (isPitch ? pitchManualHold : volumeManualHold) ? "Disconnected" : "Waiting";
     }
+
     String connectionChipText(String label, boolean isPitch) {
         return label + "\n" + connectionDetail(isPitch);
     }
-    private boolean stale(boolean isPitch) { return isPitch ? pitchTelemetryStale : volumeTelemetryStale; }
-    private boolean manualHold(boolean isPitch) { return isPitch ? pitchManualHold : volumeManualHold; }
+
     static String stripStatusPrefix(String text) {
         return safe(text).replace("Status: ", "");
     }
+
     static String cleanLastValue(String text, String prefix) {
         String cleaned = safe(text);
         if (prefix != null && cleaned.startsWith(prefix)) cleaned = cleaned.substring(prefix.length()).trim();
         return cleaned.isEmpty() ? FALLBACK : cleaned;
     }
+
     private static String safe(String text) {
         String trimmed = text == null ? "" : text.trim();
         return trimmed.isEmpty() ? FALLBACK : trimmed;
     }
 }
+
+@SuppressWarnings("deprecation")
 final class ThereminGloveBleManager extends BleManager {
     interface Listener {
         void onConnecting(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device);
@@ -792,26 +896,24 @@ final class ThereminGloveBleManager extends BleManager {
         void onError(@NonNull ThereminGloveBleManager manager, @NonNull BluetoothDevice device, @NonNull String message, int errorCode);
         void onConnectFailed(@NonNull ThereminGloveBleManager manager, int status);
     }
+
     private static final UUID SERVICE_UUID = UUID.fromString("12345678-1234-1234-1234-1234567890ab");
     private static final UUID TX_UUID = UUID.fromString("12345678-1234-1234-1234-1234567890ac");
     private static final UUID RX_UUID = UUID.fromString("12345678-1234-1234-1234-1234567890ad");
-    private final String roleLabel;
+
     private final Listener listener;
-    private final Callbacks callbacks = new Callbacks();
     private BluetoothGattCharacteristic txCharacteristic;
     private BluetoothGattCharacteristic rxCharacteristic;
-    private BluetoothDevice currentDevice;
-    ThereminGloveBleManager(@NonNull Context context, @NonNull String roleLabel, @NonNull Listener listener) {
+
+    ThereminGloveBleManager(@NonNull Context context, @NonNull Listener listener) {
         super(context);
-        this.roleLabel = roleLabel;
         this.listener = listener;
-        setGattCallbacks(callbacks);
+        setGattCallbacks(new Callbacks());
     }
-    @Override public int getMinLogPriority() {
-        return Log.INFO;
-    }
+
+    @Override public int getMinLogPriority() { return Log.INFO; }
+
     void connectTo(@NonNull BluetoothDevice device, long timeoutMs) {
-        currentDevice = device;
         connect(device)
                 .useAutoConnect(false)
                 .retry(3, 250)
@@ -822,6 +924,7 @@ final class ThereminGloveBleManager extends BleManager {
                 })
                 .enqueue();
     }
+
     void disconnectAndClose() {
         if (isConnected() || getConnectionState() != BluetoothGatt.STATE_DISCONNECTED) {
             disconnect().done(device -> close()).fail((device, status) -> close()).enqueue();
@@ -829,18 +932,15 @@ final class ThereminGloveBleManager extends BleManager {
             close();
         }
     }
+
     void sendCommand(@NonNull String command) {
         if (!isReady() || rxCharacteristic == null) return;
         writeCharacteristic(rxCharacteristic, command.getBytes(StandardCharsets.UTF_8))
-                .fail((device, status) -> {
-                    BluetoothDevice target = device != null ? device : currentDevice;
-                    if (target != null) listener.onError(this, target, roleLabel + " command write failed", status);
-                })
+                .fail((device, status) -> listener.onError(this, device, "Command write failed", status))
                 .enqueue();
     }
-    @SuppressWarnings("deprecation")
-    @NonNull
-    @Override
+
+    @NonNull @Override
     protected BleManagerGattCallback getGattCallback() {
         return new BleManagerGattCallback() {
             @Override protected boolean isRequiredServiceSupported(@NonNull BluetoothGatt gatt) {
@@ -849,6 +949,7 @@ final class ThereminGloveBleManager extends BleManager {
                 rxCharacteristic = service == null ? null : service.getCharacteristic(RX_UUID);
                 return txCharacteristic != null && rxCharacteristic != null;
             }
+
             @Override protected void initialize() {
                 setNotificationCallback(txCharacteristic).with((device, data) -> {
                     byte[] value = data.getValue();
@@ -861,13 +962,14 @@ final class ThereminGloveBleManager extends BleManager {
                         .fail((device, status) -> listener.onNotifications(ThereminGloveBleManager.this, false))
                         .enqueue();
             }
+
             @Override protected void onServicesInvalidated() {
                 txCharacteristic = null;
                 rxCharacteristic = null;
             }
         };
     }
-    @SuppressWarnings("deprecation")
+
     private final class Callbacks implements BleManagerCallbacks {
         @Override public void onDeviceConnecting(@NonNull BluetoothDevice device) { listener.onConnecting(ThereminGloveBleManager.this, device); }
         @Override public void onDeviceConnected(@NonNull BluetoothDevice device) { listener.onConnected(ThereminGloveBleManager.this, device); }

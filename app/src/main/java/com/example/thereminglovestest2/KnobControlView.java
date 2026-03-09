@@ -41,21 +41,20 @@ public class KnobControlView extends LinearLayout {
         setGravity(Gravity.CENTER_HORIZONTAL);
         setPadding(dp(4), dp(2), dp(4), dp(2));
 
-        titleView = makeLabel(context, 11f, false);
+        titleView = label(context, 11f, false);
         titleView.setMaxLines(2);
         addView(titleView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         LayoutParams frameLp = new LayoutParams(dp(148), dp(148));
         frameLp.topMargin = dp(4);
         FrameLayout frame = new FrameLayout(context);
-        frame.setLayoutParams(frameLp);
         frame.setClipChildren(false);
         frame.setClipToPadding(false);
 
         dialView = new DialFaceView(context);
         frame.addView(dialView, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
-        valueView = makeLabel(context, 15f, true);
+        valueView = label(context, 15f, true);
         valueView.setClickable(true);
         valueView.setFocusable(true);
         valueView.setMinWidth(dp(82));
@@ -65,16 +64,15 @@ public class KnobControlView extends LinearLayout {
         valueView.setIncludeFontPadding(false);
         valueView.setShadowLayer(dp(4), 0f, 0f, 0xCC090614);
         frame.addView(valueView, new FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER));
-
         addView(frame, frameLp);
-        refreshVisuals();
+        refresh();
     }
 
-    private TextView makeLabel(Context context, float sizeSp, boolean bold) {
+    private TextView label(Context context, float sizeSp, boolean bold) {
         TextView tv = new TextView(context);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
         tv.setGravity(Gravity.CENTER);
-        tv.setTextColor(themeColor(android.R.attr.textColorPrimary, Color.WHITE));
+        tv.setTextColor(color(android.R.attr.textColorPrimary, Color.WHITE));
         if (bold) tv.setTypeface(Typeface.DEFAULT_BOLD);
         return tv;
     }
@@ -83,10 +81,10 @@ public class KnobControlView extends LinearLayout {
         String safe = text == null ? "" : text;
         titleView.setText(safe);
         angleDial = safe.toLowerCase(Locale.US).contains("angle");
-        refreshVisuals();
+        refresh();
     }
 
-    public void setValueText(String text) { valueView.setText(text == null ? "" : text); refreshVisuals(); }
+    public void setValueText(String text) { valueView.setText(text == null ? "" : text); refresh(); }
     public void setRange(float minValue, float maxValue) { this.minValue = minValue; this.maxValue = Math.max(minValue, maxValue); setValue(currentValue, false); }
     public void setStepSize(float stepSize) { this.stepSize = stepSize <= 0f ? 1f : stepSize; setValue(currentValue, false); }
     public void setValue(float value) { setValue(value, false); }
@@ -97,17 +95,13 @@ public class KnobControlView extends LinearLayout {
 
     private void setValue(float value, boolean fromUser) {
         float snapped = snap(clamp(value, minValue, maxValue));
-        if (fromUser && Math.abs(snapped - currentValue) < 0.0001f) { refreshVisuals(); return; }
+        if (fromUser && Math.abs(snapped - currentValue) < 0.0001f) return;
         currentValue = snapped;
-        refreshVisuals();
+        refresh();
         if (valueChangedListener != null) valueChangedListener.onValueChanged(this, currentValue, fromUser);
     }
 
-    private void commitValue() {
-        if (commitListener != null) commitListener.onValueCommitted(this, currentValue);
-    }
-
-    private void refreshVisuals() {
+    private void refresh() {
         dialView.setContentDescription(titleView.getText() + ": " + valueView.getText());
         dialView.invalidate();
     }
@@ -119,95 +113,78 @@ public class KnobControlView extends LinearLayout {
 
     private float snap(float value) { return stepSize <= 0f ? value : clamp(Math.round((value - minValue) / stepSize) * stepSize + minValue, minValue, maxValue); }
     private static float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
-    private int themeColor(int attr, int fallback) {
+    private int color(int attr, int fallback) {
         TypedValue tv = new TypedValue();
         if (!getContext().getTheme().resolveAttribute(attr, tv, true)) return fallback;
         if (tv.type >= TypedValue.TYPE_FIRST_COLOR_INT && tv.type <= TypedValue.TYPE_LAST_COLOR_INT) return tv.data;
-        if (tv.resourceId != 0) {
-            try { return ContextCompat.getColor(getContext(), tv.resourceId); }
-            catch (Exception ignored) { }
-        }
-        return fallback;
+        try { return tv.resourceId == 0 ? fallback : ContextCompat.getColor(getContext(), tv.resourceId); }
+        catch (Exception ignored) { return fallback; }
     }
-
-    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
     private void disallowParentIntercept(boolean disallow) {
         for (ViewParent parent = getParent(); parent != null; parent = parent.getParent()) parent.requestDisallowInterceptTouchEvent(disallow);
     }
 
     private final class DialFaceView extends View {
-        private static final float START = 120f;
-        private static final float SWEEP = 300f;
-
-        private final RectF arcRect = new RectF();
+        private static final float START = 120f, SWEEP = 300f;
+        private final RectF arc = new RectF();
         private final Paint bezelFill = fill(0xFF07051A), faceFill = fill(0xFF0A061E), haloFill = fill(0xCC140F2C);
-        private final Paint bezelStroke = stroke(alpha(themeColor(android.R.attr.textColorSecondary, 0xFFAFA8D6), 95), 2);
-        private final Paint track = roundStroke(alpha(themeColor(android.R.attr.textColorSecondary, 0xFFAFA8D6), 120), 8);
-        private final Paint progress = roundStroke(alpha(themeColor(android.R.attr.colorAccent, 0xFF41D8FF), 235), 8);
-        private final Paint majorTick = roundStroke(alpha(themeColor(android.R.attr.textColorPrimary, 0xFFFFFFFF), 220), 2);
-        private final Paint minorTick = roundStroke(alpha(themeColor(android.R.attr.textColorPrimary, 0xFFFFFFFF), 130), 1);
-        private final Paint pointer = roundStroke(themeColor(android.R.attr.colorAccent, 0xFF41D8FF), 4);
-        private final Paint hub = fill(alpha(themeColor(android.R.attr.textColorPrimary, 0xFFFFFFFF), 235));
-        private final Paint label = text(alpha(themeColor(android.R.attr.textColorPrimary, 0xFFFFFFFF), 225), 9);
+        private final Paint bezelStroke = stroke(alpha(color(android.R.attr.textColorSecondary, 0xFFAFA8D6), 95), 2);
+        private final Paint track = roundStroke(alpha(color(android.R.attr.textColorSecondary, 0xFFAFA8D6), 120), 8);
+        private final Paint progress = roundStroke(alpha(color(android.R.attr.colorAccent, 0xFF41D8FF), 235), 8);
+        private final Paint majorTick = roundStroke(alpha(color(android.R.attr.textColorPrimary, 0xFFFFFFFF), 220), 2);
+        private final Paint minorTick = roundStroke(alpha(color(android.R.attr.textColorPrimary, 0xFFFFFFFF), 130), 1);
+        private final Paint pointer = roundStroke(color(android.R.attr.colorAccent, 0xFF41D8FF), 4);
+        private final Paint hub = fill(alpha(color(android.R.attr.textColorPrimary, 0xFFFFFFFF), 235));
+        private final Paint label = text(alpha(color(android.R.attr.textColorPrimary, 0xFFFFFFFF), 225), 9);
 
         DialFaceView(Context context) { super(context); }
 
-        @Override
-        protected void onDraw(Canvas canvas) {
+        @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float w = getWidth(), h = getHeight(), cx = w / 2f, cy = h / 2f;
-            float outer = Math.min(w, h) / 2f - dp(angleDial ? 8 : 10);
-            float face = outer - dp(angleDial ? 12 : 10);
-
+            float outer = Math.min(w, h) / 2f - dp(angleDial ? 8 : 10), face = outer - dp(angleDial ? 12 : 10), f = fraction();
             canvas.drawCircle(cx, cy, outer, bezelFill);
             canvas.drawCircle(cx, cy, outer, bezelStroke);
             canvas.drawCircle(cx, cy, face, faceFill);
             drawTicks(canvas, cx, cy, outer);
-
-            float inset = (Math.min(w, h) / 2f) - (face - dp(8));
-            arcRect.set(inset, inset, w - inset, h - inset);
-            canvas.drawArc(arcRect, START, SWEEP, false, track);
-            canvas.drawArc(arcRect, START, SWEEP * fraction(), false, progress);
+            float inset = Math.min(w, h) / 2f - (face - dp(8));
+            arc.set(inset, inset, w - inset, h - inset);
+            canvas.drawArc(arc, START, SWEEP, false, track);
+            canvas.drawArc(arc, START, SWEEP * f, false, progress);
             if (angleDial) drawAngleLabels(canvas, cx, cy, outer - dp(29));
-            drawPointer(canvas, cx, cy, face);
+            drawPointer(canvas, cx, cy, face, f);
             canvas.drawCircle(cx, cy, face * 0.34f, haloFill);
         }
 
         private void drawTicks(Canvas canvas, float cx, float cy, float outerRadius) {
-            int tickCount = angleDial ? 36 : 30, majorEvery = angleDial ? 9 : 5;
+            int count = angleDial ? 36 : 30, majorEvery = angleDial ? 9 : 5;
             float outer = outerRadius - dp(7), minorInner = outerRadius - dp(14), majorInner = outerRadius - dp(20);
-            for (int i = 0; i <= tickCount; i++) {
-                float angle = START + SWEEP * (i / (float) tickCount);
-                double rad = Math.toRadians(angle);
-                float inner = i % majorEvery == 0 ? majorInner : minorInner;
-                canvas.drawLine(cx + (float) Math.cos(rad) * inner, cy + (float) Math.sin(rad) * inner,
-                        cx + (float) Math.cos(rad) * outer, cy + (float) Math.sin(rad) * outer,
-                        i % majorEvery == 0 ? majorTick : minorTick);
+            for (int i = 0; i <= count; i++) {
+                float angle = START + SWEEP * i / count;
+                float cos = (float) Math.cos(Math.toRadians(angle)), sin = (float) Math.sin(Math.toRadians(angle)), inner = i % majorEvery == 0 ? majorInner : minorInner;
+                canvas.drawLine(cx + cos * inner, cy + sin * inner, cx + cos * outer, cy + sin * outer, i % majorEvery == 0 ? majorTick : minorTick);
             }
         }
 
         private void drawAngleLabels(Canvas canvas, float cx, float cy, float radius) {
-            int[] values = {-90, -45, 0, 45, 90};
             float baseline = (label.ascent() + label.descent()) / 2f;
-            for (int i = 0; i < values.length; i++) {
-                double rad = Math.toRadians(START + SWEEP * (i / 4f));
-                canvas.drawText(String.valueOf(values[i]), cx + (float) Math.cos(rad) * radius,
-                        cy + (float) Math.sin(rad) * radius - baseline, label);
+            for (int i = 0; i < 5; i++) {
+                double rad = Math.toRadians(START + SWEEP * i / 4f);
+                canvas.drawText(String.valueOf(-90 + 45 * i), cx + (float) Math.cos(rad) * radius, cy + (float) Math.sin(rad) * radius - baseline, label);
             }
         }
 
-        private void drawPointer(Canvas canvas, float cx, float cy, float faceRadius) {
-            double rad = Math.toRadians(START + SWEEP * fraction());
-            float start = faceRadius * 0.48f, end = faceRadius * 0.82f;
-            canvas.drawLine(cx + (float) Math.cos(rad) * start, cy + (float) Math.sin(rad) * start,
-                    cx + (float) Math.cos(rad) * end, cy + (float) Math.sin(rad) * end, pointer);
+        private void drawPointer(Canvas canvas, float cx, float cy, float faceRadius, float fraction) {
+            double rad = Math.toRadians(START + SWEEP * fraction);
+            float cos = (float) Math.cos(rad), sin = (float) Math.sin(rad), start = faceRadius * 0.48f, end = faceRadius * 0.82f;
+            canvas.drawLine(cx + cos * start, cy + sin * start, cx + cos * end, cy + sin * end, pointer);
             canvas.drawCircle(cx, cy, dp(4), hub);
         }
 
-        @Override
-        public boolean onTouchEvent(MotionEvent event) {
+        @Override public boolean onTouchEvent(MotionEvent event) {
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
                 case MotionEvent.ACTION_MOVE:
@@ -215,18 +192,19 @@ public class KnobControlView extends LinearLayout {
                     updateFromTouch(event.getX(), event.getY());
                     return true;
                 case MotionEvent.ACTION_UP:
-                    return finishTouch(event, true);
                 case MotionEvent.ACTION_CANCEL:
-                    return finishTouch(event, false);
+                    return finishTouch(event, event.getActionMasked() == MotionEvent.ACTION_UP);
                 default:
                     return super.onTouchEvent(event);
             }
         }
 
         private boolean finishTouch(MotionEvent event, boolean keepTouchValue) {
-            disallowParentIntercept(true);
-            if (keepTouchValue) { updateFromTouch(event.getX(), event.getY()); performClick(); }
-            commitValue();
+            if (keepTouchValue) {
+                updateFromTouch(event.getX(), event.getY());
+                performClick();
+            }
+            if (commitListener != null) commitListener.onValueCommitted(KnobControlView.this, currentValue);
             post(() -> disallowParentIntercept(false));
             return true;
         }
@@ -235,10 +213,9 @@ public class KnobControlView extends LinearLayout {
             float raw = (float) Math.toDegrees(Math.atan2(y - getHeight() / 2f, x - getWidth() / 2f));
             if (raw < 0f) raw += 360f;
             float start = START % 360f, end = (START + SWEEP) % 360f;
-            float valueFraction = (end < start && raw > end && raw < start)
-                    ? (distance(raw, start) <= distance(raw, end) ? 0f : 1f)
+            float fraction = (end < start && raw > end && raw < start) ? (distance(raw, start) <= distance(raw, end) ? 0f : 1f)
                     : (raw >= start ? (raw - start) / SWEEP : ((raw + 360f) - start) / SWEEP);
-            setValue(minValue + clamp(valueFraction, 0f, 1f) * (maxValue - minValue), true);
+            setValue(minValue + clamp(fraction, 0f, 1f) * (maxValue - minValue), true);
         }
 
         private float distance(float a, float b) {
@@ -249,7 +226,7 @@ public class KnobControlView extends LinearLayout {
         private Paint fill(int color) { Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); paint.setStyle(Paint.Style.FILL); paint.setColor(color); return paint; }
         private Paint stroke(int color, int widthDp) { Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(widthDp)); paint.setColor(color); return paint; }
         private Paint roundStroke(int color, int widthDp) { Paint paint = stroke(color, widthDp); paint.setStrokeCap(Paint.Cap.ROUND); return paint; }
-        private Paint text(int color, int sizeDp) { Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); paint.setStyle(Paint.Style.FILL); paint.setColor(color); paint.setTextAlign(Paint.Align.CENTER); paint.setTypeface(Typeface.DEFAULT_BOLD); paint.setTextSize(dp(sizeDp)); return paint; }
+        private Paint text(int color, int sizeDp) { Paint paint = fill(color); paint.setTextAlign(Paint.Align.CENTER); paint.setTypeface(Typeface.DEFAULT_BOLD); paint.setTextSize(dp(sizeDp)); return paint; }
         private int alpha(int color, int alpha255) { return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, alpha255)) << 24); }
     }
 }

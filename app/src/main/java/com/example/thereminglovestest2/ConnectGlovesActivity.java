@@ -1,5 +1,10 @@
 package com.example.thereminglovestest2;
 
+/**
+ * File guide:
+ * Manual BLE control screen. It shows each glove clearly and lets the user connect, reconnect, or disconnect directly.
+ */
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;

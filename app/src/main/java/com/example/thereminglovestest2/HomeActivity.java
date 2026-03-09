@@ -1,5 +1,10 @@
 package com.example.thereminglovestest2;
 
+/**
+ * File guide:
+ * Setup and onboarding screen. It helps the user get Bluetooth ready and guides them into the app flow.
+ */
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;

@@ -1,5 +1,10 @@
 package com.example.thereminglovestest2;
 
+/**
+ * File guide:
+ * Custom view that draws the live waveform shown on the Play screen.
+ */
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;

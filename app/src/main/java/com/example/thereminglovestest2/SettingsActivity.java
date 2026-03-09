@@ -15,8 +15,7 @@ public class SettingsActivity extends AppCompatActivity {
     private SettingsStore store;
     private boolean quiet;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivitySettingsBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -26,36 +25,29 @@ public class SettingsActivity extends AppCompatActivity {
         refreshUi();
     }
 
-    @Override
-    protected void onResume() {
+    @Override protected void onResume() {
         super.onResume();
         refreshUi();
     }
 
     private void bindActions() {
         binding.switchBackgroundAudio.setOnCheckedChangeListener((v, on) ->
-                onToggle(() -> SettingsStore.setBgAudioEnabled(this, on),
-                        "Background audio " + (on ? "enabled" : "disabled")));
+                onToggle(() -> SettingsStore.setBgAudioEnabled(this, on), "Background audio " + (on ? "enabled" : "disabled")));
 
-        binding.switchExtendedFrequencyRange.setOnCheckedChangeListener((v, on) ->
-                onToggle(() -> {
-                    SettingsStore.setExtendedFreqRangeEnabled(this, on);
-                    if (!on) clampSavedFrequencyRange();
-                }, on ? "Frequency ceiling raised to 20,000 Hz"
-                        : "Frequency ceiling reset to 2,000 Hz"));
+        binding.switchExtendedFrequencyRange.setOnCheckedChangeListener((v, on) -> onToggle(() -> {
+            SettingsStore.setExtendedFreqRangeEnabled(this, on);
+            if (!on) clampSavedFrequencyRange();
+        }, on ? "Frequency ceiling raised to 20,000 Hz" : "Frequency ceiling reset to 2,000 Hz"));
 
         binding.switchPitchDirection.setOnCheckedChangeListener((v, on) ->
-                onToggle(() -> saveDirection(true, on),
-                        "Pitch direction set to " + directionLabel(on)));
-
+                onToggle(() -> saveDirection(true, on), "Pitch direction set to " + directionLabel(on)));
         binding.switchVolumeDirection.setOnCheckedChangeListener((v, on) ->
-                onToggle(() -> saveDirection(false, on),
-                        "Volume direction set to " + directionLabel(on)));
+                onToggle(() -> saveDirection(false, on), "Volume direction set to " + directionLabel(on)));
 
         binding.btnShowTutorialAgain.setOnClickListener(v -> {
             SettingsStore.setCalibrationGuideLearned(this, false);
             refreshUi();
-            showToast("Calibration guide will show again");
+            toast("Calibration guide will show again");
         });
     }
 
@@ -71,7 +63,7 @@ public class SettingsActivity extends AppCompatActivity {
         if (quiet) return;
         save.run();
         refreshUi();
-        showToast(message);
+        toast(message);
     }
 
     private void refreshUi() {
@@ -80,7 +72,7 @@ public class SettingsActivity extends AppCompatActivity {
         boolean extended = SettingsStore.isExtendedFreqRangeEnabled(this);
         AppSettings settings = store.load();
 
-        runQuietly(() -> {
+        quietly(() -> {
             binding.switchBackgroundAudio.setChecked(bg);
             binding.switchExtendedFrequencyRange.setChecked(extended);
             binding.switchPitchDirection.setChecked(settings.pitchDirectionInverted);
@@ -98,23 +90,16 @@ public class SettingsActivity extends AppCompatActivity {
                 + " | Volume: " + directionLabel(settings.volumeDirectionInverted));
     }
 
-    private String directionLabel(boolean inverted) {
-        return inverted ? "NEGATIVE" : "POSITIVE";
-    }
+    private static String directionLabel(boolean inverted) { return inverted ? "NEGATIVE" : "POSITIVE"; }
 
-    private void runQuietly(Runnable work) {
+    private void quietly(Runnable work) {
         quiet = true;
-        try {
-            work.run();
-        } finally {
-            quiet = false;
-        }
+        try { work.run(); } finally { quiet = false; }
     }
 
     private void clampSavedFrequencyRange() {
         AppSettings s = store.load();
-        float min = Math.min(s.freqMinHz, STANDARD_FREQ_MAX_HZ - 1f);
-        float max = Math.min(s.freqMaxHz, STANDARD_FREQ_MAX_HZ);
+        float min = Math.min(s.freqMinHz, STANDARD_FREQ_MAX_HZ - 1f), max = Math.min(s.freqMaxHz, STANDARD_FREQ_MAX_HZ);
         if (max < min + 1f) {
             min = STANDARD_FREQ_MAX_HZ - 1f;
             max = STANDARD_FREQ_MAX_HZ;
@@ -125,7 +110,5 @@ public class SettingsActivity extends AppCompatActivity {
         store.save(s);
     }
 
-    private void showToast(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-    }
+    private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show(); }
 }

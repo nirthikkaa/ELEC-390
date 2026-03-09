@@ -57,7 +57,7 @@ public class BottomNavBarView extends LinearLayout {
     }
 
     private LinearLayout buildItem(NavItem item) {
-        boolean active = isCurrent(item.target);
+        boolean active = getContext() instanceof Activity && getContext().getClass().equals(item.target);
         int itemColor = active ? colorPrimary : colorOnSurfaceVariant;
 
         LinearLayout layout = new LinearLayout(getContext());
@@ -88,14 +88,8 @@ public class BottomNavBarView extends LinearLayout {
         return layout;
     }
 
-    private boolean isCurrent(Class<? extends Activity> target) {
-        Context context = getContext();
-        return context instanceof Activity && context.getClass().equals(target);
-    }
-
     private void open(Class<? extends Activity> target) {
-        Context context = getContext();
-        if (context instanceof Activity) NavigationUtils.openScreen((Activity) context, target);
+        if (getContext() instanceof Activity) NavigationUtils.openScreen((Activity) getContext(), target);
     }
 
     private int selectableRes() {

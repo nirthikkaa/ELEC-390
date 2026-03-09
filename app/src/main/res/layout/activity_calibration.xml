@@ -44,13 +44,36 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Calibration"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="24sp"
-                        android:textStyle="bold" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:paddingEnd="12dp"
+                            android:text="Calibration"
+                            android:textColor="@color/app_on_surface"
+                            android:textSize="24sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPing"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minHeight="40dp"
+                            android:text="Refresh Gloves"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_secondary"
+                            android:textSize="12sp"
+                            app:cornerRadius="16dp"
+                            app:strokeColor="@color/app_secondary" />
+
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/tvLiveStatus"
@@ -120,18 +143,6 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnPing"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:minHeight="48dp"
-                        android:text="Sync"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_secondary"
-                        app:cornerRadius="18dp"
-                        app:strokeColor="@color/app_secondary" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

@@ -1,5 +1,10 @@
 package com.example.thereminglovestest2;
 
+/**
+ * File guide:
+ * Single place for app settings persistence. It stores theremin settings in SQLite and small UI flags in shared preferences.
+ */
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -11,6 +16,7 @@ import java.util.Locale;
 
 /** Small single-row settings store. */
 public class SettingsStore extends SQLiteOpenHelper {
+    // --- Storage keys for the single settings row and shared UI flags ---
 
     private static final String DB_NAME = "theremin_gloves.db";
     private static final int DB_VERSION = 3;

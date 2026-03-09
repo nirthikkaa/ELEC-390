@@ -1,5 +1,10 @@
 package com.example.thereminglovestest2;
 
+/**
+ * File guide:
+ * Simple launch screen. It is the first screen the user sees before entering the main app flow.
+ */
+
 import android.content.Intent;
 import android.os.Bundle;
 

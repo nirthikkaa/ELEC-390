@@ -21,29 +21,21 @@ import java.util.Locale;
 public class CalibrationActivity extends AppCompatActivity {
 
     private static final long UI_POLL_MS = 150L;
-    private static final float ANGLE_MIN_LIMIT = -90f, ANGLE_MAX_LIMIT = 90f, ANGLE_STEP = 0.5f;
-    private static final float FREQ_MIN_LIMIT = 20f, FREQ_STANDARD_MAX_LIMIT = 2000f, FREQ_EXTENDED_MAX_LIMIT = 20000f, FREQ_STEP = 1f;
 
     private ActivityCalibrationBinding binding;
     private final NavigationUtils.Poller uiPoller = new NavigationUtils.Poller(UI_POLL_MS, this::refreshLiveCalibration);
+    private final CalibrationDraft draft = new CalibrationDraft();
     private SettingsStore settingsRepo;
 
-    private float pitchAngleMinDeg = AppSettings.DEFAULT_PITCH_ANGLE_MIN_DEG;
-    private float pitchAngleMaxDeg = AppSettings.DEFAULT_PITCH_ANGLE_MAX_DEG;
-    private float freqMinHz = AppSettings.DEFAULT_FREQ_MIN_HZ;
-    private float freqMaxHz = AppSettings.DEFAULT_FREQ_MAX_HZ;
-    private float volumeAngleMinDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MIN_DEG;
-    private float volumeAngleMaxDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MAX_DEG;
     private boolean pitchDirectionInverted = AppSettings.DEFAULT_PITCH_DIRECTION_INVERTED;
     private boolean volumeDirectionInverted = AppSettings.DEFAULT_VOLUME_DIRECTION_INVERTED;
     private boolean hasUnsavedChanges, pitchNeutralCapturedThisVisit, volumeNeutralCapturedThisVisit, calibrationGuideLearned;
-    private float freqMaxLimitHz = FREQ_STANDARD_MAX_LIMIT;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         settingsRepo = new SettingsStore(this);
-        refreshFrequencyRangeLimit();
+        draft.refreshFreqRangeLimit(this);
         calibrationGuideLearned = SettingsStore.isCalibrationGuideLearned(this);
         loadAllSettings();
         binding = ActivityCalibrationBinding.inflate(getLayoutInflater());
@@ -58,7 +50,7 @@ public class CalibrationActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         boolean wasGuideLearned = calibrationGuideLearned;
-        refreshFrequencyRangeLimit();
+        draft.refreshFreqRangeLimit(this);
         refreshDirectionSettings();
         calibrationGuideLearned = SettingsStore.isCalibrationGuideLearned(this);
         if (wasGuideLearned && !calibrationGuideLearned) {
@@ -71,19 +63,18 @@ public class CalibrationActivity extends AppCompatActivity {
 
     @Override
     protected void onStop() {
+        ThereminBackgroundAudioService.endCalibrationPreview();
         super.onStop();
         uiPoller.stop();
     }
 
     private void setupControls() {
-        setupAngleKnob(binding.knobPitchAngleMin, "Pitch Angle Min", () -> pitchAngleMinDeg, value -> pitchAngleMinDeg = value);
-        setupAngleKnob(binding.knobPitchAngleMax, "Pitch Angle Max", () -> pitchAngleMaxDeg, value -> pitchAngleMaxDeg = value);
-        setupFreqKnob(binding.knobFreqMin, "Freq Min", () -> freqMinHz, value -> freqMinHz = value);
-        setupFreqKnob(binding.knobFreqMax, "Freq Max", () -> freqMaxHz, value -> freqMaxHz = value);
-        setupAngleKnob(binding.knobVolumeAngleMin, "Volume Angle Min", () -> volumeAngleMinDeg, value -> volumeAngleMinDeg = value);
-        setupAngleKnob(binding.knobVolumeAngleMax, "Volume Angle Max", () -> volumeAngleMaxDeg, value -> volumeAngleMaxDeg = value);
-        refreshFrequencyKnobRanges();
-
+        setupAngleKnob(binding.knobPitchAngleMin, "Pitch Angle Min", () -> draft.pitchAngleMinDeg, value -> draft.pitchAngleMinDeg = value);
+        setupAngleKnob(binding.knobPitchAngleMax, "Pitch Angle Max", () -> draft.pitchAngleMaxDeg, value -> draft.pitchAngleMaxDeg = value);
+        setupFreqKnob(binding.knobFreqMin, "Freq Min", () -> draft.freqMinHz, value -> draft.freqMinHz = value);
+        setupFreqKnob(binding.knobFreqMax, "Freq Max", () -> draft.freqMaxHz, value -> draft.freqMaxHz = value);
+        setupAngleKnob(binding.knobVolumeAngleMin, "Volume Angle Min", () -> draft.volumeAngleMinDeg, value -> draft.volumeAngleMinDeg = value);
+        setupAngleKnob(binding.knobVolumeAngleMax, "Volume Angle Max", () -> draft.volumeAngleMaxDeg, value -> draft.volumeAngleMaxDeg = value);
         binding.btnPing.setOnClickListener(v -> runHostAction(BleSessionManager::requestRefreshHandshake, "Requested BLE refresh from the Play host."));
         binding.btnPitchNeutral.setOnClickListener(v -> handleNeutralCapture(true));
         binding.btnVolumeNeutral.setOnClickListener(v -> handleNeutralCapture(false));
@@ -93,11 +84,11 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void setupAngleKnob(KnobControlView knob, String label, FloatGetter getter, FloatSetter setter) {
-        setupKnob(knob, label, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT, ANGLE_STEP, true, getter, setter);
+        setupKnob(knob, label, CalibrationDraft.ANGLE_MIN, CalibrationDraft.ANGLE_MAX, CalibrationDraft.ANGLE_STEP, true, getter, setter);
     }
 
     private void setupFreqKnob(KnobControlView knob, String label, FloatGetter getter, FloatSetter setter) {
-        setupKnob(knob, label, FREQ_MIN_LIMIT, freqMaxLimitHz, FREQ_STEP, false, getter, setter);
+        setupKnob(knob, label, CalibrationDraft.FREQ_MIN, draft.freqMaxLimitHz, CalibrationDraft.FREQ_STEP, false, getter, setter);
     }
 
     private void setupKnob(KnobControlView knob, String label, float min, float max, float step,
@@ -106,7 +97,7 @@ public class CalibrationActivity extends AppCompatActivity {
         knob.setRange(min, max);
         knob.setStepSize(step);
         knob.setValue(getter.get());
-        knob.setValueText(formatValue(getter.get(), isAngle));
+        knob.setValueText(draft.formatValue(getter.get(), isAngle));
         knob.setOnKnobValueChangedListener((view, value, fromUser) -> {
             if (!fromUser) return;
             setter.set(value);
@@ -114,7 +105,6 @@ public class CalibrationActivity extends AppCompatActivity {
             syncAllViewsFromState();
         });
         knob.setOnKnobCommitListener((view, value) -> {
-            sanitizeState();
             markChanged();
             updateSummaryText();
         });
@@ -123,37 +113,15 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private void loadAllSettings() {
         AppSettings settings = settingsRepo.load();
-        applyCalibrationSettings(settings);
-        applyDirectionSettings(settings);
-    }
-
-    private void refreshDirectionSettings() {
-        applyDirectionSettings(settingsRepo.load());
-    }
-
-    private void applyCalibrationSettings(AppSettings settings) {
-        pitchAngleMinDeg = settings.pitchAngleMinDeg;
-        pitchAngleMaxDeg = settings.pitchAngleMaxDeg;
-        freqMinHz = settings.freqMinHz;
-        freqMaxHz = settings.freqMaxHz;
-        volumeAngleMinDeg = settings.volumeAngleMinDeg;
-        volumeAngleMaxDeg = settings.volumeAngleMaxDeg;
-        sanitizeState();
-    }
-
-    private void applyDirectionSettings(AppSettings settings) {
+        draft.load(settings);
         pitchDirectionInverted = settings.pitchDirectionInverted;
         volumeDirectionInverted = settings.volumeDirectionInverted;
     }
 
-    private void applyCalibrationDefaults() {
-        pitchAngleMinDeg = AppSettings.DEFAULT_PITCH_ANGLE_MIN_DEG;
-        pitchAngleMaxDeg = AppSettings.DEFAULT_PITCH_ANGLE_MAX_DEG;
-        freqMinHz = AppSettings.DEFAULT_FREQ_MIN_HZ;
-        freqMaxHz = Math.min(AppSettings.DEFAULT_FREQ_MAX_HZ, freqMaxLimitHz);
-        volumeAngleMinDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MIN_DEG;
-        volumeAngleMaxDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MAX_DEG;
-        sanitizeState();
+    private void refreshDirectionSettings() {
+        AppSettings settings = settingsRepo.load();
+        pitchDirectionInverted = settings.pitchDirectionInverted;
+        volumeDirectionInverted = settings.volumeDirectionInverted;
     }
 
     private void markChanged() {
@@ -166,7 +134,7 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void restoreDefaults() {
-        applyCalibrationDefaults();
+        draft.restoreDefaults();
         markChanged();
         resetNeutralCaptureProgress();
         syncAllViewsFromState();
@@ -184,8 +152,10 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void saveAndPlay() {
-        sanitizeState();
-        settingsRepo.save(buildSettings());
+        AppSettings settings = settingsRepo.load();
+        draft.saveTo(settings);
+        settingsRepo.save(settings);
+        ThereminBackgroundAudioService.endCalibrationPreview();
         hasUnsavedChanges = false;
         setHostNote("Calibration saved. Returning to Play.");
         Intent intent = new Intent(this, MainActivity.class);
@@ -196,20 +166,21 @@ public class CalibrationActivity extends AppCompatActivity {
         finish();
     }
 
-    private AppSettings buildSettings() {
+    private AppSettings previewSettings() {
         AppSettings settings = settingsRepo.load();
-        settings.pitchAngleMinDeg = pitchAngleMinDeg;
-        settings.pitchAngleMaxDeg = pitchAngleMaxDeg;
-        settings.freqMinHz = freqMinHz;
-        settings.freqMaxHz = freqMaxHz;
-        settings.volumeAngleMinDeg = volumeAngleMinDeg;
-        settings.volumeAngleMaxDeg = volumeAngleMaxDeg;
+        draft.saveTo(settings);
         return settings;
     }
 
+    private void syncCalibrationPreview() {
+        if (ThereminBackgroundAudioService.isServiceActive()) {
+            ThereminBackgroundAudioService.beginCalibrationPreview(this, previewSettings());
+        }
+    }
+
     private void showNumberEditDialog(String label, float current, FloatSetter setter, boolean isAngle) {
-        float min = isAngle ? ANGLE_MIN_LIMIT : FREQ_MIN_LIMIT;
-        float max = isAngle ? ANGLE_MAX_LIMIT : freqMaxLimitHz;
+        float min = isAngle ? CalibrationDraft.ANGLE_MIN : CalibrationDraft.FREQ_MIN;
+        float max = isAngle ? CalibrationDraft.ANGLE_MAX : draft.freqMaxLimitHz;
         String unit = isAngle ? "°" : " Hz";
 
         LinearLayout container = new LinearLayout(this);
@@ -217,7 +188,8 @@ public class CalibrationActivity extends AppCompatActivity {
         container.setPadding(dp(8), dp(8), dp(8), 0);
 
         TextView helper = new TextView(this);
-        helper.setText(String.format(Locale.US, "Enter a value from %s to %s%s", formatPlainValue(min, isAngle), formatPlainValue(max, isAngle), unit));
+        helper.setText(String.format(Locale.US, "Enter a value from %s to %s%s",
+                draft.formatPlainValue(min, isAngle), draft.formatPlainValue(max, isAngle), unit));
         helper.setTextSize(14f);
         helper.setPadding(dp(4), 0, dp(4), dp(10));
 
@@ -271,12 +243,12 @@ public class CalibrationActivity extends AppCompatActivity {
         try {
             float value = Float.parseFloat(raw);
             if (value < min || value > max) {
-                inputLayout.setError(String.format(Locale.US, "Use %s to %s%s", formatPlainValue(min, isAngle), formatPlainValue(max, isAngle), unit));
+                inputLayout.setError(String.format(Locale.US, "Use %s to %s%s",
+                        draft.formatPlainValue(min, isAngle), draft.formatPlainValue(max, isAngle), unit));
                 return;
             }
             inputLayout.setError(null);
             setter.set(value);
-            sanitizeState();
             markChanged();
             syncAllViewsFromState();
             dialog.dismiss();
@@ -317,8 +289,10 @@ public class CalibrationActivity extends AppCompatActivity {
         updateCalibrationProgress(null);
     }
 
-    private void applyLiveSection(TextView live, TextView meta, String name, Float delta, boolean connected, String direction, Float neutral) {
-        live.setText(delta == null ? name + " ACTIVE_DELTA_DEG: —" : String.format(Locale.US, "%s ACTIVE_DELTA_DEG: %.2f°", name, delta));
+    private void applyLiveSection(TextView live, TextView meta, String name, Float delta,
+                                  boolean connected, String direction, Float neutral) {
+        live.setText(delta == null ? name + " ACTIVE_DELTA_DEG: —"
+                : String.format(Locale.US, "%s ACTIVE_DELTA_DEG: %.2f°", name, delta));
         meta.setText(neutral == null
                 ? String.format(Locale.US, "Conn: %s | Dir: %s | Neutral: —", connected ? "ON" : "OFF", direction)
                 : String.format(Locale.US, "Conn: %s | Dir: %s | Neutral: %.2f°", connected ? "ON" : "OFF", direction, neutral));
@@ -370,37 +344,14 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void syncAllViewsFromState() {
-        sanitizeState();
-        refreshFrequencyKnobRanges();
-        applyKnob(binding.knobPitchAngleMin, pitchAngleMinDeg, true);
-        applyKnob(binding.knobPitchAngleMax, pitchAngleMaxDeg, true);
-        applyKnob(binding.knobFreqMin, freqMinHz, false);
-        applyKnob(binding.knobFreqMax, freqMaxHz, false);
-        applyKnob(binding.knobVolumeAngleMin, volumeAngleMinDeg, true);
-        applyKnob(binding.knobVolumeAngleMax, volumeAngleMaxDeg, true);
-        BleSnapshot snapshot = BleSessionManager.getSnapshot();
+        draft.syncKnobs(binding);
         updateSummaryText();
-        updateCalibrationProgress(snapshot);
-    }
-
-    private void applyKnob(KnobControlView knob, float value, boolean isAngle) {
-        knob.setValue(value);
-        knob.setValueText(formatValue(value, isAngle));
+        updateCalibrationProgress(BleSessionManager.getSnapshot());
+        syncCalibrationPreview();
     }
 
     private void updateSummaryText() {
-        binding.tvSavedSummary.setText((hasUnsavedChanges ? "Unsaved • " : "Saved • ") + String.format(Locale.US,
-                "Pitch %.1f°→%.1f° | Freq %.0f→%.0f Hz | Volume %.1f°→%.1f°",
-                pitchAngleMinDeg, pitchAngleMaxDeg, freqMinHz, freqMaxHz, volumeAngleMinDeg, volumeAngleMaxDeg));
-    }
-
-    private void refreshFrequencyRangeLimit() {
-        freqMaxLimitHz = SettingsStore.isExtendedFreqRangeEnabled(this) ? FREQ_EXTENDED_MAX_LIMIT : FREQ_STANDARD_MAX_LIMIT;
-    }
-
-    private void refreshFrequencyKnobRanges() {
-        binding.knobFreqMin.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
-        binding.knobFreqMax.setRange(FREQ_MIN_LIMIT, freqMaxLimitHz);
+        binding.tvSavedSummary.setText(draft.summaryText(hasUnsavedChanges));
     }
 
     private void handleNeutralCapture(boolean isPitch) {
@@ -425,18 +376,6 @@ public class CalibrationActivity extends AppCompatActivity {
         updateCalibrationProgress(snapshot);
     }
 
-    private void sanitizeState() {
-        pitchAngleMinDeg = clamp(pitchAngleMinDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
-        pitchAngleMaxDeg = clamp(pitchAngleMaxDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
-        volumeAngleMinDeg = clamp(volumeAngleMinDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
-        volumeAngleMaxDeg = clamp(volumeAngleMaxDeg, ANGLE_MIN_LIMIT, ANGLE_MAX_LIMIT);
-        freqMinHz = clamp(freqMinHz, FREQ_MIN_LIMIT, freqMaxLimitHz);
-        freqMaxHz = clamp(freqMaxHz, FREQ_MIN_LIMIT, freqMaxLimitHz);
-        if (pitchAngleMaxDeg < pitchAngleMinDeg + ANGLE_STEP) pitchAngleMaxDeg = Math.min(ANGLE_MAX_LIMIT, pitchAngleMinDeg + ANGLE_STEP);
-        if (volumeAngleMaxDeg < volumeAngleMinDeg + ANGLE_STEP) volumeAngleMaxDeg = Math.min(ANGLE_MAX_LIMIT, volumeAngleMinDeg + ANGLE_STEP);
-        if (freqMaxHz < freqMinHz + FREQ_STEP) freqMaxHz = Math.min(freqMaxLimitHz, freqMinHz + FREQ_STEP);
-    }
-
     private String connectedText(boolean connected) {
         return connected ? "CONNECTED" : "DISCONNECTED";
     }
@@ -448,18 +387,6 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private void setHostNote(String text) {
         binding.tvHostNote.setText(text);
-    }
-
-    private String formatValue(float value, boolean isAngle) {
-        return String.format(Locale.US, isAngle ? "%.1f°" : "%.0f Hz", value);
-    }
-
-    private String formatPlainValue(float value, boolean isAngle) {
-        return String.format(Locale.US, isAngle ? "%.1f" : "%.0f", value);
-    }
-
-    private float clamp(float value, float min, float max) {
-        return Math.max(min, Math.min(max, value));
     }
 
     private int dp(int value) {

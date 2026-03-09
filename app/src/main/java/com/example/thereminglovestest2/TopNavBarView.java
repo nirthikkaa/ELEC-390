@@ -36,8 +36,7 @@ public class TopNavBarView extends LinearLayout {
     public TopNavBarView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
-        int pad = dp(8);
-        int onSurface = ContextCompat.getColor(context, R.color.app_on_surface);
+        int pad = dp(8), onSurface = ContextCompat.getColor(context, R.color.app_on_surface);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
         setPadding(pad, pad, pad, pad);
@@ -52,8 +51,7 @@ public class TopNavBarView extends LinearLayout {
             return insets;
         });
 
-        addView(makeIconButton(androidx.appcompat.R.drawable.abc_ic_ab_back_material,
-                "Back", v -> handleBackPressed(), onSurface), new LayoutParams(dp(40), dp(40)));
+        addView(iconButton(androidx.appcompat.R.drawable.abc_ic_ab_back_material, "Back", v -> handleBackPressed(), onSurface), new LayoutParams(dp(40), dp(40)));
 
         titleView = new TextView(context);
         titleView.setTextSize(18f);
@@ -65,14 +63,13 @@ public class TopNavBarView extends LinearLayout {
         titleLp.rightMargin = dp(10);
         addView(titleView, titleLp);
 
-        addView(makeIconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material,
-                "More options", this::showMenu, onSurface), new LayoutParams(dp(40), dp(40)));
+        addView(iconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material, "More options", this::showMenu, onSurface), new LayoutParams(dp(40), dp(40)));
         ViewCompat.requestApplyInsets(this);
     }
 
     public void setTitleText(String title) { titleView.setText(title); }
 
-    private ImageButton makeIconButton(int iconRes, String desc, OnClickListener click, int tint) {
+    private ImageButton iconButton(int iconRes, String desc, OnClickListener click, int tint) {
         ImageButton button = new ImageButton(getContext());
         button.setImageResource(iconRes);
         button.setContentDescription(desc);
@@ -88,12 +85,14 @@ public class TopNavBarView extends LinearLayout {
         if (current == null) return;
         if (current instanceof HomeActivity) {
             NavigationUtils.replaceWithScreen(current, LaunchActivity.class);
-        } else if (current.isTaskRoot()) {
-            NavigationUtils.replaceWithScreen(current, HomeActivity.class);
-        } else {
-            current.finish();
-            current.overridePendingTransition(0, 0);
+            return;
         }
+        if (current.isTaskRoot()) {
+            NavigationUtils.replaceWithScreen(current, HomeActivity.class);
+            return;
+        }
+        current.finish();
+        current.overridePendingTransition(0, 0);
     }
 
     private void showMenu(View anchor) {
@@ -102,9 +101,8 @@ public class TopNavBarView extends LinearLayout {
 
         PopupMenu popup = new PopupMenu(current, anchor);
         for (int i = 0; i < EXTRA_MENU_TARGETS.length; i++) {
-            if (!current.getClass().equals(EXTRA_MENU_TARGETS[i].screen)) {
-                popup.getMenu().add(0, i, i, EXTRA_MENU_TARGETS[i].title);
-            }
+            MenuTarget target = EXTRA_MENU_TARGETS[i];
+            if (!current.getClass().equals(target.screen)) popup.getMenu().add(0, i, i, target.title);
         }
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
@@ -115,9 +113,7 @@ public class TopNavBarView extends LinearLayout {
         popup.show();
     }
 
-    private Activity activity() {
-        return getContext() instanceof Activity ? (Activity) getContext() : null;
-    }
+    private Activity activity() { return getContext() instanceof Activity ? (Activity) getContext() : null; }
 
     private int selectableRes() {
         TypedValue tv = new TypedValue();
@@ -146,13 +142,8 @@ final class NavigationUtils {
 
     private NavigationUtils() {}
 
-    static void openScreen(Activity current, Class<? extends Activity> target) {
-        navigate(current, target, false);
-    }
-
-    static void replaceWithScreen(Activity current, Class<? extends Activity> target) {
-        navigate(current, target, true);
-    }
+    static void openScreen(Activity current, Class<? extends Activity> target) { navigate(current, target, false); }
+    static void replaceWithScreen(Activity current, Class<? extends Activity> target) { navigate(current, target, true); }
 
     static String resolveScreenTitle(Context context) {
         if (context instanceof LaunchActivity) return "Launch";
@@ -192,8 +183,8 @@ final class NavigationUtils {
     private static void navigate(Activity current, Class<? extends Activity> target, boolean finishCurrent) {
         if (current == null || target == null) return;
         if (!current.getClass().equals(target)) {
-            current.startActivity(new Intent(current, target).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                    | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+            current.startActivity(new Intent(current, target).addFlags(
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NO_ANIMATION));
         }
         current.overridePendingTransition(0, 0);
         if (!finishCurrent) return;
