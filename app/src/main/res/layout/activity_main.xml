@@ -253,8 +253,8 @@
                     android:layout_height="wrap_content"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="10dp">
+                    android:paddingTop="14dp"
+                    android:paddingBottom="14dp">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnAudioStart"
@@ -516,6 +516,48 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Pitch Range Preset"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnRangeLow"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Low"
+                            style="?attr/materialButtonOutlinedStyle" />
+
+                        <Button
+                            android:id="@+id/btnRangeMedium"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="Medium"
+                            style="?attr/materialButtonOutlinedStyle" />
+
+                        <Button
+                            android:id="@+id/btnRangeHigh"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="High"
+                            style="?attr/materialButtonOutlinedStyle" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
                         android:text="Frequency Min (Hz)"
                         android:textColor="@color/app_on_surface" />
 

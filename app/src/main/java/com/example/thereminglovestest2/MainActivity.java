@@ -208,18 +208,28 @@ public class MainActivity extends AppCompatActivity {
         binding.btnDisconnectAll.setVisibility(View.GONE);
 
         binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
-        bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch, "Pitch glove");
-        bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol, "Volume glove");
+
+        bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch);
+        bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol);
         binding.btnDefaults.setOnClickListener(v -> {
             play.restoreDefaults();
             applyMappingChange("Defaults restored", true);
         });
+        binding.btnRangeLow.setOnClickListener(v -> applyFreqPreset(130f, 523f, "Low"));
+        binding.btnRangeMedium.setOnClickListener(v -> applyFreqPreset(261f, 1046f, "Medium"));
+        binding.btnRangeHigh.setOnClickListener(v -> applyFreqPreset(523f, 2093f, "High"));
     }
 
-    private void bindGloveButtons(boolean pitch, View neutral, View direction, View help, String title) {
+    private void applyFreqPreset(float minHz, float maxHz, String label) {
+        play.freqMinHz = minHz;
+        play.freqMaxHz = maxHz;
+        applyMappingChange("Pitch range: " + label, true);
+    }
+
+    private void bindGloveButtons(boolean pitch, View neutral, View direction, View help) {
         neutral.setOnClickListener(v -> BleSessionManager.requestCaptureNeutral(pitch));
         direction.setOnClickListener(v -> toggleDirection(pitch));
-        help.setOnClickListener(v -> showHelpDialog(title));
+        help.setOnClickListener(v -> showHelpDialog(pitch));
     }
 
     private void toggleAudio() {
@@ -256,27 +266,25 @@ public class MainActivity extends AppCompatActivity {
         BleSessionManager.requestToggleDirection(pitch);
     }
 
-    private void showHelpDialog(String title) {
+    private void showHelpDialog(boolean pitch) {
         BleSnapshot snapshot = getSnapshot();
+        String title = pitch ? "Pitch Glove" : "Volume Glove";
         String message;
         if (snapshot == null || !snapshot.hostReady) {
-            message = "BLE host not ready.\n\n";
+            message = "BLE host not ready.";
         } else {
             message = "Bluetooth: " + onOff(snapshot.bluetoothEnabled) + '\n'
                     + "Scanning: " + yesNo(snapshot.scanning) + '\n'
                     + "Status: " + snapshot.statusText + "\n\n"
-                    + "Pitch: " + snapshot.connectionDetail(true) + '\n'
-                    + "Volume: " + snapshot.connectionDetail(false) + "\n\n"
-                    + "Pitch connected: " + snapshot.pitchConnected + '\n'
-                    + "Volume connected: " + snapshot.volumeConnected + '\n'
-                    + String.format(Locale.US, "Pitch Δ: %.2f°\n", snapshot.pitchActiveDeltaDeg)
-                    + String.format(Locale.US, "Volume Δ: %.2f°\n", snapshot.volumeActiveDeltaDeg)
-                    + "Pitch direction: " + snapshot.pitchDirectionText + '\n'
-                    + "Volume direction: " + snapshot.volumeDirectionText + "\n\n";
+                    + "Connection: " + snapshot.connectionDetail(pitch) + '\n'
+                    + "Connected: " + (pitch ? snapshot.pitchConnected : snapshot.volumeConnected) + '\n'
+                    + String.format(Locale.US, "Angle Δ: %.2f°\n", pitch ? snapshot.pitchActiveDeltaDeg : snapshot.volumeActiveDeltaDeg)
+                    + "Direction: " + (pitch ? snapshot.pitchDirectionText : snapshot.volumeDirectionText) + "\n\n"
+                    + "Background audio: " + onOff(bgAudioEnabled);
         }
         new AlertDialog.Builder(this)
                 .setTitle(title)
-                .setMessage(message + "Background audio: " + onOff(bgAudioEnabled))
+                .setMessage(message)
                 .setPositiveButton("OK", null)
                 .show();
     }

@@ -8,6 +8,7 @@ package com.example.thereminglovestest2;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -26,6 +27,11 @@ public class ConnectGlovesActivity extends AppCompatActivity {
 
     private ActivityConnectGlovesBinding binding;
     private final NavigationUtils.Poller uiPoller = new NavigationUtils.Poller(UI_POLL_MS, this::refreshUi);
+
+    private boolean prevPitchConnected = false;
+    private boolean prevPitchConnecting = false;
+    private boolean prevVolumeConnected = false;
+    private boolean prevVolumeConnecting = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,6 +107,31 @@ public class ConnectGlovesActivity extends AppCompatActivity {
 
         updateReadyText(snapshot, permissionsOk, bluetoothOn);
         updateButtons(snapshot, permissionsOk, bluetoothOn);
+        notifyReconnectTransitions(snapshot);
+    }
+
+    private void notifyReconnectTransitions(BleSnapshot snapshot) {
+        boolean pitchConnected = snapshot.isPitchConnected();
+        boolean pitchConnecting = snapshot.hostReady && snapshot.pitchConnecting;
+        boolean volumeConnected = snapshot.isVolumeConnected();
+        boolean volumeConnecting = snapshot.hostReady && snapshot.volumeConnecting;
+
+        if (!prevPitchConnected && pitchConnected) {
+            Toast.makeText(this, "Pitch glove connected", Toast.LENGTH_SHORT).show();
+        } else if (prevPitchConnecting && !pitchConnecting && !pitchConnected) {
+            Toast.makeText(this, "Could not connect pitch glove", Toast.LENGTH_SHORT).show();
+        }
+
+        if (!prevVolumeConnected && volumeConnected) {
+            Toast.makeText(this, "Volume glove connected", Toast.LENGTH_SHORT).show();
+        } else if (prevVolumeConnecting && !volumeConnecting && !volumeConnected) {
+            Toast.makeText(this, "Could not connect volume glove", Toast.LENGTH_SHORT).show();
+        }
+
+        prevPitchConnected = pitchConnected;
+        prevPitchConnecting = pitchConnecting;
+        prevVolumeConnected = volumeConnected;
+        prevVolumeConnecting = volumeConnecting;
     }
 
     private void showPreparingState() {
