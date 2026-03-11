@@ -11,8 +11,11 @@ public class RecordingRepository {
         public final long durationMs;
         public final long createdAtMs;
         public Recording(long id, String filePath, String displayName, long durationMs, long createdAtMs) {
-            this.id = id; this.filePath = filePath; this.displayName = displayName;
-            this.durationMs = durationMs; this.createdAtMs = createdAtMs;
+            this.id = id;
+            this.filePath = filePath;
+            this.displayName = displayName;
+            this.durationMs = durationMs;
+            this.createdAtMs = createdAtMs;
         }
     }
 

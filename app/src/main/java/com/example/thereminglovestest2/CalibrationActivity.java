@@ -75,7 +75,8 @@ public class CalibrationActivity extends AppCompatActivity {
         setupFreqKnob(binding.knobFreqMax, "Freq Max", () -> draft.freqMaxHz, value -> draft.freqMaxHz = value);
         setupAngleKnob(binding.knobVolumeAngleMin, "Volume Angle Min", () -> draft.volumeAngleMinDeg, value -> draft.volumeAngleMinDeg = value);
         setupAngleKnob(binding.knobVolumeAngleMax, "Volume Angle Max", () -> draft.volumeAngleMaxDeg, value -> draft.volumeAngleMaxDeg = value);
-        binding.btnPing.setOnClickListener(v -> runHostAction(BleSessionManager::requestRefreshHandshake, "Requested BLE refresh from the Play host."));
+        binding.btnPitchInfo.setOnClickListener(v -> showPitchInfoDialog());
+        binding.btnVolumeInfo.setOnClickListener(v -> showVolumeInfoDialog());
         binding.btnPitchNeutral.setOnClickListener(v -> handleNeutralCapture(true));
         binding.btnVolumeNeutral.setOnClickListener(v -> handleNeutralCapture(false));
         binding.btnDefaults.setOnClickListener(v -> restoreDefaults());
@@ -126,11 +127,6 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private void markChanged() {
         hasUnsavedChanges = true;
-    }
-
-    private void runHostAction(Runnable action, String note) {
-        action.run();
-        setHostNote(note);
     }
 
     private void restoreDefaults() {
@@ -391,6 +387,37 @@ public class CalibrationActivity extends AppCompatActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private void showPitchInfoDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Pitch Control")
+                .setMessage("The pitch glove controls the frequency (note) of the theremin sound.\n\n" +
+                        "• Pitch Angle Min: the wrist rotation that produces the lowest note\n" +
+                        "• Pitch Angle Max: the wrist rotation that produces the highest note\n" +
+                        "• Freq Min / Freq Max: the frequency range those rotations map to\n" +
+                        "• Neutral: sets the resting rotation of your wrist\n\n" +
+                        "Tip: your hand can be in any position — only wrist rotation matters. " +
+                        "Set the minimum at a comfortable resting rotation and the maximum " +
+                        "at a fully rotated position you can hold without strain.\n\n" +
+                        "To flip which rotation direction increases pitch, go to Settings.")
+                .setPositiveButton("Got it", null)
+                .show();
+    }
+
+    private void showVolumeInfoDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Volume Control")
+                .setMessage("The volume glove controls how loud the theremin plays.\n\n" +
+                        "• Volume Angle Min: the wrist rotation for silence\n" +
+                        "• Volume Angle Max: the wrist rotation for full volume\n" +
+                        "• Neutral: sets the resting rotation of your wrist\n\n" +
+                        "Tip: your hand can be in any position — only wrist rotation matters. " +
+                        "Set the minimum at a relaxed resting rotation and the maximum " +
+                        "at a fully rotated position you can hold without strain.\n\n" +
+                        "To flip which rotation direction increases volume, go to Settings.")
+                .setPositiveButton("Got it", null)
+                .show();
     }
 
     private interface FloatGetter { float get(); }

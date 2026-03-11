@@ -75,7 +75,6 @@ public class MainActivity extends AppCompatActivity {
         appendLogSafe("Play opened");
         appendLogSafe("BG audio: " + onOff(bgAudioEnabled));
         updateAudioStatusText();
-        updateBleButtonText();
     }
 
     @Override
@@ -139,7 +138,6 @@ public class MainActivity extends AppCompatActivity {
         syncAudioTargetsFromSharedBleState();
         syncAllMappingControlsFromState();
         updateAudioStatusText();
-        updateBleButtonText();
     }
 
     private SettingsStore store() {
@@ -161,10 +159,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadBgAudioPref() {
         bgAudioEnabled = SettingsStore.isBgAudioEnabled(this);
-    }
-
-    private void saveBgAudioPref() {
-        SettingsStore.setBgAudioEnabled(this, bgAudioEnabled);
     }
 
     private void syncFreqSeekRange() {
@@ -213,17 +207,7 @@ public class MainActivity extends AppCompatActivity {
     private void wireButtons() {
         binding.btnDisconnectAll.setVisibility(View.GONE);
 
-        View.OnClickListener reconnectClick = v -> {
-            appendLogSafe(v == binding.tvReconnectLabel ? "Reconnect label pressed" : "Reconnect pressed");
-            onBleTogglePressed();
-        };
-        binding.btnScanConnect.setOnClickListener(reconnectClick);
-        binding.tvReconnectLabel.setClickable(true);
-        binding.tvReconnectLabel.setFocusable(true);
-        binding.tvReconnectLabel.setOnClickListener(reconnectClick);
-
         binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
-        binding.btnAudioStop.setOnClickListener(v -> toggleBackgroundAudio());
         bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch, "Pitch glove");
         bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol, "Volume glove");
         binding.btnDefaults.setOnClickListener(v -> {
@@ -267,74 +251,9 @@ public class MainActivity extends AppCompatActivity {
         updateAudioStatusText();
     }
 
-    private void toggleBackgroundAudio() {
-        bgAudioEnabled = !bgAudioEnabled;
-        saveBgAudioPref();
-        appendLogSafe("BG audio toggled -> " + onOff(bgAudioEnabled));
-        toastSafe("Background audio: " + onOff(bgAudioEnabled));
-
-        if (bgAudioEnabled) {
-            if (isAudioRunning()) {
-                persistSettings();
-                ThereminBackgroundAudioService.startIfNeeded(this);
-                audioEngine.stop();
-                appendLogSafe("Play audio moved to background owner");
-            }
-            updateAudioStatusText();
-            return;
-        }
-
-        if (!playUiVisible && isAudioRunning()) {
-            audioEngine.stop();
-            appendLogSafe("BG audio disabled while app in background -> audio stopped");
-        }
-        waitingForServiceToStop = false;
-        ThereminBackgroundAudioService.stopIfRunning(this);
-        updateAudioStatusText();
-    }
-
     private void toggleDirection(boolean pitch) {
         appendLogSafe((pitch ? "Pitch" : "Volume") + ": toggle direction");
         BleSessionManager.requestToggleDirection(pitch);
-    }
-
-    private void onBleTogglePressed() {
-        BleSnapshot snapshot = getSnapshot();
-        if (snapshot == null || !snapshot.isBluetoothOn()) {
-            toastSafe("Bluetooth is OFF");
-            return;
-        }
-        if (snapshot.areBothGlovesConnected()) {
-            toastSafe("Both gloves are already connected");
-            return;
-        }
-        toastSafe("Connecting missing glove(s)...");
-        BleSessionManager.requestConnectMissingGloves();
-        refreshUiFast();
-        updateBleButtonText();
-    }
-
-    private void updateBleButtonText() {
-        BleSnapshot snapshot = getSnapshot();
-        String label = "Connect";
-        String description = "Connect gloves";
-
-        if (snapshot != null && snapshot.hostReady) {
-            if (!snapshot.bluetoothEnabled) {
-                label = "Bluetooth Off";
-                description = "Bluetooth is off";
-            } else if (snapshot.areBothGlovesConnected()) {
-                label = "Connected";
-                description = "Both gloves are connected";
-            } else if (snapshot.isAnyGloveConnecting() || snapshot.isAnyGloveConnected()) {
-                label = "Reconnect";
-                description = "Reconnect missing gloves";
-            }
-        }
-
-        binding.btnScanConnect.setText("");
-        binding.btnScanConnect.setContentDescription(description);
-        binding.tvReconnectLabel.setText(label);
     }
 
     private void showHelpDialog(String title) {
@@ -592,7 +511,6 @@ public class MainActivity extends AppCompatActivity {
 
         maybeStartAudioAfterCalibration(bothConnected);
         updateAudioStatusText();
-        updateBleButtonText();
         updateVisualizer();
         syncMappingValueTextsOnly();
     }
@@ -632,15 +550,6 @@ public class MainActivity extends AppCompatActivity {
         binding.btnAudioStart.setIconResource(running ? R.drawable.ic_pause_theremin : R.drawable.ic_play_theremin);
         binding.btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         binding.tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
-
-        binding.btnAudioStop.setText("");
-        binding.btnAudioStop.setIconResource(bgAudioEnabled
-                ? R.drawable.ic_background_on
-                : android.R.drawable.ic_menu_close_clear_cancel);
-        binding.btnAudioStop.setContentDescription(bgAudioEnabled
-                ? "Turn background audio off"
-                : "Turn background audio on");
-        binding.tvBackgroundLabel.setText(bgAudioEnabled ? "Background On" : "Background Off");
     }
 
     private void appendLogSafe(String msg) {
