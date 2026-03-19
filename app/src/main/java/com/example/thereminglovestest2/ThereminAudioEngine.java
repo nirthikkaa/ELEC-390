@@ -38,6 +38,7 @@ public final class ThereminAudioEngine {
     private static final float VIBRATO_RATE_HZ = 5.2f;
     private static final float MIN_VIBRATO_DEPTH = 0.0020f;
     private static final float MAX_VIBRATO_DEPTH = 0.0065f;
+    private static final float VISUALIZER_SCALE = (AUDIO_WRITE_SAMPLES - 1f) / (VISUALIZER_SAMPLE_COUNT - 1f);
 
     // The visualizer reads a copy of the latest waveform while the audio thread keeps writing new
     // samples, so this lock protects that tiny shared buffer.
@@ -110,14 +111,11 @@ public final class ThereminAudioEngine {
     // Start the streaming synth thread and prime the smoothing state from the latest targets.
     public void start() {
         if (running) return;
-        int min = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING);
-        track = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE, CHANNEL_MASK, ENCODING,
-                Math.max(min * 2, MIN_STREAM_BUFFER_BYTES), AudioTrack.MODE_STREAM);
+        track = createAndStartTrack();
         smoothFreqHz = clamp(targetFreqHz, 20f, 20000f);
         smoothVolumeLinear = lastVolumeLinear = 0f;
         lastFreqHz = smoothFreqHz;
         running = true;
-        track.play();
 
         audioThread = new Thread(() -> {
             // Android treats audio threads specially, so we raise priority to reduce glitches.
@@ -130,7 +128,14 @@ public final class ThereminAudioEngine {
                 // The listener (RecordingManager) must be non-blocking; this runs on the audio thread.
                 PcmListener l = pcmListener;
                 if (l != null) l.onPcmSamples(buffer, buffer.length);
-                try { track.write(buffer, 0, buffer.length); } catch (Exception ignored) {}
+                int written;
+                try { written = track.write(buffer, 0, buffer.length); } catch (Exception ignored) { written = AudioTrack.ERROR; }
+                if (written == AudioTrack.ERROR_DEAD_OBJECT) {
+                    // AudioTrack was torn down (e.g. audio output device changed). Recreate it and
+                    // resume rather than silently stopping.
+                    try { track.release(); } catch (Exception ignored) {}
+                    track = createAndStartTrack();
+                }
             }
         }, "ThereminAudioThread");
         audioThread.start();
@@ -156,10 +161,19 @@ public final class ThereminAudioEngine {
 
     public void shutdown() { stop(); }
 
+    private AudioTrack createAndStartTrack() {
+        int min = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING);
+        AudioTrack t = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE, CHANNEL_MASK, ENCODING,
+                Math.max(min * 2, MIN_STREAM_BUFFER_BYTES), AudioTrack.MODE_STREAM);
+        t.play();
+        return t;
+    }
+
     // Fill one PCM block. Each sample uses the latest smoothed pitch and volume, not the raw UI
     // target values, which avoids clicks and sudden jumps.
     private void fillBuffer(short[] buffer) {
-        String tone = AppSettings.normalizeToneType(toneType);
+        // toneType is always normalized by setToneType(); no need to normalize again here.
+        String tone = toneType;
         for (int i = 0; i < buffer.length; i++) {
             float freq = updateFrequency();
             float volume = updateVolume();
@@ -171,7 +185,7 @@ public final class ThereminAudioEngine {
 
     // Pitch smoothing plus a gentle vibrato that grows a bit with louder playing.
     private float updateFrequency() {
-        smoothFreqHz += (clamp(targetFreqHz, 20f, 20000f) - smoothFreqHz) * FREQ_SMOOTHING;
+        smoothFreqHz += (targetFreqHz - smoothFreqHz) * FREQ_SMOOTHING; // targetFreqHz clamped in setTargets()
         float mix = clamp((smoothVolumeLinear - 0.03f) / 0.35f, 0f, 1f);
         float depth = MIN_VIBRATO_DEPTH + (MAX_VIBRATO_DEPTH - MIN_VIBRATO_DEPTH) * mix;
         vibratoPhase += (TWO_PI * VIBRATO_RATE_HZ) / SAMPLE_RATE;
@@ -182,7 +196,7 @@ public final class ThereminAudioEngine {
     // Separate attack and release make the theremin fade in quickly but relax out a bit more
     // gently, which sounds more natural than one symmetric smoothing value.
     private float updateVolume() {
-        float target = clamp(targetVolumeLinear, 0f, 1f);
+        float target = targetVolumeLinear; // clamped in setTargets()
         smoothVolumeLinear += (target - smoothVolumeLinear) * (target > smoothVolumeLinear ? ATTACK_SMOOTHING : RELEASE_SMOOTHING);
         return smoothVolumeLinear;
     }
@@ -190,7 +204,6 @@ public final class ThereminAudioEngine {
     private void advancePhase(float freq) {
         phase += (TWO_PI * freq) / SAMPLE_RATE;
         if (phase >= TWO_PI) phase -= TWO_PI;
-        else if (phase < 0f) phase += TWO_PI;
     }
 
     // Tone recipes. They are intentionally simple and cheap because this runs for every sample.
@@ -220,8 +233,7 @@ public final class ThereminAudioEngine {
     private void updateVisualizer(short[] buffer) {
         synchronized (visualizerLock) {
             for (int i = 0; i < visualizerSamples.length; i++) {
-                int source = Math.min(buffer.length - 1,
-                        Math.round(i * (buffer.length - 1f) / (visualizerSamples.length - 1f)));
+                int source = Math.min(AUDIO_WRITE_SAMPLES - 1, Math.round(i * VISUALIZER_SCALE));
                 visualizerSamples[i] = buffer[source] / (float) Short.MAX_VALUE;
             }
             lastFreqHz = smoothFreqHz;

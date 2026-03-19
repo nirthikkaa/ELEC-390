@@ -33,6 +33,7 @@ public class ThereminBackgroundAudioService extends Service {
     private volatile boolean syncRunning;
     private volatile AppSettings cachedSettings = fallbackSettings;
     private volatile long lastSettingsRefreshMs;
+    private String lastPushedToneType = "";
 
     public static boolean isServiceActive() { return serviceActive; }
     public static ThereminAudioEngine.VisualizerSnapshot getVisualizerSnapshot() {
@@ -52,7 +53,8 @@ public class ThereminBackgroundAudioService extends Service {
 
     public static void beginCalibrationPreview(Context context, AppSettings settings) {
         calibrationPreviewSettings = copySettings(settings);
-        if (serviceActive && context != null) startIfNeeded(context);
+        // Start the service if it isn't already running — the sync loop needs to be alive to play audio.
+        if (!serviceActive && context != null) startIfNeeded(context);
     }
 
     public static void endCalibrationPreview() {
@@ -139,7 +141,10 @@ public class ThereminBackgroundAudioService extends Service {
         boolean volumeOk = s != null && s.isVolumeConnected() && active.volumeEnabled;
         boolean ready = s != null && s.isBluetoothOn() && pitchOk && volumeOk;
 
-        audioEngine.setToneType(active.toneType);
+        if (!active.toneType.equals(lastPushedToneType)) {
+            audioEngine.setToneType(active.toneType);
+            lastPushedToneType = active.toneType;
+        }
         audioEngine.setTargets(pitchOk ? freq : active.freqMinHz, ready ? volume : 0f);
     }
 
