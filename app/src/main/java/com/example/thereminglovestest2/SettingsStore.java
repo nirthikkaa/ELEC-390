@@ -212,6 +212,11 @@ class AppSettings {
     public static final String TONE_SQUARE = "SQUARE";
     public static final String TONE_TRIANGLE = "TRIANGLE";
     public static final String TONE_SAW = "SAW";
+    public static final String TONE_PULSE  = "PULSE";
+    public static final String TONE_ORGAN  = "ORGAN";
+    public static final String TONE_STRING = "STRING";
+    public static final String TONE_BELL   = "BELL";
+    public static final String TONE_PAD    = "PAD";
 
     public float pitchAngleMinDeg = DEFAULT_PITCH_ANGLE_MIN_DEG;
     public float pitchAngleMaxDeg = DEFAULT_PITCH_ANGLE_MAX_DEG;
@@ -227,15 +232,26 @@ class AppSettings {
 
     public static String normalizeToneType(String tone) {
         String n = tone == null ? "" : tone.trim().toUpperCase(Locale.US);
-        return TONE_SQUARE.equals(n) || TONE_TRIANGLE.equals(n) || TONE_SAW.equals(n) ? n : TONE_SINE;
+        switch (n) {
+            case TONE_SQUARE: case TONE_TRIANGLE: case TONE_SAW:
+            case TONE_PULSE:  case TONE_ORGAN:   case TONE_STRING:
+            case TONE_BELL:   case TONE_PAD:
+                return n;
+            default: return TONE_SINE;
+        }
     }
 
     public static String prettyToneType(String tone) {
         switch (normalizeToneType(tone)) {
             case TONE_TRIANGLE: return "Triangle";
-            case TONE_SAW: return "Saw";
-            case TONE_SQUARE: return "Square";
-            default: return "Sine";
+            case TONE_SAW:      return "Saw";
+            case TONE_SQUARE:   return "Square";
+            case TONE_PULSE:    return "Pulse";
+            case TONE_ORGAN:    return "Organ";
+            case TONE_STRING:   return "String";
+            case TONE_BELL:     return "Bell";
+            case TONE_PAD:      return "Warm Pad";
+            default:            return "Sine";
         }
     }
 }

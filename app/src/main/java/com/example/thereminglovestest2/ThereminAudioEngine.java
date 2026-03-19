@@ -215,6 +215,48 @@ public final class ThereminAudioEngine {
                 return saturate(0.80f * (((2f * phase) / TWO_PI) - 1f) + 0.18f * (float) Math.sin(phase), 0.92f + 0.12f * volume);
             case AppSettings.TONE_SQUARE:
                 return saturate(0.55f * (Math.sin(phase) >= 0f ? 1f : -1f) + 0.24f * (float) Math.sin(phase), 0.90f + 0.08f * volume);
+            case AppSettings.TONE_PULSE:
+                // 25% duty pulse — harmonic-4 null gives nasal/oboe character
+                return saturate(
+                    0.50f * (phase < (TWO_PI * 0.25f) ? 1f : -1f)
+                    + 0.30f * (float) Math.sin(phase)
+                    + 0.12f * (float) Math.sin(phase * 3f),
+                    0.88f + 0.10f * volume);
+            case AppSettings.TONE_ORGAN:
+                // 5-harmonic additive, Hammond drawbar style
+                return saturate(
+                    0.40f * (float) Math.sin(phase)
+                    + 0.32f * (float) Math.sin(phase * 2f)
+                    + 0.22f * (float) Math.sin(phase * 3f)
+                    + 0.14f * (float) Math.sin(phase * 4f)
+                    + 0.06f * (float) Math.sin(phase * 5f),
+                    0.85f + 0.06f * volume);
+            case AppSettings.TONE_STRING:
+                // Sawtooth base + upper formant harmonics (cello bridge-hill)
+                return saturate(
+                    0.55f * (((2f * phase) / TWO_PI) - 1f)
+                    + 0.28f * (float) Math.sin(phase * 3f)
+                    + 0.18f * (float) Math.sin(phase * 4f)
+                    + 0.08f * (float) Math.sin(phase * 5f),
+                    0.90f + 0.15f * volume);
+            case AppSettings.TONE_BELL:
+                // Inharmonic partials at real bell ratios — only tone with non-integer multipliers
+                return saturate(
+                    0.50f * (float) Math.sin(phase)
+                    + 0.30f * (float) Math.sin(phase * 2.756f)
+                    + 0.18f * (float) Math.sin(phase * 5.404f)
+                    + 0.10f * (float) Math.sin(phase * 1.500f)
+                    + 0.06f * (float) Math.sin(phase * 8.933f),
+                    0.80f + 0.08f * volume);
+            case AppSettings.TONE_PAD:
+                // Paired 0.3% detuning creates slow beating/chorus effect
+                return saturate(
+                    0.38f * (float) Math.sin(phase)
+                    + 0.38f * (float) Math.sin(phase * 1.003f)
+                    + 0.20f * (float) Math.sin(phase * 2f)
+                    + 0.12f * (float) Math.sin(phase * 2.006f)
+                    + 0.08f * (float) Math.sin(phase * 3f),
+                    0.82f + 0.12f * volume);
             default:
                 float raw = (float) Math.sin(phase)
                         + 0.22f * (float) Math.sin(phase * 2f + 0.10f)
