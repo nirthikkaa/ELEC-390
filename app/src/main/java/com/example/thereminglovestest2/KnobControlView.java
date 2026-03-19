@@ -111,7 +111,13 @@ public class KnobControlView extends LinearLayout {
         return span <= 0f ? 0f : (currentValue - minValue) / span;
     }
 
-    private float snap(float value) { return stepSize <= 0f ? value : clamp(Math.round((value - minValue) / stepSize) * stepSize + minValue, minValue, maxValue); }
+    private float snap(float value) {
+        if (stepSize <= 0f) {
+            return value;
+        }
+        float snapped = Math.round((value - minValue) / stepSize) * stepSize + minValue;
+        return clamp(snapped, minValue, maxValue);
+    }
     private static float clamp(float value, float min, float max) { return Math.max(min, Math.min(max, value)); }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
@@ -164,8 +170,11 @@ public class KnobControlView extends LinearLayout {
             float outer = outerRadius - dp(7), minorInner = outerRadius - dp(14), majorInner = outerRadius - dp(20);
             for (int i = 0; i <= count; i++) {
                 float angle = START + SWEEP * i / count;
-                float cos = (float) Math.cos(Math.toRadians(angle)), sin = (float) Math.sin(Math.toRadians(angle)), inner = i % majorEvery == 0 ? majorInner : minorInner;
-                canvas.drawLine(cx + cos * inner, cy + sin * inner, cx + cos * outer, cy + sin * outer, i % majorEvery == 0 ? majorTick : minorTick);
+                float cos = (float) Math.cos(Math.toRadians(angle));
+                float sin = (float) Math.sin(Math.toRadians(angle));
+                float inner = (i % majorEvery == 0) ? majorInner : minorInner;
+                Paint tickPaint = (i % majorEvery == 0) ? majorTick : minorTick;
+                canvas.drawLine(cx + cos * inner, cy + sin * inner, cx + cos * outer, cy + sin * outer, tickPaint);
             }
         }
 
@@ -184,15 +193,28 @@ public class KnobControlView extends LinearLayout {
             canvas.drawCircle(cx, cy, dp(4), hub);
         }
 
+        private boolean touchStartedInKnob = false;
+
         @Override public boolean onTouchEvent(MotionEvent event) {
             switch (event.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
+                case MotionEvent.ACTION_DOWN: {
+                    float cx = getWidth() / 2f, cy = getHeight() / 2f;
+                    float knobRadius = Math.min(getWidth(), getHeight()) / 2f - dp(angleDial ? 8 : 10);
+                    float dx = event.getX() - cx, dy = event.getY() - cy;
+                    touchStartedInKnob = (dx * dx + dy * dy) <= knobRadius * knobRadius;
+                    if (!touchStartedInKnob) return false;
+                    disallowParentIntercept(true);
+                    updateFromTouch(event.getX(), event.getY());
+                    return true;
+                }
                 case MotionEvent.ACTION_MOVE:
+                    if (!touchStartedInKnob) return false;
                     disallowParentIntercept(true);
                     updateFromTouch(event.getX(), event.getY());
                     return true;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
+                    if (!touchStartedInKnob) return false;
                     return finishTouch(event, event.getActionMasked() == MotionEvent.ACTION_UP);
                 default:
                     return super.onTouchEvent(event);
@@ -223,10 +245,38 @@ public class KnobControlView extends LinearLayout {
             return diff > 180f ? 360f - diff : diff;
         }
 
-        private Paint fill(int color) { Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); paint.setStyle(Paint.Style.FILL); paint.setColor(color); return paint; }
-        private Paint stroke(int color, int widthDp) { Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG); paint.setStyle(Paint.Style.STROKE); paint.setStrokeWidth(dp(widthDp)); paint.setColor(color); return paint; }
-        private Paint roundStroke(int color, int widthDp) { Paint paint = stroke(color, widthDp); paint.setStrokeCap(Paint.Cap.ROUND); return paint; }
-        private Paint text(int color, int sizeDp) { Paint paint = fill(color); paint.setTextAlign(Paint.Align.CENTER); paint.setTypeface(Typeface.DEFAULT_BOLD); paint.setTextSize(dp(sizeDp)); return paint; }
-        private int alpha(int color, int alpha255) { return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, alpha255)) << 24); }
+        private Paint fill(int color) {
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(color);
+            return paint;
+        }
+
+        private Paint stroke(int color, int widthDp) {
+            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(widthDp));
+            paint.setColor(color);
+            return paint;
+        }
+
+        private Paint roundStroke(int color, int widthDp) {
+            Paint paint = stroke(color, widthDp);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            return paint;
+        }
+
+        private Paint text(int color, int sizeDp) {
+            Paint paint = fill(color);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(sizeDp));
+            return paint;
+        }
+
+        private int alpha(int color, int alpha255) {
+            int clamped = Math.max(0, Math.min(255, alpha255));
+            return (color & 0x00FFFFFF) | (clamped << 24);
+        }
     }
 }

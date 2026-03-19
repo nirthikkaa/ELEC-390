@@ -99,7 +99,8 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void clampSavedFrequencyRange() {
         AppSettings s = store.load();
-        float min = Math.min(s.freqMinHz, STANDARD_FREQ_MAX_HZ - 1f), max = Math.min(s.freqMaxHz, STANDARD_FREQ_MAX_HZ);
+        float min = Math.min(s.freqMinHz, STANDARD_FREQ_MAX_HZ - 1f);
+        float max = Math.min(s.freqMaxHz, STANDARD_FREQ_MAX_HZ);
         if (max < min + 1f) {
             min = STANDARD_FREQ_MAX_HZ - 1f;
             max = STANDARD_FREQ_MAX_HZ;

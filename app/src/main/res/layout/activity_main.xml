@@ -248,13 +248,13 @@
                 app:strokeColor="@color/app_outline"
                 app:strokeWidth="1dp">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="132dp"
-                    android:paddingStart="16dp"
-                    android:paddingTop="10dp"
-                    android:paddingEnd="16dp"
-                    android:paddingBottom="10dp">
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingTop="14dp"
+                    android:paddingBottom="14dp">
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnAudioStart"
@@ -272,108 +272,29 @@
                         app:iconPadding="0dp"
                         app:iconSize="34dp"
                         app:iconTint="@color/app_primary"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintHorizontal_bias="0.501"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintVertical_bias="0.0"
                         app:rippleColor="@color/app_primary"
                         app:strokeColor="@color/app_primary"
                         app:strokeWidth="2dp" />
 
                     <TextView
                         android:id="@+id/tvPlayRemoteLabel"
-                        android:layout_width="84dp"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:gravity="center"
-                        android:maxLines="2"
                         android:text="Play"
                         android:textColor="@color/app_primary"
                         android:textSize="12sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="@id/btnAudioStart"
-                        app:layout_constraintStart_toStartOf="@id/btnAudioStart"
-                        app:layout_constraintTop_toBottomOf="@id/btnAudioStart" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnScanConnect"
-                        android:layout_width="58dp"
-                        android:layout_height="58dp"
-                        android:contentDescription="Reconnect gloves"
-                        android:text=""
-                        app:backgroundTint="@color/app_surface_variant"
-                        app:cornerRadius="29dp"
-                        app:icon="@android:drawable/ic_popup_sync"
-                        app:iconGravity="textStart"
-                        app:iconPadding="0dp"
-                        app:iconSize="22dp"
-                        app:iconTint="@color/app_secondary"
-                        app:layout_constraintBottom_toBottomOf="@id/btnAudioStart"
-                        app:layout_constraintEnd_toStartOf="@id/btnAudioStart"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="@id/btnAudioStart"
-                        app:strokeColor="@color/app_outline"
-                        app:strokeWidth="1dp" />
-
-                    <TextView
-                        android:id="@+id/tvReconnectLabel"
-                        android:layout_width="72dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:gravity="center"
-                        android:maxLines="2"
-                        android:text="Connect"
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="12sp"
-                        app:layout_constraintEnd_toEndOf="@id/btnScanConnect"
-                        app:layout_constraintStart_toStartOf="@id/btnScanConnect"
-                        app:layout_constraintTop_toBottomOf="@id/btnScanConnect" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnAudioStop"
-                        android:layout_width="58dp"
-                        android:layout_height="58dp"
-                        android:contentDescription="Background audio"
-                        android:text=""
-                        app:backgroundTint="@color/app_surface_variant"
-                        app:cornerRadius="29dp"
-                        app:icon="@android:drawable/ic_menu_recent_history"
-                        app:iconGravity="textStart"
-                        app:iconPadding="0dp"
-                        app:iconSize="22dp"
-                        app:iconTint="@color/app_secondary"
-                        app:layout_constraintBottom_toBottomOf="@id/btnAudioStart"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toEndOf="@id/btnAudioStart"
-                        app:layout_constraintTop_toTopOf="@id/btnAudioStart"
-                        app:strokeColor="@color/app_outline"
-                        app:strokeWidth="1dp" />
-
-                    <TextView
-                        android:id="@+id/tvBackgroundLabel"
-                        android:layout_width="80dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:gravity="center"
-                        android:maxLines="2"
-                        android:text="Background On"
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="12sp"
-                        app:layout_constraintEnd_toEndOf="@id/btnAudioStop"
-                        app:layout_constraintStart_toStartOf="@id/btnAudioStop"
-                        app:layout_constraintTop_toBottomOf="@id/btnAudioStop" />
+                        android:textStyle="bold" />
 
                     <Button
                         android:id="@+id/btnDisconnectAll"
                         android:layout_width="1dp"
                         android:layout_height="1dp"
                         android:text="Disconnect All"
-                        android:visibility="gone"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintStart_toStartOf="parent" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
+                        android:visibility="gone" />
+
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
@@ -595,6 +516,48 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Pitch Range Preset"
+                        android:textColor="@color/app_on_surface" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btnRangeLow"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Low"
+                            style="?attr/materialButtonOutlinedStyle" />
+
+                        <Button
+                            android:id="@+id/btnRangeMedium"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="Medium"
+                            style="?attr/materialButtonOutlinedStyle" />
+
+                        <Button
+                            android:id="@+id/btnRangeHigh"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:layout_weight="1"
+                            android:text="High"
+                            style="?attr/materialButtonOutlinedStyle" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
                         android:text="Frequency Min (Hz)"
                         android:textColor="@color/app_on_surface" />
 

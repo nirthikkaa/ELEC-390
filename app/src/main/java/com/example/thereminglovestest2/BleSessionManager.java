@@ -267,7 +267,13 @@ public final class BleSessionManager {
     }
 
     private static Glove gloveForName(String name) {
-        return PITCH_NAME.equals(name) ? PITCH : VOLUME_NAME.equals(name) ? VOLUME : null;
+        if (PITCH_NAME.equals(name)) {
+            return PITCH;
+        } else if (VOLUME_NAME.equals(name)) {
+            return VOLUME;
+        } else {
+            return null;
+        }
     }
 
     private static void connectGlove(Glove glove) {
@@ -568,12 +574,19 @@ public final class BleSessionManager {
     }
 
     private static void updateStatus() {
-        statusText = !bluetoothOn() ? "Bluetooth is off — turn it on to play"
-                : PITCH.connected && VOLUME.connected ? "Both gloves connected — ready to play"
-                : PITCH.connected || VOLUME.connected ? "One glove connected — connect the other glove"
-                : scanning ? "Scanning for gloves..."
-                : PITCH.manualHold || VOLUME.manualHold ? "One or more gloves are paused manually"
-                : "Connect both gloves to start playing";
+        if (!bluetoothOn()) {
+            statusText = "Bluetooth is off — turn it on to play";
+        } else if (PITCH.connected && VOLUME.connected) {
+            statusText = "Both gloves connected — ready to play";
+        } else if (PITCH.connected || VOLUME.connected) {
+            statusText = "One glove connected — connect the other glove";
+        } else if (scanning) {
+            statusText = "Scanning for gloves...";
+        } else if (PITCH.manualHold || VOLUME.manualHold) {
+            statusText = "One or more gloves are paused manually";
+        } else {
+            statusText = "Connect both gloves to start playing";
+        }
     }
 
     private static void onBluetoothStateChanged(int state) {

@@ -44,36 +44,13 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:paddingEnd="12dp"
-                            android:text="Calibration"
-                            android:textColor="@color/app_on_surface"
-                            android:textSize="24sp"
-                            android:textStyle="bold" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnPing"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:minHeight="40dp"
-                            android:text="Refresh Gloves"
-                            android:textAllCaps="false"
-                            android:textColor="@color/app_secondary"
-                            android:textSize="12sp"
-                            app:cornerRadius="16dp"
-                            app:strokeColor="@color/app_secondary" />
-
-                    </LinearLayout>
+                        android:text="Calibration"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvLiveStatus"
@@ -177,13 +154,32 @@
                             android:orientation="vertical"
                             android:paddingEnd="12dp">
 
-                            <TextView
+                            <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Pitch"
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="22sp"
-                                android:textStyle="bold" />
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Pitch"
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold" />
+
+                                <ImageButton
+                                    android:id="@+id/btnPitchInfo"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_marginStart="6dp"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:contentDescription="Pitch section info"
+                                    android:padding="4dp"
+                                    android:scaleType="fitCenter"
+                                    android:src="@android:drawable/ic_dialog_info" />
+
+                            </LinearLayout>
 
                             <TextView
                                 android:id="@+id/tvPitchLive"
@@ -299,13 +295,32 @@
                             android:orientation="vertical"
                             android:paddingEnd="12dp">
 
-                            <TextView
+                            <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Volume"
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="22sp"
-                                android:textStyle="bold" />
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Volume"
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold" />
+
+                                <ImageButton
+                                    android:id="@+id/btnVolumeInfo"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:layout_marginStart="6dp"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:contentDescription="Volume section info"
+                                    android:padding="4dp"
+                                    android:scaleType="fitCenter"
+                                    android:src="@android:drawable/ic_dialog_info" />
+
+                            </LinearLayout>
 
                             <TextView
                                 android:id="@+id/tvVolumeLive"
