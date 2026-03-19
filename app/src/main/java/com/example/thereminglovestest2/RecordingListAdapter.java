@@ -98,10 +98,14 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecordingListAdap
                         : android.R.drawable.ic_media_play
         );
 
-        holder.btnPlayPause.setOnClickListener(v -> listener.onPlayPauseClicked(position));
+        holder.btnPlayPause.setOnClickListener(v -> {
+            int pos = holder.getAdapterPosition();
+            if (pos != RecyclerView.NO_ID) listener.onPlayPauseClicked(pos);
+        });
 
         holder.itemView.setOnLongClickListener(v -> {
-            listener.onRecordingLongPressed(position);
+            int pos = holder.getAdapterPosition();
+            if (pos != RecyclerView.NO_ID) listener.onRecordingLongPressed(pos);
             return true;
         });
     }
