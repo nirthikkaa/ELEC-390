@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Theremin Gloves</string>
+    <string name="start_recording">⏺ Record</string>
+    <string name="stop_recording">⏹ Stop</string>
+    <string name="recording_timer_zero">00:00</string>
+    <string name="recording_saved">Recording saved</string>
+    <string name="recording_unavailable">Recording unavailable — microphone permission denied</string>
+    <string name="recording_failed_empty">Recording failed — file empty</string>
 </resources>

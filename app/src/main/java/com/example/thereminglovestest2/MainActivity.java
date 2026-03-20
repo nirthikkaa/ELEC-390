@@ -1,8 +1,13 @@
 package com.example.thereminglovestest2;
 
+import android.Manifest;
+import android.animation.ObjectAnimator;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.text.InputType;
 import android.view.View;
@@ -11,13 +16,19 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityMainBinding;
 import com.google.android.material.card.MaterialCardView;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
+import java.util.Date;
 import java.util.Locale;
 
 /**
@@ -37,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private static final long UI_TICK_MS = 80;
     private static final int LOG_MAX_LINES = 200;
     private static final long LOG_FLUSH_MIN_INTERVAL_MS = 600;
+    private static final int REQUEST_RECORD_AUDIO = 4109;
 
     private ActivityMainBinding binding;
     private final ArrayDeque<String> logLines = new ArrayDeque<>();
@@ -46,13 +58,29 @@ public class MainActivity extends AppCompatActivity {
 
     private ThereminAudioEngine audioEngine;
     private SettingsStore settingsRepo;
+    private RecordingManager recordingManager;
+    private RecordingRepository recordingRepository;
+    private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
 
     private boolean bgAudioEnabled = true;
+    private boolean isRecordingUiActive;
     private boolean playUiVisible;
     private boolean suppressSliderCallbacks;
     private boolean pendingAutoStartAudio;
     private boolean waitingForServiceToStop;
     private long lastLogFlushMs;
+    private long recordingStartElapsedMs;
+    private ObjectAnimator recordBlinkAnimator;
+
+    private final Runnable recordingTimerRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isRecordingUiActive) return;
+            long elapsedMs = SystemClock.elapsedRealtime() - recordingStartElapsedMs;
+            binding.tvRecordingTimer.setText(formatRecordingDuration(elapsedMs));
+            recordingTimerHandler.postDelayed(this, 1000);
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +91,10 @@ public class MainActivity extends AppCompatActivity {
 
         BleSessionManager.initialize(getApplicationContext());
         audioEngine = new ThereminAudioEngine();
+        recordingManager = new RecordingManager(this);
+        recordingRepository = new RecordingRepository(this);
+        setupRecordingCallbacks();
+        ensureRecordAudioPermission();
 
         consumeIntent(getIntent());
         loadBgAudioPref();
@@ -75,6 +107,7 @@ public class MainActivity extends AppCompatActivity {
         appendLogSafe("Play opened");
         appendLogSafe("BG audio: " + onOff(bgAudioEnabled));
         updateAudioStatusText();
+        updateBleButtonText();
     }
 
     @Override
@@ -120,6 +153,9 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
+        stopRecordBlink();
+        if (recordingManager != null) recordingManager.release();
         super.onDestroy();
         uiTicker.stop();
         if (audioEngine != null && (!bgAudioEnabled || isFinishing())) audioEngine.shutdown();
@@ -138,6 +174,7 @@ public class MainActivity extends AppCompatActivity {
         syncAudioTargetsFromSharedBleState();
         syncAllMappingControlsFromState();
         updateAudioStatusText();
+        updateBleButtonText();
     }
 
     private SettingsStore store() {
@@ -159,6 +196,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadBgAudioPref() {
         bgAudioEnabled = SettingsStore.isBgAudioEnabled(this);
+    }
+
+    private void saveBgAudioPref() {
+        SettingsStore.setBgAudioEnabled(this, bgAudioEnabled);
     }
 
     private void syncFreqSeekRange() {
@@ -207,29 +248,170 @@ public class MainActivity extends AppCompatActivity {
     private void wireButtons() {
         binding.btnDisconnectAll.setVisibility(View.GONE);
 
-        binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
+        View.OnClickListener reconnectClick = v -> {
+            appendLogSafe(v == binding.tvReconnectLabel ? "Reconnect label pressed" : "Reconnect pressed");
+            onBleTogglePressed();
+        };
+        binding.btnScanConnect.setOnClickListener(reconnectClick);
+        binding.tvReconnectLabel.setClickable(true);
+        binding.tvReconnectLabel.setFocusable(true);
+        binding.tvReconnectLabel.setOnClickListener(reconnectClick);
 
-        bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch);
-        bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol);
+        binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
+        binding.btnAudioStop.setOnClickListener(v -> toggleBackgroundAudio());
+        binding.btnRecord.setOnClickListener(v -> onRecordButtonPressed());
+        bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch, "Pitch glove");
+        bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol, "Volume glove");
         binding.btnDefaults.setOnClickListener(v -> {
             play.restoreDefaults();
             applyMappingChange("Defaults restored", true);
         });
-        binding.btnRangeLow.setOnClickListener(v -> applyFreqPreset(130f, 523f, "Low"));
-        binding.btnRangeMedium.setOnClickListener(v -> applyFreqPreset(261f, 1046f, "Medium"));
-        binding.btnRangeHigh.setOnClickListener(v -> applyFreqPreset(523f, 2093f, "High"));
     }
 
-    private void applyFreqPreset(float minHz, float maxHz, String label) {
-        play.freqMinHz = minHz;
-        play.freqMaxHz = maxHz;
-        applyMappingChange("Pitch range: " + label, true);
-    }
-
-    private void bindGloveButtons(boolean pitch, View neutral, View direction, View help) {
+    private void bindGloveButtons(boolean pitch, View neutral, View direction, View help, String title) {
         neutral.setOnClickListener(v -> BleSessionManager.requestCaptureNeutral(pitch));
         direction.setOnClickListener(v -> toggleDirection(pitch));
-        help.setOnClickListener(v -> showHelpDialog(pitch));
+        help.setOnClickListener(v -> showHelpDialog(title));
+    }
+
+    private void setupRecordingCallbacks() {
+        recordingManager.setListener(new RecordingManager.RecordingListener() {
+            @Override
+            public void onRecordingStarted() {
+                runOnUiThread(() -> {
+                    if (!isRecordingUiActive) startRecordingUi();
+                });
+            }
+
+            @Override
+            public void onRecordingStopped(String filePath, long durationMs) {
+                runOnUiThread(() -> handleSavedRecording(filePath, durationMs));
+            }
+
+            @Override
+            public void onRecordingError(String error) {
+                runOnUiThread(() -> {
+                    stopRecordingUi();
+                    toastSafe(error == null || error.trim().isEmpty()
+                            ? getString(R.string.recording_unavailable)
+                            : error);
+                    appendLogSafe("Recording error: " + error);
+                });
+            }
+        });
+    }
+
+    private void ensureRecordAudioPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_RECORD_AUDIO);
+        }
+    }
+
+    private boolean hasRecordAudioPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void onRecordButtonPressed() {
+        if (isRecordingUiActive) {
+            recordingManager.stopRecording();
+            stopRecordingUi();
+            toastSafe(getString(R.string.recording_saved));
+            appendLogSafe("Recording stopped");
+            return;
+        }
+
+        if (!hasRecordAudioPermission()) {
+            ensureRecordAudioPermission();
+            if (!hasRecordAudioPermission()) {
+                toastSafe(getString(R.string.recording_unavailable));
+                return;
+            }
+        }
+
+        recordingManager.startRecording();
+        startRecordingUi();
+        appendLogSafe("Recording started");
+    }
+
+    private void startRecordingUi() {
+        isRecordingUiActive = true;
+        recordingStartElapsedMs = SystemClock.elapsedRealtime();
+        binding.btnRecord.setText(getString(R.string.stop_recording));
+        binding.tvRecordingTimer.setText(getString(R.string.recording_timer_zero));
+        binding.tvRecordingTimer.setVisibility(View.VISIBLE);
+        recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
+        recordingTimerHandler.postDelayed(recordingTimerRunnable, 1000);
+        startRecordBlink();
+    }
+
+    private void stopRecordingUi() {
+        isRecordingUiActive = false;
+        recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
+        stopRecordBlink();
+        binding.btnRecord.setText(getString(R.string.start_recording));
+        binding.tvRecordingTimer.setText(getString(R.string.recording_timer_zero));
+        binding.tvRecordingTimer.setVisibility(View.GONE);
+    }
+
+    private void startRecordBlink() {
+        stopRecordBlink();
+        recordBlinkAnimator = ObjectAnimator.ofFloat(binding.btnRecord, "alpha", 1f, 0.3f);
+        recordBlinkAnimator.setDuration(600);
+        recordBlinkAnimator.setRepeatCount(ObjectAnimator.INFINITE);
+        recordBlinkAnimator.setRepeatMode(ObjectAnimator.REVERSE);
+        recordBlinkAnimator.start();
+    }
+
+    private void stopRecordBlink() {
+        if (recordBlinkAnimator != null) {
+            recordBlinkAnimator.cancel();
+            recordBlinkAnimator = null;
+        }
+        if (binding != null) binding.btnRecord.setAlpha(1f);
+    }
+
+    private void handleSavedRecording(String filePath, long durationMs) {
+        if (filePath == null || filePath.trim().isEmpty()) {
+            toastSafe(getString(R.string.recording_failed_empty));
+            appendLogSafe("Recording failed: empty file path");
+            return;
+        }
+
+        File file = new File(filePath);
+        if (!file.exists() || file.length() == 0) {
+            toastSafe(getString(R.string.recording_failed_empty));
+            appendLogSafe("Recording failed: file missing or empty");
+            return;
+        }
+
+        String name = "Recording " + new SimpleDateFormat("MMM d HH:mm", Locale.getDefault())
+                .format(new Date());
+        recordingRepository.saveRecording(filePath, name, durationMs);
+        appendLogSafe("Recording saved: " + name);
+    }
+
+    private String formatRecordingDuration(long elapsedMs) {
+        long totalSeconds = Math.max(0L, elapsedMs / 1000L);
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_RECORD_AUDIO) return;
+
+        boolean granted = grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (!granted) {
+            toastSafe(getString(R.string.recording_unavailable));
+            appendLogSafe("RECORD_AUDIO denied");
+        }
     }
 
     private void toggleAudio() {
@@ -261,30 +443,97 @@ public class MainActivity extends AppCompatActivity {
         updateAudioStatusText();
     }
 
+    private void toggleBackgroundAudio() {
+        bgAudioEnabled = !bgAudioEnabled;
+        saveBgAudioPref();
+        appendLogSafe("BG audio toggled -> " + onOff(bgAudioEnabled));
+        toastSafe("Background audio: " + onOff(bgAudioEnabled));
+
+        if (bgAudioEnabled) {
+            if (isAudioRunning()) {
+                persistSettings();
+                ThereminBackgroundAudioService.startIfNeeded(this);
+                audioEngine.stop();
+                appendLogSafe("Play audio moved to background owner");
+            }
+            updateAudioStatusText();
+            return;
+        }
+
+        if (!playUiVisible && isAudioRunning()) {
+            audioEngine.stop();
+            appendLogSafe("BG audio disabled while app in background -> audio stopped");
+        }
+        waitingForServiceToStop = false;
+        ThereminBackgroundAudioService.stopIfRunning(this);
+        updateAudioStatusText();
+    }
+
     private void toggleDirection(boolean pitch) {
         appendLogSafe((pitch ? "Pitch" : "Volume") + ": toggle direction");
         BleSessionManager.requestToggleDirection(pitch);
     }
 
-    private void showHelpDialog(boolean pitch) {
+    private void onBleTogglePressed() {
         BleSnapshot snapshot = getSnapshot();
-        String title = pitch ? "Pitch Glove" : "Volume Glove";
+        if (snapshot == null || !snapshot.isBluetoothOn()) {
+            toastSafe("Bluetooth is OFF");
+            return;
+        }
+        if (snapshot.areBothGlovesConnected()) {
+            toastSafe("Both gloves are already connected");
+            return;
+        }
+        toastSafe("Connecting missing glove(s)...");
+        BleSessionManager.requestConnectMissingGloves();
+        refreshUiFast();
+        updateBleButtonText();
+    }
+
+    private void updateBleButtonText() {
+        BleSnapshot snapshot = getSnapshot();
+        String label = "Connect";
+        String description = "Connect gloves";
+
+        if (snapshot != null && snapshot.hostReady) {
+            if (!snapshot.bluetoothEnabled) {
+                label = "Bluetooth Off";
+                description = "Bluetooth is off";
+            } else if (snapshot.areBothGlovesConnected()) {
+                label = "Connected";
+                description = "Both gloves are connected";
+            } else if (snapshot.isAnyGloveConnecting() || snapshot.isAnyGloveConnected()) {
+                label = "Reconnect";
+                description = "Reconnect missing gloves";
+            }
+        }
+
+        binding.btnScanConnect.setText("");
+        binding.btnScanConnect.setContentDescription(description);
+        binding.tvReconnectLabel.setText(label);
+    }
+
+    private void showHelpDialog(String title) {
+        BleSnapshot snapshot = getSnapshot();
         String message;
         if (snapshot == null || !snapshot.hostReady) {
-            message = "BLE host not ready.";
+            message = "BLE host not ready.\n\n";
         } else {
             message = "Bluetooth: " + onOff(snapshot.bluetoothEnabled) + '\n'
                     + "Scanning: " + yesNo(snapshot.scanning) + '\n'
                     + "Status: " + snapshot.statusText + "\n\n"
-                    + "Connection: " + snapshot.connectionDetail(pitch) + '\n'
-                    + "Connected: " + (pitch ? snapshot.pitchConnected : snapshot.volumeConnected) + '\n'
-                    + String.format(Locale.US, "Angle Δ: %.2f°\n", pitch ? snapshot.pitchActiveDeltaDeg : snapshot.volumeActiveDeltaDeg)
-                    + "Direction: " + (pitch ? snapshot.pitchDirectionText : snapshot.volumeDirectionText) + "\n\n"
-                    + "Background audio: " + onOff(bgAudioEnabled);
+                    + "Pitch: " + snapshot.connectionDetail(true) + '\n'
+                    + "Volume: " + snapshot.connectionDetail(false) + "\n\n"
+                    + "Pitch connected: " + snapshot.pitchConnected + '\n'
+                    + "Volume connected: " + snapshot.volumeConnected + '\n'
+                    + String.format(Locale.US, "Pitch Δ: %.2f°\n", snapshot.pitchActiveDeltaDeg)
+                    + String.format(Locale.US, "Volume Δ: %.2f°\n", snapshot.volumeActiveDeltaDeg)
+                    + "Pitch direction: " + snapshot.pitchDirectionText + '\n'
+                    + "Volume direction: " + snapshot.volumeDirectionText + "\n\n";
         }
         new AlertDialog.Builder(this)
                 .setTitle(title)
-                .setMessage(message)
+                .setMessage(message + "Background audio: " + onOff(bgAudioEnabled))
                 .setPositiveButton("OK", null)
                 .show();
     }
@@ -519,6 +768,7 @@ public class MainActivity extends AppCompatActivity {
 
         maybeStartAudioAfterCalibration(bothConnected);
         updateAudioStatusText();
+        updateBleButtonText();
         updateVisualizer();
         syncMappingValueTextsOnly();
     }
@@ -558,6 +808,15 @@ public class MainActivity extends AppCompatActivity {
         binding.btnAudioStart.setIconResource(running ? R.drawable.ic_pause_theremin : R.drawable.ic_play_theremin);
         binding.btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         binding.tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
+
+        binding.btnAudioStop.setText("");
+        binding.btnAudioStop.setIconResource(bgAudioEnabled
+                ? R.drawable.ic_background_on
+                : android.R.drawable.ic_menu_close_clear_cancel);
+        binding.btnAudioStop.setContentDescription(bgAudioEnabled
+                ? "Turn background audio off"
+                : "Turn background audio on");
+        binding.tvBackgroundLabel.setText(bgAudioEnabled ? "Background On" : "Background Off");
     }
 
     private void appendLogSafe(String msg) {

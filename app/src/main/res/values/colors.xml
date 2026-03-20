@@ -44,4 +44,7 @@
 
     <!-- Compatibility with earlier drawables/layouts -->
     <color name="launch_row">#18FFFFFF</color>
+
+    <!-- Recording UI -->
+    <color name="red_record">#E53935</color>
 </resources>
