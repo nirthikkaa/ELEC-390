@@ -61,6 +61,18 @@ public class ThereminBackgroundAudioService extends Service {
         calibrationPreviewSettings = null;
     }
 
+    /**
+     * Sprint 2: Hooks a RecordingManager into the background service's audio engine PCM tap.
+     * MainActivity calls this in onPause (to hand recording off to the background engine) and
+     * again in onResume with the foreground engine. Pass null to disconnect.
+     */
+    public static void setRecordingManager(RecordingManager rm) {
+        ThereminBackgroundAudioService svc = activeInstance;
+        if (svc != null && svc.audioEngine != null) {
+            svc.audioEngine.setPcmListener(rm);
+        }
+    }
+
     @Override public void onCreate() {
         super.onCreate();
         activeInstance = this;
