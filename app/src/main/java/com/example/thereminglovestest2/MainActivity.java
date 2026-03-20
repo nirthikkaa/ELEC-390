@@ -248,17 +248,7 @@ public class MainActivity extends AppCompatActivity {
     private void wireButtons() {
         binding.btnDisconnectAll.setVisibility(View.GONE);
 
-        View.OnClickListener reconnectClick = v -> {
-            appendLogSafe(v == binding.tvReconnectLabel ? "Reconnect label pressed" : "Reconnect pressed");
-            onBleTogglePressed();
-        };
-        binding.btnScanConnect.setOnClickListener(reconnectClick);
-        binding.tvReconnectLabel.setClickable(true);
-        binding.tvReconnectLabel.setFocusable(true);
-        binding.tvReconnectLabel.setOnClickListener(reconnectClick);
-
         binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
-        binding.btnAudioStop.setOnClickListener(v -> toggleBackgroundAudio());
         binding.btnRecord.setOnClickListener(v -> onRecordButtonPressed());
         bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch, "Pitch glove");
         bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol, "Volume glove");
@@ -508,9 +498,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        binding.btnScanConnect.setText("");
-        binding.btnScanConnect.setContentDescription(description);
-        binding.tvReconnectLabel.setText(label);
     }
 
     private void showHelpDialog(String title) {
@@ -809,14 +796,6 @@ public class MainActivity extends AppCompatActivity {
         binding.btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         binding.tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
 
-        binding.btnAudioStop.setText("");
-        binding.btnAudioStop.setIconResource(bgAudioEnabled
-                ? R.drawable.ic_background_on
-                : android.R.drawable.ic_menu_close_clear_cancel);
-        binding.btnAudioStop.setContentDescription(bgAudioEnabled
-                ? "Turn background audio off"
-                : "Turn background audio on");
-        binding.tvBackgroundLabel.setText(bgAudioEnabled ? "Background On" : "Background Off");
     }
 
     private void appendLogSafe(String msg) {
