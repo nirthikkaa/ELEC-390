@@ -93,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
         audioEngine = new ThereminAudioEngine();
         recordingManager = new RecordingManager(this);
         recordingRepository = new RecordingRepository(this);
+        recordingManager.setAudioEngine(audioEngine);
         setupRecordingCallbacks();
         ensureRecordAudioPermission();
 
@@ -218,6 +219,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             pushAudioTargetsToEngine();
             ThereminBackgroundAudioService.startIfNeeded(this);
+            ThereminBackgroundAudioService.setRecordingManager(recordingManager);
             audioEngine.stop();
             waitingForServiceToStop = false;
             appendLogSafe("Play hidden -> audio handed to background service");
@@ -240,6 +242,8 @@ public class MainActivity extends AppCompatActivity {
         if (!waitingForServiceToStop || ThereminBackgroundAudioService.isServiceActive()) return;
         waitingForServiceToStop = false;
         if (isAudioRunning()) return;
+        ThereminBackgroundAudioService.setRecordingManager(null);
+        recordingManager.setAudioEngine(audioEngine);
         pushAudioTargetsToEngine();
         audioEngine.start();
         appendLogSafe("Play visible -> audio returned from background service");
@@ -329,7 +333,7 @@ public class MainActivity extends AppCompatActivity {
     private void startRecordingUi() {
         isRecordingUiActive = true;
         recordingStartElapsedMs = SystemClock.elapsedRealtime();
-        binding.btnRecord.setText(getString(R.string.stop_recording));
+        binding.tvRecordLabel.setText("Stop");
         binding.tvRecordingTimer.setText(getString(R.string.recording_timer_zero));
         binding.tvRecordingTimer.setVisibility(View.VISIBLE);
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
@@ -341,7 +345,7 @@ public class MainActivity extends AppCompatActivity {
         isRecordingUiActive = false;
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
         stopRecordBlink();
-        binding.btnRecord.setText(getString(R.string.start_recording));
+        binding.tvRecordLabel.setText("Record");
         binding.tvRecordingTimer.setText(getString(R.string.recording_timer_zero));
         binding.tvRecordingTimer.setVisibility(View.GONE);
     }
