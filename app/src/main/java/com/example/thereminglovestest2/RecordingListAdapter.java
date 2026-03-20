@@ -100,12 +100,12 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecordingListAdap
 
         holder.btnPlayPause.setOnClickListener(v -> {
             int pos = holder.getAdapterPosition();
-            if (pos != RecyclerView.NO_ID) listener.onPlayPauseClicked(pos);
+            if (pos != RecyclerView.NO_POSITION) listener.onPlayPauseClicked(pos);
         });
 
         holder.itemView.setOnLongClickListener(v -> {
             int pos = holder.getAdapterPosition();
-            if (pos != RecyclerView.NO_ID) listener.onRecordingLongPressed(pos);
+            if (pos != RecyclerView.NO_POSITION) listener.onRecordingLongPressed(pos);
             return true;
         });
     }
