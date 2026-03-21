@@ -29,6 +29,8 @@ public class SettingsStore extends SQLiteOpenHelper {
     private static final String KEY_BG_AUDIO_ENABLED = "bg_audio_enabled";
     private static final String KEY_EXTENDED_FREQ_RANGE = "extended_frequency_range_enabled";
     private static final String KEY_CALIBRATION_GUIDE_LEARNED = "calibration_guide_learned";
+    private static final String KEY_AUDIO_COMPRESSION = "audio_compression";
+    private static final String KEY_SHOW_RENAME_DIALOG = "show_rename_dialog_on_stop";
 
     private static final String COL_ID = "id";
     private static final String COL_PITCH_ANGLE_MIN = "pitch_angle_min_deg";
@@ -176,6 +178,10 @@ public class SettingsStore extends SQLiteOpenHelper {
     public static void setExtendedFreqRangeEnabled(Context c, boolean v) { putBool(c, PREFS_APP, KEY_EXTENDED_FREQ_RANGE, v); }
     public static boolean isCalibrationGuideLearned(Context c) { return getBool(c, PREFS_UI, KEY_CALIBRATION_GUIDE_LEARNED, false); }
     public static void setCalibrationGuideLearned(Context c, boolean v) { putBool(c, PREFS_UI, KEY_CALIBRATION_GUIDE_LEARNED, v); }
+    public static String getAudioCompression(Context c) { return getStr(c, PREFS_APP, KEY_AUDIO_COMPRESSION, AppSettings.COMPRESSION_HIGH); }
+    public static void setAudioCompression(Context c, String v) { putStr(c, PREFS_APP, KEY_AUDIO_COMPRESSION, v); }
+    public static boolean isRenameDialogEnabled(Context c) { return getBool(c, PREFS_APP, KEY_SHOW_RENAME_DIALOG, true); }
+    public static void setRenameDialogEnabled(Context c, boolean v) { putBool(c, PREFS_APP, KEY_SHOW_RENAME_DIALOG, v); }
 
     private static boolean getBool(Context c, String prefs, String key, boolean fallback) {
         return prefs(c, prefs).getBoolean(key, fallback);
@@ -183,6 +189,15 @@ public class SettingsStore extends SQLiteOpenHelper {
 
     private static void putBool(Context c, String prefs, String key, boolean value) {
         prefs(c, prefs).edit().putBoolean(key, value).apply();
+    }
+
+    private static String getStr(Context c, String prefs, String key, String fallback) {
+        String v = prefs(c, prefs).getString(key, null);
+        return v != null ? v : fallback;
+    }
+
+    private static void putStr(Context c, String prefs, String key, String value) {
+        prefs(c, prefs).edit().putString(key, value).apply();
     }
 
     private static SharedPreferences prefs(Context context, String name) {
@@ -207,6 +222,11 @@ class AppSettings {
 
     public static final boolean DEFAULT_PITCH_DIRECTION_INVERTED = false;
     public static final boolean DEFAULT_VOLUME_DIRECTION_INVERTED = true;
+
+    public static final String COMPRESSION_LOSSLESS = "LOSSLESS";
+    public static final String COMPRESSION_HIGH     = "HIGH";
+    public static final String COMPRESSION_MEDIUM   = "MEDIUM";
+    public static final String COMPRESSION_LOW      = "LOW";
 
     public static final String TONE_SINE = "SINE";
     public static final String TONE_SQUARE = "SQUARE";

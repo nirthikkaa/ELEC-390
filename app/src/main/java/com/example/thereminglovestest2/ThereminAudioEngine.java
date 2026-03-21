@@ -206,58 +206,70 @@ public final class ThereminAudioEngine {
         if (phase >= TWO_PI) phase -= TWO_PI;
     }
 
-    // Tone recipes. They are intentionally simple and cheap because this runs for every sample.
+    // Tone recipes. Each tone is designed to be perceptibly distinct from the others.
+    // Math.sin() is cheap on modern JIT; the audio thread runs at THREAD_PRIORITY_AUDIO.
     private float sample(String tone, float phase, float volume) {
         switch (tone) {
             case AppSettings.TONE_TRIANGLE:
-                return saturate((float) (2.0 / Math.PI * Math.asin(Math.sin(phase))) + 0.08f * (float) Math.sin(phase * 2f), 0.95f + 0.10f * volume);
+                // Triangle core plus boosted odd upper partials — reedier than pure triangle,
+                // clearly brighter than sine but less harsh than square or saw.
+                return ((float) (2.0 / Math.PI) * (float) Math.asin(Math.sin(phase))
+                        + 0.25f * (float) Math.sin(phase * 3f)
+                        - 0.10f * (float) Math.sin(phase * 5f)
+                        + 0.04f * (float) Math.sin(phase * 7f)) * 0.72f;
+
             case AppSettings.TONE_SAW:
-                return saturate(0.80f * (((2f * phase) / TWO_PI) - 1f) + 0.18f * (float) Math.sin(phase), 0.92f + 0.12f * volume);
+                // Direct analog sawtooth oscillator — linear ramp +1 → −1 each cycle.
+                // Completely different waveform shape from all sine-based tones.
+                // tanh drive (1.20) warms it and tames Nyquist aliasing at high pitches.
+                return saturate(1f - phase / (float) Math.PI, 1.20f);
+
             case AppSettings.TONE_SQUARE:
-                return saturate(0.55f * (Math.sin(phase) >= 0f ? 1f : -1f) + 0.24f * (float) Math.sin(phase), 0.90f + 0.08f * volume);
+                // Hard square wave — harsh and buzzy, most distinctive of all tones
+                return saturate(
+                    0.65f * (Math.sin(phase) >= 0f ? 1f : -1f)
+                    + 0.22f * (float) Math.sin(phase),
+                    1.10f);
+
             case AppSettings.TONE_PULSE:
-                // 25% duty pulse — harmonic-4 null gives nasal/oboe character
-                return saturate(
-                    0.50f * (phase < (TWO_PI * 0.25f) ? 1f : -1f)
-                    + 0.30f * (float) Math.sin(phase)
-                    + 0.12f * (float) Math.sin(phase * 3f),
-                    0.88f + 0.10f * volume);
+                // Direct 25% duty-cycle pulse — high for first quarter, low for three quarters.
+                // Zero-mean amplitudes (0.75/−0.25) match the correct Fourier DC balance.
+                // Nasal, oboe-like quality from the hard asymmetry; sine blend softens clicks.
+                return saturate((phase < (float) (Math.PI * 0.5) ? 0.75f : -0.25f)
+                        + 0.15f * (float) Math.sin(phase), 1.0f);
+
             case AppSettings.TONE_ORGAN:
-                // 5-harmonic additive, Hammond drawbar style
+                // Full-wave rectified sine base — folds every cycle into a double-frequency ripple,
+                // naturally emphasising even harmonics like a Hammond drawbar organ.
+                // Hard-driven into tanh adds back odd harmonics as the characteristic "chiff".
                 return saturate(
-                    0.40f * (float) Math.sin(phase)
-                    + 0.32f * (float) Math.sin(phase * 2f)
-                    + 0.22f * (float) Math.sin(phase * 3f)
-                    + 0.14f * (float) Math.sin(phase * 4f)
-                    + 0.06f * (float) Math.sin(phase * 5f),
-                    0.85f + 0.06f * volume);
+                    (Math.abs((float) Math.sin(phase)) * 2f - 1f)
+                    + 0.45f * (float) Math.sin(phase),
+                    1.35f);
+
             case AppSettings.TONE_STRING:
-                // Sawtooth base + upper formant harmonics (cello bridge-hill)
-                return saturate(
-                    0.55f * (((2f * phase) / TWO_PI) - 1f)
-                    + 0.28f * (float) Math.sin(phase * 3f)
-                    + 0.18f * (float) Math.sin(phase * 4f)
-                    + 0.08f * (float) Math.sin(phase * 5f),
-                    0.90f + 0.15f * volume);
+                // FM synthesis: carrier:modulator 1:1, index 2.5 — bowed string spectrum.
+                // sin(x + 2.5·sin(x)) distributes energy into harmonics via Bessel coefficients;
+                // sounds completely unlike additive sine — complex, reedy, bowed character.
+                return (float) Math.sin(phase + 2.5f * (float) Math.sin(phase)) * 0.88f;
+
             case AppSettings.TONE_BELL:
-                // Inharmonic partials at real bell ratios — only tone with non-integer multipliers
-                return saturate(
-                    0.50f * (float) Math.sin(phase)
-                    + 0.30f * (float) Math.sin(phase * 2.756f)
-                    + 0.18f * (float) Math.sin(phase * 5.404f)
-                    + 0.10f * (float) Math.sin(phase * 1.500f)
-                    + 0.06f * (float) Math.sin(phase * 8.933f),
-                    0.80f + 0.08f * volume);
+                // Chowning FM bell: carrier:modulator 1:2.756, index 3.0.
+                // Non-integer modulator ratio creates inharmonic sidebands — authentic bell ring.
+                return (float) Math.sin(phase + 3.0f * (float) Math.sin(phase * 2.756f)) * 0.88f;
+
             case AppSettings.TONE_PAD:
-                // Paired 0.3% detuning creates slow beating/chorus effect
+                // Chorus pad: sawtooth main voice + detuned triangle voice.
+                // Two fundamentally different base waveforms beating against each other
+                // create a warmer, richer chorus texture than all-sine detuning.
                 return saturate(
-                    0.38f * (float) Math.sin(phase)
-                    + 0.38f * (float) Math.sin(phase * 1.003f)
-                    + 0.20f * (float) Math.sin(phase * 2f)
-                    + 0.12f * (float) Math.sin(phase * 2.006f)
-                    + 0.08f * (float) Math.sin(phase * 3f),
-                    0.82f + 0.12f * volume);
-            default:
+                    0.38f * (1f - phase / (float) Math.PI)
+                    + 0.38f * ((float) (2.0 / Math.PI) * (float) Math.asin(Math.sin(phase * 1.007f)))
+                    + 0.14f * (float) Math.sin(phase * 0.993f)
+                    + 0.18f * (float) Math.sin(phase * 2.014f),
+                    0.88f + 0.12f * volume);
+
+            default: // SINE — warm tone with mild harmonics and gentle tanh warmth
                 float raw = (float) Math.sin(phase)
                         + 0.22f * (float) Math.sin(phase * 2f + 0.10f)
                         + 0.10f * (float) Math.sin(phase * 3f + 0.24f)

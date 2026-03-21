@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -10,6 +11,79 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
+    <!-- Search bar — hidden until search button is tapped -->
+    <LinearLayout
+        android:id="@+id/searchBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:background="@color/app_surface"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:hint="Search recordings…"
+            android:inputType="text"
+            android:imeOptions="actionSearch"
+            android:singleLine="true"
+            android:background="@android:color/transparent"
+            android:paddingStart="2dp"
+            android:textSize="15sp"
+            android:textColor="@color/app_on_surface"
+            android:textColorHint="@color/app_on_surface_variant" />
+
+    </LinearLayout>
+
+    <!-- Multi-select action bar, hidden until "Select recordings" is tapped -->
+    <LinearLayout
+        android:id="@+id/multiSelectBar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp"
+        android:background="@color/app_surface_variant"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvSelectionCount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Tap to select"
+            android:textColor="@color/app_on_surface"
+            android:textSize="14sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMoveSelected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="Move to\u2026"
+            android:enabled="false"
+            android:textAllCaps="false"
+            app:cornerRadius="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDeleteSelected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Delete"
+            android:enabled="false"
+            app:backgroundTint="@color/red_record"
+            app:cornerRadius="8dp" />
+
+    </LinearLayout>
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -19,7 +93,9 @@
             android:id="@+id/rvRecordings"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="8dp" />
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:clipToPadding="false" />
 
         <TextView
             android:id="@+id/tvEmptyState"
@@ -34,6 +110,151 @@
             android:visibility="gone" />
 
     </FrameLayout>
+
+    <!-- Mini player bar, shown when a recording is playing or paused -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/playerBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/app_surface_variant"
+        app:cardCornerRadius="0dp"
+        app:cardElevation="8dp"
+        app:strokeWidth="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="8dp">
+
+            <!-- "Now Playing" label row with quality badge at the right -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="3dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="NOW PLAYING"
+                    android:textColor="@color/app_primary"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+
+                <TextView
+                    android:id="@+id/tvQualityBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:text="LOSSLESS"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:textColor="#1A1A1A"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- Track name -->
+            <TextView
+                android:id="@+id/tvPlayerName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="Recording name"
+                android:textColor="@color/app_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <!-- Controls row: time on the left — previous · play/pause · next · mode on the right -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvPlayerTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0:00 / 0:00"
+                    android:textColor="@color/app_on_surface_variant"
+                    android:textSize="11sp" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <!-- Playback mode button: cycles → / 1× / ↻1 / ↻ -->
+                <TextView
+                    android:id="@+id/btnPlayerMode"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="4dp"
+                    android:gravity="center"
+                    android:text="→"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/app_on_surface_variant"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:contentDescription="Playback mode" />
+
+                <ImageButton
+                    android:id="@+id/btnPlayerPrevious"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Previous track"
+                    android:src="@drawable/ic_skip_previous"
+                    android:tint="@color/app_primary" />
+
+                <ImageButton
+                    android:id="@+id/btnPlayerPlayPause"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Play or pause"
+                    android:src="@android:drawable/ic_media_pause"
+                    android:tint="@color/app_primary" />
+
+                <ImageButton
+                    android:id="@+id/btnPlayerSkip"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Next track"
+                    android:src="@drawable/ic_skip_next"
+                    android:tint="@color/app_primary" />
+
+            </LinearLayout>
+
+            <SeekBar
+                android:id="@+id/sbPlayerProgress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:progressTint="@color/app_primary"
+                android:thumbTint="@color/app_primary" />
+
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <com.example.thereminglovestest2.BottomNavBarView
         android:id="@+id/bottomNavBar"

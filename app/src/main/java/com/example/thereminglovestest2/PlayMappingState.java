@@ -73,6 +73,7 @@ final class PlayMappingState {
         settings.freqMaxHz = freqMaxHz;
         settings.volumeAngleMinDeg = volumeAngleMinDeg;
         settings.volumeAngleMaxDeg = volumeAngleMaxDeg;
+        settings.toneType = AppSettings.normalizeToneType(currentToneType);
     }
 
     void restoreDefaults() {

@@ -29,6 +29,7 @@ public class TopNavBarView extends LinearLayout {
     };
 
     private final TextView titleView;
+    private ImageButton overflowButton;
 
     public TopNavBarView(Context context) { this(context, null); }
     public TopNavBarView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
@@ -63,11 +64,28 @@ public class TopNavBarView extends LinearLayout {
         titleLp.rightMargin = dp(10);
         addView(titleView, titleLp);
 
-        addView(iconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material, "More options", this::showMenu, onSurface), new LayoutParams(dp(40), dp(40)));
+        overflowButton = iconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material, "More options", this::showMenu, onSurface);
+        addView(overflowButton, new LayoutParams(dp(40), dp(40)));
         ViewCompat.requestApplyInsets(this);
     }
 
     public void setTitleText(String title) { titleView.setText(title); }
+
+    /** Override the 3-dot button's click listener. Pass null to restore the default menu. */
+    public void setMenuClickListener(View.OnClickListener listener) {
+        overflowButton.setOnClickListener(listener != null ? listener : this::showMenu);
+    }
+
+    /**
+     * Insert an icon button immediately before the overflow (3-dot) button.
+     * Call multiple times to add several buttons — they appear left-to-right in call order.
+     */
+    public void addActionButton(int iconRes, String desc, View.OnClickListener listener) {
+        int onSurface = ContextCompat.getColor(getContext(), R.color.app_on_surface);
+        ImageButton btn = iconButton(iconRes, desc, listener, onSurface);
+        // getChildCount()-1 inserts just before the overflow button (always last child)
+        addView(btn, getChildCount() - 1, new LayoutParams(dp(40), dp(40)));
+    }
 
     private ImageButton iconButton(int iconRes, String desc, OnClickListener click, int tint) {
         ImageButton button = new ImageButton(getContext());

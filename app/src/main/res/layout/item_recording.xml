@@ -1,42 +1,103 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="12dp"
-    android:gravity="center_vertical">
+    android:layout_marginStart="10dp"
+    android:layout_marginEnd="10dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    app:cardBackgroundColor="@color/app_surface"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/app_outline"
+    app:strokeWidth="1dp">
 
     <LinearLayout
-        android:layout_width="0dp"
+        android:id="@+id/itemRoot"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="8dp"
+        android:gravity="center_vertical"
+        android:background="@android:color/transparent"
+        android:foreground="?attr/selectableItemBackground">
 
-        <TextView
-            android:id="@+id/tvRecordingName"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Recording Name"
-            android:textColor="@color/app_on_surface"
-            android:textStyle="bold"
-            android:textSize="16sp" />
+        <!-- Play button on the far left, well away from destructive actions -->
+        <ImageButton
+            android:id="@+id/btnPlayPause"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Play or pause"
+            android:src="@android:drawable/ic_media_play"
+            android:tint="@color/app_primary" />
 
-        <TextView
-            android:id="@+id/tvRecordingMeta"
-            android:layout_width="wrap_content"
+        <!-- Name and meta in the middle -->
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="Mar 9, 2026 • 0:32"
-            android:textColor="@color/app_on_surface_variant"
-            android:textSize="13sp" />
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvRecordingName"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Recording Name"
+                    android:textColor="@color/app_on_surface"
+                    android:textStyle="bold"
+                    android:textSize="15sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tvRecordingQuality"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:paddingStart="5dp"
+                    android:paddingEnd="5dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:textColor="#1A1A1A"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvRecordingMeta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Mar 9, 2026 • 0:32 • 5.4 MB"
+                android:textColor="@color/app_on_surface_variant"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- More options (3-dot) menu -->
+        <ImageButton
+            android:id="@+id/btnMore"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="More options"
+            android:src="@drawable/ic_more_vert"
+            android:tint="@color/app_on_surface_variant" />
+
     </LinearLayout>
-
-    <ImageButton
-        android:id="@+id/btnPlayPause"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="Play or pause"
-        android:src="@android:drawable/ic_media_play" />
-
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

@@ -25,6 +25,7 @@ public class ThereminBackgroundAudioService extends Service {
     private static volatile boolean serviceActive;
     private static volatile AppSettings calibrationPreviewSettings;
     private static volatile ThereminBackgroundAudioService activeInstance;
+    private static volatile boolean thereminMuted = false;
 
     private final AppSettings fallbackSettings = new AppSettings();
     private ThereminAudioEngine audioEngine;
@@ -66,6 +67,18 @@ public class ThereminBackgroundAudioService extends Service {
      * MainActivity calls this in onPause (to hand recording off to the background engine) and
      * again in onResume with the foreground engine. Pass null to disconnect.
      */
+    public static void setToneTypeNow(String toneType) {
+        ThereminBackgroundAudioService svc = activeInstance;
+        if (svc == null || svc.audioEngine == null) return;
+        String normalized = AppSettings.normalizeToneType(toneType);
+        svc.audioEngine.setToneType(normalized);
+        svc.lastPushedToneType = normalized;
+    }
+
+    public static void setThereminMuted(boolean muted) {
+        thereminMuted = muted;
+    }
+
     public static void setRecordingManager(RecordingManager rm) {
         ThereminBackgroundAudioService svc = activeInstance;
         if (svc != null && svc.audioEngine != null) {
@@ -157,7 +170,7 @@ public class ThereminBackgroundAudioService extends Service {
             audioEngine.setToneType(active.toneType);
             lastPushedToneType = active.toneType;
         }
-        audioEngine.setTargets(pitchOk ? freq : active.freqMinHz, ready ? volume : 0f);
+        audioEngine.setTargets(pitchOk ? freq : active.freqMinHz, (ready && !thereminMuted) ? volume : 0f);
     }
 
     private static AppSettings copySettings(AppSettings source) {

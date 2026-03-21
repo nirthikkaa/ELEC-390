@@ -23,7 +23,6 @@ public class LaunchActivity extends AppCompatActivity {
         binding = ActivityLaunchBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         binding.btnTapToStart.setOnClickListener(v -> openSetup());
-        binding.btnOpenMenu.setOnClickListener(v -> openSetup());
     }
 
     private void openSetup() {

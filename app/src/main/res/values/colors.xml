@@ -47,4 +47,7 @@
 
     <!-- Recording UI -->
     <color name="red_record">#E53935</color>
+    <color name="red_ripple">#CCFF5252</color>
+    <!-- Library selection highlight (primary blue at 20% alpha) -->
+    <color name="app_selection_bg">#337EA4FF</color>
 </resources>
