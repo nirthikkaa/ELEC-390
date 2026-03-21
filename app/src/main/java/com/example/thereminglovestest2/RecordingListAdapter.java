@@ -280,7 +280,7 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
                     case MotionEvent.ACTION_DOWN:
                         downPos[0] = event.getX();
                         downPos[1] = event.getY();
-                        h.longPressHandler.postDelayed(h.pendingDrag, 1000);
+                        h.longPressHandler.postDelayed(h.pendingDrag, 500);
                         return false;
                     case MotionEvent.ACTION_MOVE: {
                         float dx = event.getX() - downPos[0];
