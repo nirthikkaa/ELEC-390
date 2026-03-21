@@ -19,6 +19,10 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import android.widget.FrameLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -50,6 +54,12 @@ public class MainActivity extends AppCompatActivity {
     private static final long LOG_FLUSH_MIN_INTERVAL_MS = 600;
     private static final int REQUEST_RECORD_AUDIO = 4109;
 
+    private static final String[] TONE_CYCLE = {
+        AppSettings.TONE_SINE, AppSettings.TONE_SQUARE, AppSettings.TONE_TRIANGLE,
+        AppSettings.TONE_SAW,  AppSettings.TONE_PULSE,  AppSettings.TONE_ORGAN,
+        AppSettings.TONE_STRING, AppSettings.TONE_BELL, AppSettings.TONE_PAD
+    };
+
     private ActivityMainBinding binding;
     private final ArrayDeque<String> logLines = new ArrayDeque<>();
     private final NavigationUtils.Poller uiTicker =
@@ -61,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private RecordingManager recordingManager;
     private RecordingRepository recordingRepository;
     private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
+
 
     private boolean bgAudioEnabled = true;
     private boolean isRecordingUiActive;
@@ -254,6 +265,9 @@ public class MainActivity extends AppCompatActivity {
 
         binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
         binding.btnRecord.setOnClickListener(v -> onRecordButtonPressed());
+
+        binding.toneKnob.setToneSequence(TONE_CYCLE);
+        binding.toneKnob.setOnToneStepListener(this::cycleTone);
         bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch, "Pitch glove");
         bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol, "Volume glove");
         binding.btnDefaults.setOnClickListener(v -> {
@@ -312,7 +326,7 @@ public class MainActivity extends AppCompatActivity {
         if (isRecordingUiActive) {
             recordingManager.stopRecording();
             stopRecordingUi();
-            toastSafe(getString(R.string.recording_saved));
+            // Toast shown later in handleSavedRecording() only if file is valid
             appendLogSafe("Recording stopped");
             return;
         }
@@ -325,6 +339,20 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        // Block recording if the theremin isn't playing
+        if (!isAnyAudioRunning()) {
+            toastSafe("Press Play first to start recording");
+            return;
+        }
+
+        // Wire PCM tap to whichever engine is actually producing audio right now.
+        if (isServiceOwningAudio()) {
+            ThereminBackgroundAudioService.setRecordingManager(recordingManager);
+            appendLogSafe("Recording: tapped background service engine");
+        } else {
+            recordingManager.setAudioEngine(audioEngine);
+        }
+
         recordingManager.startRecording();
         startRecordingUi();
         appendLogSafe("Recording started");
@@ -334,6 +362,8 @@ public class MainActivity extends AppCompatActivity {
         isRecordingUiActive = true;
         recordingStartElapsedMs = SystemClock.elapsedRealtime();
         binding.tvRecordLabel.setText("Stop");
+        // Swap circle icon → square icon
+        binding.btnRecord.setIconResource(R.drawable.ic_stop_recording);
         binding.tvRecordingTimer.setText(getString(R.string.recording_timer_zero));
         binding.tvRecordingTimer.setVisibility(View.VISIBLE);
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
@@ -346,6 +376,8 @@ public class MainActivity extends AppCompatActivity {
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
         stopRecordBlink();
         binding.tvRecordLabel.setText("Record");
+        // Swap square icon → circle icon
+        binding.btnRecord.setIconResource(R.drawable.ic_record);
         binding.tvRecordingTimer.setText(getString(R.string.recording_timer_zero));
         binding.tvRecordingTimer.setVisibility(View.GONE);
     }
@@ -381,9 +413,47 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        String name = "Recording " + new SimpleDateFormat("MMM d HH:mm", Locale.getDefault())
+        String defaultName = "Recording " + new SimpleDateFormat("MMM d HH:mm", Locale.getDefault())
                 .format(new Date());
-        recordingRepository.saveRecording(filePath, name, durationMs);
+
+        if (!SettingsStore.isRenameDialogEnabled(this)) {
+            commitRecording(filePath, defaultName, durationMs);
+            return;
+        }
+
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setText(defaultName);
+        input.selectAll();
+
+        int margin = (int) (20 * getResources().getDisplayMetrics().density);
+        FrameLayout container = new FrameLayout(this);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = lp.rightMargin = margin;
+        container.addView(input, lp);
+
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Name your recording")
+                .setView(container)
+                .setCancelable(false)
+                .setPositiveButton("Save", (d, w) -> {
+                    String name = input.getText().toString().trim();
+                    if (name.isEmpty()) name = defaultName;
+                    commitRecording(filePath, name, durationMs);
+                })
+                .setNegativeButton("Rename later", (d, w) ->
+                        commitRecording(filePath, defaultName, durationMs))
+                .show();
+    }
+
+    private void commitRecording(String filePath, String name, long durationMs) {
+        // Derive quality from file extension (.wav = lossless) or from the current setting.
+        String quality = filePath != null && filePath.endsWith(".wav")
+                ? AppSettings.COMPRESSION_LOSSLESS
+                : SettingsStore.getAudioCompression(this);
+        recordingRepository.saveRecording(filePath, name, durationMs, quality);
+        toastSafe(getString(R.string.recording_saved));
         appendLogSafe("Recording saved: " + name);
     }
 
@@ -468,6 +538,26 @@ public class MainActivity extends AppCompatActivity {
         BleSessionManager.requestToggleDirection(pitch);
     }
 
+    private void cycleTone(int delta) {
+        int idx = 0;
+        for (int i = 0; i < TONE_CYCLE.length; i++) {
+            if (TONE_CYCLE[i].equals(play.currentToneType)) { idx = i; break; }
+        }
+        idx = (idx + delta + TONE_CYCLE.length) % TONE_CYCLE.length;
+        play.currentToneType = TONE_CYCLE[idx];
+        persistSettings();
+        pushAudioTargetsToEngine();
+        updateToneButton();
+    }
+
+    private void updateToneButton() {
+        if (binding == null) return;
+        String tone = play.currentToneType;
+        binding.toneKnob.setToneSequence(TONE_CYCLE);
+        binding.toneKnob.setCurrentTone(tone);
+        binding.tvToneLabel.setText(AppSettings.prettyToneType(tone));
+    }
+
     private void onBleTogglePressed() {
         BleSnapshot snapshot = getSnapshot();
         if (snapshot == null || !snapshot.isBluetoothOn()) {
@@ -533,6 +623,7 @@ public class MainActivity extends AppCompatActivity {
         AppSettings settings = store().load();
         play.load(settings);
         audioEngine.setToneType(play.currentToneType);
+        updateToneButton();
     }
 
     private void persistSettings() {
@@ -684,6 +775,9 @@ public class MainActivity extends AppCompatActivity {
     private void pushAudioTargetsToEngine() {
         audioEngine.setToneType(play.currentToneType);
         audioEngine.setTargets(play.audioTargetFreqHz, play.audioTargetVolumeLinear);
+        if (isServiceOwningAudio()) {
+            ThereminBackgroundAudioService.setToneTypeNow(play.currentToneType);
+        }
     }
 
     private void consumeIntent(Intent intent) {

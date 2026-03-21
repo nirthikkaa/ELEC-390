@@ -248,118 +248,174 @@
                 app:strokeColor="@color/app_outline"
                 app:strokeWidth="1dp">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
+                <!-- Three-button row: Record | Play | Tone -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingStart="16dp"
-                    android:paddingTop="10dp"
-                    android:paddingEnd="16dp"
-                    android:paddingBottom="10dp">
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="8dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="14dp">
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnAudioStart"
-                        android:layout_width="84dp"
-                        android:layout_height="84dp"
-                        android:contentDescription="Play or pause tone"
-                        android:elevation="0dp"
-                        android:insetTop="0dp"
-                        android:insetBottom="0dp"
-                        android:text=""
-                        app:backgroundTint="@android:color/transparent"
-                        app:cornerRadius="42dp"
-                        app:icon="@drawable/ic_play_theremin"
-                        app:iconGravity="textStart"
-                        app:iconPadding="0dp"
-                        app:iconSize="34dp"
-                        app:iconTint="@color/app_primary"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintHorizontal_bias="0.501"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintVertical_bias="0.0"
-                        app:rippleColor="@color/app_primary"
-                        app:strokeColor="@color/app_primary"
-                        app:strokeWidth="2dp" />
-
-                    <TextView
-                        android:id="@+id/tvPlayRemoteLabel"
-                        android:layout_width="84dp"
+                    <!-- Record column -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:gravity="center"
-                        android:maxLines="2"
-                        android:text="Play"
-                        android:textColor="@color/app_primary"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="@id/btnAudioStart"
-                        app:layout_constraintStart_toStartOf="@id/btnAudioStart"
-                        app:layout_constraintTop_toBottomOf="@id/btnAudioStart" />
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center_horizontal">
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnRecord"
-                        android:layout_width="58dp"
-                        android:layout_height="58dp"
-                        android:contentDescription="Record performance"
-                        android:elevation="0dp"
-                        android:insetTop="0dp"
-                        android:insetBottom="0dp"
-                        android:text=""
-                        app:backgroundTint="@color/red_record"
-                        app:cornerRadius="29dp"
-                        app:icon="@drawable/ic_record"
-                        app:iconGravity="textStart"
-                        app:iconPadding="0dp"
-                        app:iconSize="24dp"
-                        app:iconTint="@color/white"
-                        app:layout_constraintBottom_toBottomOf="@id/btnAudioStart"
-                        app:layout_constraintEnd_toStartOf="@id/btnAudioStart"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="@id/btnAudioStart"
-                        app:rippleColor="@color/white"
-                        app:strokeColor="@color/red_record"
-                        app:strokeWidth="2dp" />
+                        <FrameLayout
+                            android:layout_width="76dp"
+                            android:layout_height="76dp">
 
-                    <TextView
-                        android:id="@+id/tvRecordLabel"
-                        android:layout_width="72dp"
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:layout_gravity="center"
+                                android:background="@drawable/bg_record_button_halo" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnRecord"
+                                android:layout_width="68dp"
+                                android:layout_height="68dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Record performance"
+                                android:elevation="6dp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:text=""
+                                app:backgroundTint="#B8222D"
+                                app:cornerRadius="34dp"
+                                app:icon="@drawable/ic_record"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="24dp"
+                                app:iconTint="@color/white"
+                                app:rippleColor="#99FF8A8A"
+                                app:strokeColor="#FFF2A7A7"
+                                app:strokeWidth="2dp" />
+
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tvRecordLabel"
+                            android:layout_width="72dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:gravity="center"
+                            android:maxLines="2"
+                            android:text="Record"
+                            android:textColor="#FFD3D8"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvRecordingTimer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="@string/recording_timer_zero"
+                            android:textColor="#FFF2A7A7"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+
+                    <!-- Play column -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:gravity="center"
-                        android:maxLines="2"
-                        android:text="Record"
-                        android:textColor="@color/red_record"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        app:layout_constraintEnd_toEndOf="@id/btnRecord"
-                        app:layout_constraintStart_toStartOf="@id/btnRecord"
-                        app:layout_constraintTop_toBottomOf="@id/btnRecord" />
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center_horizontal">
 
-                    <TextView
-                        android:id="@+id/tvRecordingTimer"
-                        android:layout_width="wrap_content"
+                        <FrameLayout
+                            android:layout_width="106dp"
+                            android:layout_height="106dp">
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:layout_gravity="center"
+                                android:background="@drawable/bg_play_button_halo" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnAudioStart"
+                                android:layout_width="94dp"
+                                android:layout_height="94dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Play or pause tone"
+                                android:elevation="8dp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:text=""
+                                app:backgroundTint="@color/app_primary"
+                                app:cornerRadius="47dp"
+                                app:icon="@drawable/ic_play_theremin"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconSize="36dp"
+                                app:iconTint="@color/app_on_primary"
+                                app:rippleColor="#99E9F4FF"
+                                app:strokeColor="#FFE4F2FF"
+                                app:strokeWidth="2dp" />
+
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tvPlayRemoteLabel"
+                            android:layout_width="94dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:gravity="center"
+                            android:maxLines="2"
+                            android:text="Play"
+                            android:textColor="#FFEAF3FF"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Tone column: detented knob -->
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="@string/recording_timer_zero"
-                        android:textColor="@color/red_record"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:visibility="gone"
-                        app:layout_constraintEnd_toEndOf="@id/btnRecord"
-                        app:layout_constraintStart_toStartOf="@id/btnRecord"
-                        app:layout_constraintTop_toBottomOf="@id/tvRecordLabel" />
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:gravity="center_horizontal">
 
+                        <com.example.thereminglovestest2.ToneKnobView
+                            android:id="@+id/toneKnob"
+                            android:layout_width="108dp"
+                            android:layout_height="108dp" />
 
+                        <TextView
+                            android:id="@+id/tvToneLabel"
+                            android:layout_width="120dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:gravity="center"
+                            android:maxLines="1"
+                            android:text="Sine"
+                            android:textColor="@color/app_on_surface"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Invisible placeholder — referenced by MainActivity binding -->
                     <Button
                         android:id="@+id/btnDisconnectAll"
                         android:layout_width="1dp"
                         android:layout_height="1dp"
                         android:text="Disconnect All"
-                        android:visibility="gone"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintStart_toStartOf="parent" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
+                        android:visibility="gone" />
+
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
