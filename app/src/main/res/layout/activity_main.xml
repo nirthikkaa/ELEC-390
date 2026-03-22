@@ -474,10 +474,17 @@
                             android:insetBottom="0dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
-                        <View
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnBassToggle"
                             android:layout_width="0dp"
-                            android:layout_height="0dp"
-                            android:layout_weight="1" />
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:layout_marginStart="4dp"
+                            android:text="Bass Off"
+                            android:textSize="12sp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnOctaveDown"

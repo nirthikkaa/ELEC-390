@@ -148,6 +148,10 @@ public final class ThereminAudioEngine {
             short[] buffer = new short[AUDIO_WRITE_SAMPLES];
             while (running) {
                 fillBuffer(buffer);
+                // Sprint 3: Mix drum and bass PCM into buffer before the PCM tap so
+                // recordings capture both the theremin and the drum engine output.
+                DrumEngine drum = drumEngine;
+                if (drum != null) drum.mixInto(buffer, buffer.length);
                 updateVisualizer(buffer);
                 // Sprint 2: PCM tap — capture local reference to avoid race on volatile field.
                 // The listener (RecordingManager) must be non-blocking; this runs on the audio thread.

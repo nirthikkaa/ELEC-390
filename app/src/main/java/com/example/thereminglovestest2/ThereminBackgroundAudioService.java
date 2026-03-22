@@ -41,6 +41,16 @@ public class ThereminBackgroundAudioService extends Service {
     private volatile long lastSettingsRefreshMs;
     private String lastPushedToneType = "";
 
+    // Sprint 3: Scale lock + effects — pushed into the background engine's audioEngine every tick.
+    private static volatile String  bgActiveScale       = "CHROMATIC";
+    private static volatile boolean bgReverbEnabled     = false;
+    private static volatile float   bgReverbMix         = 0.3f;
+    private static volatile boolean bgDelayEnabled      = false;
+    private static volatile float   bgDelayFeedback     = 0.35f;
+    private static volatile float   bgDelayMix          = 0.4f;
+    private static volatile boolean bgDistortionEnabled = false;
+    private static volatile float   bgDistortionGain    = 3.0f;
+
     public static boolean isServiceActive() { return serviceActive; }
     public static ThereminAudioEngine.VisualizerSnapshot getVisualizerSnapshot() {
         ThereminBackgroundAudioService service = activeInstance;
@@ -95,6 +105,16 @@ public class ThereminBackgroundAudioService extends Service {
 
     /** Sprint 3: Returns the current octave shift value. */
     public static int getOctaveShift() { return octaveShift; }
+
+    /** Sprint 3: Scale lock — forwarded to background audio engine every sync tick. */
+    public static void setActiveScale(String scale)       { bgActiveScale = (scale != null) ? scale : "CHROMATIC"; }
+    public static void setReverbEnabled(boolean on)       { bgReverbEnabled = on; }
+    public static void setReverbMix(float mix)            { bgReverbMix = mix; }
+    public static void setDelayEnabled(boolean on)        { bgDelayEnabled = on; }
+    public static void setDelayFeedback(float fb)         { bgDelayFeedback = fb; }
+    public static void setDelayMix(float mix)             { bgDelayMix = mix; }
+    public static void setDistortionEnabled(boolean on)   { bgDistortionEnabled = on; }
+    public static void setDistortionGain(float gain)      { bgDistortionGain = gain; }
 
     /**
      * Sprint 3: Expose the service's DrumEngine so MainActivity can toggle
@@ -202,6 +222,16 @@ public class ThereminBackgroundAudioService extends Service {
             audioEngine.setToneType(active.toneType);
             lastPushedToneType = active.toneType;
         }
+
+        // Sprint 3: Forward scale lock + effects to the background audio engine every tick.
+        audioEngine.setActiveScale(bgActiveScale);
+        audioEngine.setReverbEnabled(bgReverbEnabled);
+        audioEngine.setReverbMix(bgReverbMix);
+        audioEngine.setDelayEnabled(bgDelayEnabled);
+        audioEngine.setDelayFeedback(bgDelayFeedback);
+        audioEngine.setDelayMix(bgDelayMix);
+        audioEngine.setDistortionEnabled(bgDistortionEnabled);
+        audioEngine.setDistortionGain(bgDistortionGain);
 
         // Sprint 3: Apply octave shift — multiply frequency by 2^shift, then re-clamp.
         float pitchFreq = pitchOk ? freq : active.freqMinHz;

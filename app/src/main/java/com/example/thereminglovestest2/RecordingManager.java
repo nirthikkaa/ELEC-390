@@ -111,16 +111,17 @@ public class RecordingManager implements ThereminAudioEngine.PcmListener {
                 useWav = true;
                 break;
             case AppSettings.COMPRESSION_MEDIUM:
-                activeSampleRate = 16000; activeChannels = 2; activeDownsample = 3;
-                useWav = false; bitrate = 128_000;
+                // 48 kHz, no downsampling — aliasing from naive sample-dropping was catastrophic.
+                activeSampleRate = 48000; activeChannels = 2; activeDownsample = 1;
+                useWav = false; bitrate = 192_000;
                 break;
             case AppSettings.COMPRESSION_LOW:
-                activeSampleRate = 8000;  activeChannels = 2; activeDownsample = 6;
-                useWav = false; bitrate = 64_000;
+                activeSampleRate = 48000; activeChannels = 2; activeDownsample = 1;
+                useWav = false; bitrate = 128_000;
                 break;
             default: // HIGH
-                activeSampleRate = 24000; activeChannels = 2; activeDownsample = 2;
-                useWav = false; bitrate = 192_000;
+                activeSampleRate = 48000; activeChannels = 2; activeDownsample = 1;
+                useWav = false; bitrate = 320_000;
                 break;
         }
 
