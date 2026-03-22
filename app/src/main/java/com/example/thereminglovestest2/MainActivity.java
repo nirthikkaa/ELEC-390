@@ -82,7 +82,6 @@ public class MainActivity extends AppCompatActivity {
     private boolean bgAudioEnabled = true;
     private boolean isRecordingUiActive;
     private boolean playUiVisible;
-    private boolean suppressSliderCallbacks;
     private boolean pendingAutoStartAudio;
     private boolean waitingForServiceToStop;
     private boolean performanceModeActive = false;
@@ -122,8 +121,6 @@ public class MainActivity extends AppCompatActivity {
         consumeIntent(getIntent());
         loadBgAudioPref();
         play.refreshFreqRangeLimit(this);
-        setupSlidersAndClickNumbers();
-        syncAllMappingControlsFromState();
         recomputeMappedOutputs();
         wireButtons();
 
@@ -200,7 +197,6 @@ public class MainActivity extends AppCompatActivity {
         play.refreshFreqRangeLimit(this);
         reloadMappingSettingsFromRepository();
         syncAudioTargetsFromSharedBleState();
-        syncAllMappingControlsFromState();
         updateAudioStatusText();
         updateBleButtonText();
     }
@@ -228,12 +224,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void saveBgAudioPref() {
         SettingsStore.setBgAudioEnabled(this, bgAudioEnabled);
-    }
-
-    private void syncFreqSeekRange() {
-        int max = play.getFreqProgressMax();
-        binding.sbFreqMin.setMax(max);
-        binding.sbFreqMax.setMax(max);
     }
 
     private void maybeMoveAudioToBackgroundService() {
@@ -285,13 +275,6 @@ public class MainActivity extends AppCompatActivity {
 
         binding.toneKnob.setToneSequence(TONE_CYCLE);
         binding.toneKnob.setOnToneStepListener(this::cycleTone);
-        bindGloveButtons(true, binding.btnNeutralPitch, binding.btnDirectionPitch, binding.btnHelpPitch, "Pitch glove");
-        bindGloveButtons(false, binding.btnNeutralVol, binding.btnDirectionVol, binding.btnHelpVol, "Volume glove");
-        binding.btnDefaults.setOnClickListener(v -> {
-            play.restoreDefaults();
-            applyMappingChange("Defaults restored", true);
-        });
-
         wireSpring3Controls();
     }
 
@@ -443,12 +426,6 @@ public class MainActivity extends AppCompatActivity {
         // TODO(sprint3-audio): pass effect values to audioEngine once Niraj's branch merges
 
         updateDrumButton();
-    }
-
-    private void bindGloveButtons(boolean pitch, View neutral, View direction, View help, String title) {
-        neutral.setOnClickListener(v -> BleSessionManager.requestCaptureNeutral(pitch));
-        direction.setOnClickListener(v -> toggleDirection(pitch));
-        help.setOnClickListener(v -> showHelpDialog(title));
     }
 
     private void setupRecordingCallbacks() {
@@ -702,11 +679,6 @@ public class MainActivity extends AppCompatActivity {
         updateAudioStatusText();
     }
 
-    private void toggleDirection(boolean pitch) {
-        appendLogSafe((pitch ? "Pitch" : "Volume") + ": toggle direction");
-        BleSessionManager.requestToggleDirection(pitch);
-    }
-
     private void cycleTone(int delta) {
         int idx = 0;
         for (int i = 0; i < TONE_CYCLE.length; i++) {
@@ -763,31 +735,6 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void showHelpDialog(String title) {
-        BleSnapshot snapshot = getSnapshot();
-        String message;
-        if (snapshot == null || !snapshot.hostReady) {
-            message = "BLE host not ready.\n\n";
-        } else {
-            message = "Bluetooth: " + onOff(snapshot.bluetoothEnabled) + '\n'
-                    + "Scanning: " + yesNo(snapshot.scanning) + '\n'
-                    + "Status: " + snapshot.statusText + "\n\n"
-                    + "Pitch: " + snapshot.connectionDetail(true) + '\n'
-                    + "Volume: " + snapshot.connectionDetail(false) + "\n\n"
-                    + "Pitch connected: " + snapshot.pitchConnected + '\n'
-                    + "Volume connected: " + snapshot.volumeConnected + '\n'
-                    + String.format(Locale.US, "Pitch Δ: %.2f°\n", snapshot.pitchActiveDeltaDeg)
-                    + String.format(Locale.US, "Volume Δ: %.2f°\n", snapshot.volumeActiveDeltaDeg)
-                    + "Pitch direction: " + snapshot.pitchDirectionText + '\n'
-                    + "Volume direction: " + snapshot.volumeDirectionText + "\n\n";
-        }
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(message + "Background audio: " + onOff(bgAudioEnabled))
-                .setPositiveButton("OK", null)
-                .show();
-    }
-
     private void reloadMappingSettingsFromRepository() {
         AppSettings settings = store().load();
         play.load(settings);
@@ -801,137 +748,6 @@ public class MainActivity extends AppCompatActivity {
         AppSettings settings = store().load();
         play.saveTo(settings);
         store().save(settings);
-    }
-
-    private void setupSlidersAndClickNumbers() {
-        reloadMappingSettingsFromRepository();
-        binding.sbPitchAngleMin.setMax(PlayMappingState.ANGLE_PROGRESS_MAX);
-        binding.sbPitchAngleMax.setMax(PlayMappingState.ANGLE_PROGRESS_MAX);
-        binding.sbVolAngleMin.setMax(PlayMappingState.ANGLE_PROGRESS_MAX);
-        binding.sbVolAngleMax.setMax(PlayMappingState.ANGLE_PROGRESS_MAX);
-        syncFreqSeekRange();
-
-        SeekBar.OnSeekBarChangeListener sliderListener = new SliderListener();
-        binding.sbPitchAngleMin.setOnSeekBarChangeListener(sliderListener);
-        binding.sbPitchAngleMax.setOnSeekBarChangeListener(sliderListener);
-        binding.sbVolAngleMin.setOnSeekBarChangeListener(sliderListener);
-        binding.sbVolAngleMax.setOnSeekBarChangeListener(sliderListener);
-        binding.sbFreqMin.setOnSeekBarChangeListener(sliderListener);
-        binding.sbFreqMax.setOnSeekBarChangeListener(sliderListener);
-
-        attachNumberClick(binding.tvPitchAngleMinVal, "Pitch angle min (deg)",
-                () -> PlayMappingState.ANGLE_MIN, () -> PlayMappingState.ANGLE_MAX,
-                () -> play.pitchAngleMinDeg, v -> play.pitchAngleMinDeg = v);
-        attachNumberClick(binding.tvPitchAngleMaxVal, "Pitch angle max (deg)",
-                () -> PlayMappingState.ANGLE_MIN, () -> PlayMappingState.ANGLE_MAX,
-                () -> play.pitchAngleMaxDeg, v -> play.pitchAngleMaxDeg = v);
-        attachNumberClick(binding.tvVolAngleMinVal, "Volume angle min (deg)",
-                () -> PlayMappingState.ANGLE_MIN, () -> PlayMappingState.ANGLE_MAX,
-                () -> play.volumeAngleMinDeg, v -> play.volumeAngleMinDeg = v);
-        attachNumberClick(binding.tvVolAngleMaxVal, "Volume angle max (deg)",
-                () -> PlayMappingState.ANGLE_MIN, () -> PlayMappingState.ANGLE_MAX,
-                () -> play.volumeAngleMaxDeg, v -> play.volumeAngleMaxDeg = v);
-        attachNumberClick(binding.tvFreqMinVal, "Frequency min (Hz)",
-                () -> PlayMappingState.FREQ_MIN_UI, () -> play.currentFreqMaxUi,
-                () -> play.freqMinHz, v -> play.freqMinHz = v);
-        attachNumberClick(binding.tvFreqMaxVal, "Frequency max (Hz)",
-                () -> PlayMappingState.FREQ_MIN_UI, () -> play.currentFreqMaxUi,
-                () -> play.freqMaxHz, v -> play.freqMaxHz = v);
-
-        syncAllMappingControlsFromState();
-    }
-
-    private final class SliderListener implements SeekBar.OnSeekBarChangeListener {
-        @Override
-        public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-            if (suppressSliderCallbacks) return;
-            float value = isFrequencySeekBar(seekBar)
-                    ? play.progressToFreq(progress)
-                    : play.progressToAngle(progress);
-            if (seekBar == binding.sbPitchAngleMin) play.pitchAngleMinDeg = value;
-            else if (seekBar == binding.sbPitchAngleMax) play.pitchAngleMaxDeg = value;
-            else if (seekBar == binding.sbVolAngleMin) play.volumeAngleMinDeg = value;
-            else if (seekBar == binding.sbVolAngleMax) play.volumeAngleMaxDeg = value;
-            else if (seekBar == binding.sbFreqMin) play.freqMinHz = value;
-            else if (seekBar == binding.sbFreqMax) play.freqMaxHz = value;
-            applyMappingChange(null, false);
-        }
-
-        @Override public void onStartTrackingTouch(SeekBar seekBar) {}
-
-        @Override
-        public void onStopTrackingTouch(SeekBar seekBar) {
-            persistSettings();
-            appendLogSafe("Mapping updated");
-        }
-    }
-
-    private boolean isFrequencySeekBar(SeekBar seekBar) {
-        return seekBar == binding.sbFreqMin || seekBar == binding.sbFreqMax;
-    }
-
-    private interface FloatGetter { float get(); }
-    private interface FloatSetter { void set(float v); }
-
-    private void attachNumberClick(TextView tv, String title, FloatGetter min, FloatGetter max,
-                                   FloatGetter getter, FloatSetter setter) {
-        tv.setOnClickListener(v -> showNumberEntryDialog(title, min.get(), max.get(), getter.get(), newValue -> {
-            setter.set(newValue);
-            applyMappingChange("Manual entry: " + title, true);
-        }));
-    }
-
-    private void showNumberEntryDialog(String title, float min, float max, float currentValue, FloatSetter onOk) {
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER
-                | InputType.TYPE_NUMBER_FLAG_DECIMAL
-                | InputType.TYPE_NUMBER_FLAG_SIGNED);
-        input.setText(String.format(Locale.US, "%.2f", currentValue));
-        input.setSelection(input.getText().length());
-
-        new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(String.format(Locale.US, "Enter a value between %.1f and %.1f", min, max))
-                .setView(input)
-                .setPositiveButton("OK", (d, which) -> {
-                    try {
-                        float value = Float.parseFloat(String.valueOf(input.getText()).trim());
-                        onOk.set(Math.max(min, Math.min(max, value)));
-                    } catch (Exception e) {
-                        toastSafe("Invalid number");
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void applyMappingChange(String logMessage, boolean persist) {
-        syncAllMappingControlsFromState();
-        recomputeMappedOutputs();
-        if (persist) persistSettings();
-        if (logMessage != null) appendLogSafe(logMessage);
-    }
-
-    private void syncAllMappingControlsFromState() {
-        suppressSliderCallbacks = true;
-        syncFreqSeekRange();
-        binding.sbPitchAngleMin.setProgress(play.angleToProgress(play.pitchAngleMinDeg));
-        binding.sbPitchAngleMax.setProgress(play.angleToProgress(play.pitchAngleMaxDeg));
-        binding.sbVolAngleMin.setProgress(play.angleToProgress(play.volumeAngleMinDeg));
-        binding.sbVolAngleMax.setProgress(play.angleToProgress(play.volumeAngleMaxDeg));
-        binding.sbFreqMin.setProgress(play.freqToProgress(play.freqMinHz));
-        binding.sbFreqMax.setProgress(play.freqToProgress(play.freqMaxHz));
-        syncMappingValueTextsOnly();
-        suppressSliderCallbacks = false;
-    }
-
-    private void syncMappingValueTextsOnly() {
-        binding.tvPitchAngleMinVal.setText(String.format(Locale.US, "%.1f°", play.pitchAngleMinDeg));
-        binding.tvPitchAngleMaxVal.setText(String.format(Locale.US, "%.1f°", play.pitchAngleMaxDeg));
-        binding.tvVolAngleMinVal.setText(String.format(Locale.US, "%.1f°", play.volumeAngleMinDeg));
-        binding.tvVolAngleMaxVal.setText(String.format(Locale.US, "%.1f°", play.volumeAngleMaxDeg));
-        binding.tvFreqMinVal.setText(String.format(Locale.US, "%.1f Hz", play.freqMinHz));
-        binding.tvFreqMaxVal.setText(String.format(Locale.US, "%.1f Hz", play.freqMaxHz));
     }
 
     private void recomputeMappedOutputs() {
@@ -1026,7 +842,6 @@ public class MainActivity extends AppCompatActivity {
         updateAudioStatusText();
         updateBleButtonText();
         updateVisualizer();
-        syncMappingValueTextsOnly();
     }
 
 
@@ -1105,8 +920,7 @@ public class MainActivity extends AppCompatActivity {
         int hide = active ? View.GONE : View.VISIBLE;
 
         if (binding.cardDebugLog != null)    binding.cardDebugLog.setVisibility(hide);
-        if (binding.cardPlayMapping != null) binding.cardPlayMapping.setVisibility(hide);
-        if (binding.cardGloveCommands != null) binding.cardGloveCommands.setVisibility(hide);
+
         if (binding.tvAudio != null)         binding.tvAudio.setVisibility(hide);
 
         binding.btnPerformanceMode.setText(active ? "Exit Stage" : "Stage View");
