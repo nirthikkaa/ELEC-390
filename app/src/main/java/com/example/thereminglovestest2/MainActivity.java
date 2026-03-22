@@ -786,6 +786,7 @@ public class MainActivity extends AppCompatActivity {
     private void reloadMappingSettingsFromRepository() {
         AppSettings settings = store().load();
         play.load(settings);
+        play.setSensitivityMultiplier(AppSettings.levelToMultiplier(settings.sensitivityLevel));
         audioEngine.setToneType(play.currentToneType);
         updateToneButton();
         loadSpring3Settings(settings);

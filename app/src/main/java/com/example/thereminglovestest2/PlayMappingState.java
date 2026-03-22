@@ -27,6 +27,11 @@ final class PlayMappingState {
     float audioTargetFreqHz = 880f;
     float audioTargetVolumeLinear;
     String currentToneType = AppSettings.TONE_SINE;
+    private float sensitivityMultiplier = 1.0f;
+
+    void setSensitivityMultiplier(float mult) {
+        sensitivityMultiplier = Math.max(0.1f, Math.min(3.0f, mult));
+    }
 
     void refreshFreqRangeLimit(Context context) {
         currentFreqMaxUi = SettingsStore.isExtendedFreqRangeEnabled(context)
@@ -100,8 +105,18 @@ final class PlayMappingState {
 
     void recompute(BleSnapshot snapshot) {
         sanitize();
-        float freq = mapLinearClamped(pitchActiveDeltaDeg, pitchAngleMinDeg, pitchAngleMaxDeg, freqMinHz, freqMaxHz);
-        float vol = mapLinearClamped(volActiveDeltaDeg, volumeAngleMinDeg, volumeAngleMaxDeg, 0f, 1f);
+        float pitchMid  = (pitchAngleMinDeg + pitchAngleMaxDeg) / 2f;
+        float pitchSpan = (pitchAngleMaxDeg - pitchAngleMinDeg) * sensitivityMultiplier;
+        float effPitchMin = pitchMid - pitchSpan / 2f;
+        float effPitchMax = pitchMid + pitchSpan / 2f;
+
+        float volMid  = (volumeAngleMinDeg + volumeAngleMaxDeg) / 2f;
+        float volSpan = (volumeAngleMaxDeg - volumeAngleMinDeg) * sensitivityMultiplier;
+        float effVolMin = volMid - volSpan / 2f;
+        float effVolMax = volMid + volSpan / 2f;
+
+        float freq = mapLinearClamped(pitchActiveDeltaDeg, effPitchMin, effPitchMax, freqMinHz, freqMaxHz);
+        float vol = mapLinearClamped(volActiveDeltaDeg, effVolMin, effVolMax, 0f, 1f);
         if (!pitchHasAngle) freq = freqMinHz;
         if (!volHasAngle) vol = 0f;
         mappedFreqHz = freq;

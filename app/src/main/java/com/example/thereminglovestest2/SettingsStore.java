@@ -45,6 +45,7 @@ public class SettingsStore extends SQLiteOpenHelper {
     private static final String COL_PITCH_ENABLED = "pitch_enabled";
     private static final String COL_VOL_ENABLED = "volume_enabled";
     private static final String COL_UPDATED_AT_MS = "updated_at_ms";
+    private static final String COL_SENSITIVITY_LEVEL = "sensitivity_level";
 
     // Sprint 3: scale lock, octave shift, effects
     private static final String COL_ACTIVE_SCALE       = "active_scale";
@@ -89,7 +90,8 @@ public class SettingsStore extends SQLiteOpenHelper {
             COL_DELAY_FEEDBACK,
             COL_DELAY_MIX,
             COL_DISTORTION_ENABLED,
-            COL_DISTORTION_GAIN
+            COL_DISTORTION_GAIN,
+            COL_SENSITIVITY_LEVEL
     };
 
     private static final String[] EXTRA_DEFS = {
@@ -108,7 +110,8 @@ public class SettingsStore extends SQLiteOpenHelper {
             "REAL NOT NULL DEFAULT 0.35",
             "REAL NOT NULL DEFAULT 0.4",
             "INTEGER NOT NULL DEFAULT 0",
-            "REAL NOT NULL DEFAULT 3.0"
+            "REAL NOT NULL DEFAULT 3.0",
+            "TEXT NOT NULL DEFAULT 'MEDIUM'"
     };
 
     public SettingsStore(Context context) {
@@ -164,6 +167,7 @@ public class SettingsStore extends SQLiteOpenHelper {
         v.put(COL_DELAY_MIX, s.delayMix);
         v.put(COL_DISTORTION_ENABLED, s.distortionEnabled ? 1 : 0);
         v.put(COL_DISTORTION_GAIN, s.distortionGain);
+        v.put(COL_SENSITIVITY_LEVEL, AppSettings.normalizeSensitivityLevel(s.sensitivityLevel));
         return v;
     }
 
@@ -190,6 +194,7 @@ public class SettingsStore extends SQLiteOpenHelper {
         s.delayMix = getFloat(c, COL_DELAY_MIX, 0.4f);
         s.distortionEnabled = getInt(c, COL_DISTORTION_ENABLED, 0) != 0;
         s.distortionGain = getFloat(c, COL_DISTORTION_GAIN, 3.0f);
+        s.sensitivityLevel = AppSettings.normalizeSensitivityLevel(getString(c, COL_SENSITIVITY_LEVEL, AppSettings.SENSITIVITY_MEDIUM));
         return s;
     }
 
@@ -304,6 +309,29 @@ class AppSettings {
     public static final String TONE_STRING = "STRING";
     public static final String TONE_BELL   = "BELL";
     public static final String TONE_PAD    = "PAD";
+
+    public static final String SENSITIVITY_LOW    = "LOW";
+    public static final String SENSITIVITY_MEDIUM = "MEDIUM";
+    public static final String SENSITIVITY_HIGH   = "HIGH";
+
+    public static String normalizeSensitivityLevel(String level) {
+        if (SENSITIVITY_LOW.equals(level) || SENSITIVITY_HIGH.equals(level)) return level;
+        return SENSITIVITY_MEDIUM;
+    }
+
+    public static String prettyLevel(String level) {
+        if (SENSITIVITY_LOW.equals(level))  return "Low";
+        if (SENSITIVITY_HIGH.equals(level)) return "High";
+        return "Medium";
+    }
+
+    public static float levelToMultiplier(String level) {
+        if (SENSITIVITY_HIGH.equals(level)) return 0.5f;
+        if (SENSITIVITY_LOW.equals(level))  return 1.5f;
+        return 1.0f; // MEDIUM
+    }
+
+    public String sensitivityLevel = SENSITIVITY_MEDIUM;
 
     public float pitchAngleMinDeg = DEFAULT_PITCH_ANGLE_MIN_DEG;
     public float pitchAngleMaxDeg = DEFAULT_PITCH_ANGLE_MAX_DEG;
