@@ -60,6 +60,18 @@ public class SettingsActivity extends AppCompatActivity {
                 onToggle(() -> SettingsStore.setRenameDialogEnabled(this, on),
                         "Rename dialog " + (on ? "enabled" : "disabled")));
 
+        binding.radioGroupSensitivity.setOnCheckedChangeListener((group, id) -> {
+            if (quiet) return;
+            String level;
+            if (id == R.id.radioSensLow)       level = AppSettings.SENSITIVITY_LOW;
+            else if (id == R.id.radioSensHigh) level = AppSettings.SENSITIVITY_HIGH;
+            else                               level = AppSettings.SENSITIVITY_MEDIUM;
+            AppSettings s = store.load();
+            s.sensitivityLevel = level;
+            store.save(s);
+            toast("Sensitivity: " + AppSettings.prettyLevel(level));
+        });
+
         binding.chipGroupCompression.setOnCheckedStateChangeListener((group, checkedIds) -> {
             if (quiet || checkedIds.isEmpty()) return;
             int id = checkedIds.get(0);
@@ -112,6 +124,10 @@ public class SettingsActivity extends AppCompatActivity {
                 default:                               chipId = R.id.chipCompressionHigh;     break;
             }
             binding.chipGroupCompression.check(chipId);
+            String level = settings.sensitivityLevel;
+            binding.radioSensLow.setChecked(AppSettings.SENSITIVITY_LOW.equals(level));
+            binding.radioSensMedium.setChecked(AppSettings.SENSITIVITY_MEDIUM.equals(level));
+            binding.radioSensHigh.setChecked(AppSettings.SENSITIVITY_HIGH.equals(level));
         });
 
         binding.tvBackgroundAudioState.setText("Background audio is " + (bg ? "ON." : "OFF."));
