@@ -280,16 +280,22 @@ public class MainActivity extends AppCompatActivity {
 
     // Sprint 3: scale lock, octave shift, drum toggle, effects
     private void wireSpring3Controls() {
+        // Make effect + drum buttons checkable (toggle behaviour)
+        binding.btnDrumToggle.setCheckable(true);
+        binding.btnReverb.setCheckable(true);
+        binding.btnDelay.setCheckable(true);
+        binding.btnDistortion.setCheckable(true);
+
         // Scale chip group
         binding.chipGroupScale.setOnCheckedStateChangeListener((group, checkedIds) -> {
             if (checkedIds.isEmpty()) return;
-            String scale;
             int id = checkedIds.get(0);
+            String scale;
             if      (id == R.id.chipMajor)      scale = AppSettings.SCALE_MAJOR;
             else if (id == R.id.chipMinor)      scale = AppSettings.SCALE_MINOR;
             else if (id == R.id.chipPentatonic) scale = AppSettings.SCALE_PENTATONIC;
             else                                scale = AppSettings.SCALE_CHROMATIC;
-            // TODO(sprint3-audio): audioEngine.setActiveScale(scale); — pending Niraj's branch merge
+            if (audioEngine != null) audioEngine.setActiveScale(scale);
             saveScaleSetting(scale);
             appendLogSafe("Scale -> " + scale);
         });
@@ -298,69 +304,72 @@ public class MainActivity extends AppCompatActivity {
         binding.btnOctaveDown.setOnClickListener(v -> {
             if (octaveShift > -2) {
                 octaveShift--;
+                ThereminBackgroundAudioService.setOctaveShift(octaveShift);
                 updateOctaveLabel();
-                // TODO(sprint3-audio): ThereminBackgroundAudioService.setOctaveShift(octaveShift); — pending Niraj's branch merge
-                AppSettings s = store().load();
-                s.octaveShift = octaveShift;
-                store().save(s);
+                AppSettings s = store().load(); s.octaveShift = octaveShift; store().save(s);
                 appendLogSafe("Octave -> " + octaveShift);
             }
         });
         binding.btnOctaveUp.setOnClickListener(v -> {
             if (octaveShift < 2) {
                 octaveShift++;
+                ThereminBackgroundAudioService.setOctaveShift(octaveShift);
                 updateOctaveLabel();
-                // TODO(sprint3-audio): ThereminBackgroundAudioService.setOctaveShift(octaveShift); — pending Niraj's branch merge
-                AppSettings s = store().load();
-                s.octaveShift = octaveShift;
-                store().save(s);
+                AppSettings s = store().load(); s.octaveShift = octaveShift; store().save(s);
                 appendLogSafe("Octave -> " + octaveShift);
             }
         });
 
         // Drum toggle
-        binding.btnDrumToggle.setOnClickListener(v -> {
-            // TODO(sprint3-audio): drum toggle pending DrumEngine merge from Niraj's branch
-            // DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
-            // if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
-            // if (drum != null) { drum.setEnabled(!drum.isEnabled()); updateDrumButton(); }
-            toastSafe("Drum engine available after Niraj's branch merges");
+        binding.btnDrumToggle.addOnCheckedChangeListener((btn, isChecked) -> {
+            DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
+            if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
+            if (drum != null) {
+                drum.setEnabled(isChecked);
+            } else if (isChecked) {
+                btn.setChecked(false); // revert — audio not started yet
+                toastSafe("Start audio first");
+            }
+            updateDrumButton();
         });
 
         // Effects — reverb
-        binding.switchReverb.setOnCheckedChangeListener((v, on) -> {
-            // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setReverbEnabled(on);
+        binding.btnReverb.addOnCheckedChangeListener((btn, on) -> {
+            if (audioEngine != null) audioEngine.setReverbEnabled(on);
             saveEffectSettings();
         });
         binding.sbReverbMix.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar sb, int p, boolean u) {
-                // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setReverbMix(p / 100f);
+                binding.tvReverbVal.setText(p + "%");
+                if (audioEngine != null) audioEngine.setReverbMix(p / 100f);
             }
             @Override public void onStartTrackingTouch(SeekBar sb) {}
             @Override public void onStopTrackingTouch(SeekBar sb) { saveEffectSettings(); }
         });
 
         // Effects — delay
-        binding.switchDelay.setOnCheckedChangeListener((v, on) -> {
-            // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDelayEnabled(on);
+        binding.btnDelay.addOnCheckedChangeListener((btn, on) -> {
+            if (audioEngine != null) audioEngine.setDelayEnabled(on);
             saveEffectSettings();
         });
         binding.sbDelayFeedback.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar sb, int p, boolean u) {
-                // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDelayFeedback(p / 90f * 0.9f);
+                binding.tvDelayVal.setText(p + "%");
+                if (audioEngine != null) audioEngine.setDelayFeedback(p / 90f * 0.9f);
             }
             @Override public void onStartTrackingTouch(SeekBar sb) {}
             @Override public void onStopTrackingTouch(SeekBar sb) { saveEffectSettings(); }
         });
 
         // Effects — distortion
-        binding.switchDistortion.setOnCheckedChangeListener((v, on) -> {
-            // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDistortionEnabled(on);
+        binding.btnDistortion.addOnCheckedChangeListener((btn, on) -> {
+            if (audioEngine != null) audioEngine.setDistortionEnabled(on);
             saveEffectSettings();
         });
         binding.sbDistortionGain.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar sb, int p, boolean u) {
-                // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDistortionGain(1f + p / 100f * 9f);
+                binding.tvDistortionVal.setText(String.format(Locale.US, "%.0f\u00d7", 1f + p / 100f * 9f));
+                if (audioEngine != null) audioEngine.setDistortionGain(1f + p / 100f * 9f);
             }
             @Override public void onStartTrackingTouch(SeekBar sb) {}
             @Override public void onStopTrackingTouch(SeekBar sb) { saveEffectSettings(); }
@@ -384,18 +393,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateDrumButton() {
-        // TODO(sprint3-audio): update drum button text based on DrumEngine.isEnabled()
-        // DrumEngine is not yet available — pending Niraj's branch merge
+        DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
+        boolean on = drum != null && drum.isEnabled();
+        binding.btnDrumToggle.setChecked(on);
+        binding.btnDrumToggle.setText(on ? "Drums On" : "Drums Off");
     }
 
     private void saveEffectSettings() {
         AppSettings s = store().load();
-        s.reverbEnabled     = binding.switchReverb.isChecked();
+        s.reverbEnabled     = binding.btnReverb.isChecked();
         s.reverbMix         = binding.sbReverbMix.getProgress() / 100f;
-        s.delayEnabled      = binding.switchDelay.isChecked();
-        s.delayFeedback     = binding.sbDelayFeedback.getProgress() / 90f;
+        s.delayEnabled      = binding.btnDelay.isChecked();
+        s.delayFeedback     = binding.sbDelayFeedback.getProgress() / 90f * 0.9f;
         s.delayMix          = 0.4f;
-        s.distortionEnabled = binding.switchDistortion.isChecked();
+        s.distortionEnabled = binding.btnDistortion.isChecked();
         s.distortionGain    = 1f + binding.sbDistortionGain.getProgress() / 100f * 9f;
         store().save(s);
     }
@@ -415,16 +427,28 @@ public class MainActivity extends AppCompatActivity {
         updateOctaveLabel();
         // TODO(sprint3-audio): ThereminBackgroundAudioService.setOctaveShift(octaveShift);
 
-        // Effects UI state
-        binding.switchReverb.setChecked(s.reverbEnabled);
-        binding.sbReverbMix.setProgress((int) (s.reverbMix * 100));
-        binding.switchDelay.setChecked(s.delayEnabled);
-        binding.sbDelayFeedback.setProgress((int) (s.delayFeedback * 90));
-        binding.switchDistortion.setChecked(s.distortionEnabled);
-        binding.sbDistortionGain.setProgress((int) ((s.distortionGain - 1f) / 9f * 100));
-
-        // TODO(sprint3-audio): pass effect values to audioEngine once Niraj's branch merges
-
+        // Effects UI state — set progress first (listeners update value labels + audioEngine)
+        int reverbProg = (int)(s.reverbMix * 100);
+        int delayProg  = (int)(s.delayFeedback / 0.9f * 90);
+        int distProg   = (int)((s.distortionGain - 1f) / 9f * 100);
+        binding.sbReverbMix.setProgress(reverbProg);
+        binding.sbDelayFeedback.setProgress(delayProg);
+        binding.sbDistortionGain.setProgress(distProg);
+        binding.tvReverbVal.setText(reverbProg + "%");
+        binding.tvDelayVal.setText(delayProg + "%");
+        binding.tvDistortionVal.setText(String.format(Locale.US, "%.0f\u00d7", s.distortionGain));
+        binding.btnReverb.setChecked(s.reverbEnabled);
+        binding.btnDelay.setChecked(s.delayEnabled);
+        binding.btnDistortion.setChecked(s.distortionEnabled);
+        if (audioEngine != null) {
+            audioEngine.setReverbEnabled(s.reverbEnabled);
+            audioEngine.setReverbMix(s.reverbMix);
+            audioEngine.setDelayEnabled(s.delayEnabled);
+            audioEngine.setDelayFeedback(s.delayFeedback);
+            audioEngine.setDelayMix(s.delayMix);
+            audioEngine.setDistortionEnabled(s.distortionEnabled);
+            audioEngine.setDistortionGain(s.distortionGain);
+        }
         updateDrumButton();
     }
 
