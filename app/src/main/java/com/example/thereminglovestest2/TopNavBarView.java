@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
@@ -30,6 +31,9 @@ public class TopNavBarView extends LinearLayout {
 
     private final TextView titleView;
     private ImageButton overflowButton;
+    private final View backButton;
+    private final GradientDrawable pitchDotDrawable = new GradientDrawable();
+    private final GradientDrawable volDotDrawable   = new GradientDrawable();
 
     public TopNavBarView(Context context) { this(context, null); }
     public TopNavBarView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
@@ -52,7 +56,27 @@ public class TopNavBarView extends LinearLayout {
             return insets;
         });
 
-        addView(iconButton(androidx.appcompat.R.drawable.abc_ic_ab_back_material, "Back", v -> handleBackPressed(), onSurface), new LayoutParams(dp(40), dp(40)));
+        backButton = iconButton(androidx.appcompat.R.drawable.abc_ic_ab_back_material, "Back", v -> handleBackPressed(), onSurface);
+        addView(backButton, new LayoutParams(dp(40), dp(40)));
+
+        // Glove connection indicator dots (vol then pitch, left-to-right after back button)
+        int dotSize = dp(11);
+        int dotMargin = dp(5);
+        volDotDrawable.setShape(GradientDrawable.OVAL);
+        volDotDrawable.setColor(0xFFFF647D);
+        View volDot = new View(context);
+        volDot.setBackground(volDotDrawable);
+        LayoutParams volDotLp = new LayoutParams(dotSize, dotSize);
+        volDotLp.leftMargin = dotMargin;
+        addView(volDot, volDotLp);
+
+        pitchDotDrawable.setShape(GradientDrawable.OVAL);
+        pitchDotDrawable.setColor(0xFFFF647D);
+        View pitchDot = new View(context);
+        pitchDot.setBackground(pitchDotDrawable);
+        LayoutParams pitchDotLp = new LayoutParams(dotSize, dotSize);
+        pitchDotLp.leftMargin = dp(3);
+        addView(pitchDot, pitchDotLp);
 
         titleView = new TextView(context);
         titleView.setTextSize(18f);
@@ -60,7 +84,7 @@ public class TopNavBarView extends LinearLayout {
         titleView.setTextColor(onSurface);
         titleView.setText(NavigationUtils.resolveScreenTitle(context));
         LayoutParams titleLp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
-        titleLp.leftMargin = dp(10);
+        titleLp.leftMargin = dp(8);
         titleLp.rightMargin = dp(10);
         addView(titleView, titleLp);
 
@@ -70,6 +94,21 @@ public class TopNavBarView extends LinearLayout {
     }
 
     public void setTitleText(String title) { titleView.setText(title); }
+
+    /** Show or hide the back arrow. Pass false on screens where back navigation is irrelevant. */
+    public void setBackButtonVisible(boolean visible) {
+        backButton.setVisibility(visible ? VISIBLE : GONE);
+    }
+
+    /**
+     * Update the glove connection indicator dot colors.
+     * @param pitchColor ARGB color for the pitch (right) glove dot
+     * @param volColor   ARGB color for the volume (left) glove dot
+     */
+    public void setGloveStatus(int pitchColor, int volColor) {
+        pitchDotDrawable.setColor(pitchColor);
+        volDotDrawable.setColor(volColor);
+    }
 
     /** Override the 3-dot button's click listener. Pass null to restore the default menu. */
     public void setMenuClickListener(View.OnClickListener listener) {

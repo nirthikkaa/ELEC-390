@@ -77,7 +77,8 @@ public class MainActivity extends AppCompatActivity {
 
 
     // Sprint 3 fields
-    private int octaveShift = 0;
+    private int  octaveShift          = 0;
+    private long lastAnimatedBassHitMs = 0L; // tracks which bass hit we've already animated
 
     private boolean bgAudioEnabled = true;
     private boolean isRecordingUiActive;
@@ -104,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+        binding.topNavBar.setBackButtonVisible(false);
         binding.topNavBar.setTitleText("Play");
 
         BleSessionManager.initialize(getApplicationContext());
@@ -322,29 +324,31 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Drum toggle
+        // Drum toggle — enable on both foreground engine and background service drum engine
         binding.btnDrumToggle.addOnCheckedChangeListener((btn, isChecked) -> {
-            DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
-            if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
-            if (drum != null) {
-                drum.setEnabled(isChecked);
-            } else if (isChecked) {
-                btn.setChecked(false); // revert — audio not started yet
-                toastSafe("Start audio first");
-            }
-            updateDrumButton();
-        });
-
-        // Bass toggle
-        binding.btnBassToggle.addOnCheckedChangeListener((btn, isChecked) -> {
-            DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
-            if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
-            if (drum != null) {
-                drum.setBassEnabled(isChecked);
+            DrumEngine fgDrum = audioEngine != null ? audioEngine.getDrumEngine() : null;
+            if (fgDrum != null) {
+                fgDrum.setEnabled(isChecked);
             } else if (isChecked) {
                 btn.setChecked(false);
                 toastSafe("Start audio first");
+                return;
             }
+            ThereminBackgroundAudioService.setDrumEnabled(isChecked);
+            updateDrumButton();
+        });
+
+        // Bass toggle — same dual-engine pattern
+        binding.btnBassToggle.addOnCheckedChangeListener((btn, isChecked) -> {
+            DrumEngine fgDrum = audioEngine != null ? audioEngine.getDrumEngine() : null;
+            if (fgDrum != null) {
+                fgDrum.setBassEnabled(isChecked);
+            } else if (isChecked) {
+                btn.setChecked(false);
+                toastSafe("Start audio first");
+                return;
+            }
+            ThereminBackgroundAudioService.setBassEnabled(isChecked);
             updateBassButton();
         });
 
@@ -901,13 +905,55 @@ public class MainActivity extends AppCompatActivity {
         applyConnectionChip(binding.cardPitchChip, binding.tvPitchLabel, binding.tvPitchValue, snapshot, true, PlayUiText.frequency(play.mappedFreqHz));
         binding.tvToneValue.setText(PlayUiText.tone(bothConnected, play.mappedFreqHz, play.mappedVolumeLinear));
 
+        // Update top nav bar: glove dots + dynamic title
+        boolean audioOn = isAudioRunning() || isServiceOwningAudio();
+        binding.topNavBar.setGloveStatus(gloveColor(snapshot, true), gloveColor(snapshot, false));
+        binding.topNavBar.setTitleText(audioOn && bothConnected ? "Ready to Play"
+                : audioOn && oneConnected  ? "One Glove Connected"
+                : audioOn                  ? "Connect Gloves"
+                : "Play");
+
         maybeStartAudioAfterCalibration(bothConnected);
         updateAudioStatusText();
         updateBleButtonText();
         updateVisualizer();
+
+        // Sprint 3: Pulse the play hero card on each bass hit
+        long bassHitMs = getLastBassHitMs();
+        if (bassHitMs > lastAnimatedBassHitMs) {
+            lastAnimatedBassHitMs = bassHitMs;
+            pulseBassAnimation();
+        }
+    }
+
+    private long getLastBassHitMs() {
+        DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
+        return drum != null ? drum.getLastBassHitMs() : 0L;
+    }
+
+    private void pulseBassAnimation() {
+        android.view.View target = binding.cardPlayHero;
+        target.animate().cancel();
+        target.animate()
+            .scaleX(1.025f).scaleY(1.025f)
+            .setDuration(80)
+            .withEndAction(() ->
+                target.animate()
+                    .scaleX(1f).scaleY(1f)
+                    .setDuration(120)
+                    .start())
+            .start();
     }
 
 
+
+    /** Returns the ARGB dot color for a glove indicator in the top nav bar. */
+    private static int gloveColor(BleSnapshot snapshot, boolean isPitch) {
+        if (snapshot != null && snapshot.isGloveConnected(isPitch)) return 0xFF49E37A; // green
+        if (snapshot != null && snapshot.isAnyGloveConnecting())    return 0xFF8A7DFF; // purple
+        return 0xFFFF647D; // red
+    }
 
     private void applyConnectionChip(MaterialCardView card, TextView labelView, TextView valueView,
                                       BleSnapshot snapshot, boolean isPitch, String connectedValue) {

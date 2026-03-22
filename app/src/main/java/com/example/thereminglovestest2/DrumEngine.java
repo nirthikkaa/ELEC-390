@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Sprint 3: PCM-based drum and bass backing engine.
@@ -61,6 +62,9 @@ public class DrumEngine {
     private volatile int     bpm         = 120;
     private volatile int     patternIdx  = 0;
     private int              step        = 0; // only touched on scheduler thread
+
+    /** Timestamp (System.currentTimeMillis) of the most recent bass note trigger. Used by UI for pulse animation. */
+    private final AtomicLong lastBassHitMs = new AtomicLong(0L);
 
     // ── Patterns ──────────────────────────────────────────────────────────────
     // DRUM_PATTERNS[patternIdx][soundRow][step]
@@ -292,6 +296,7 @@ public class DrumEngine {
         }
         if (bassEnabled && bassPat[step] >= 0) {
             triggerVoice(SND_BASS_E2 + bassPat[step]);
+            lastBassHitMs.set(System.currentTimeMillis());
         }
         step = (step + 1) % 16;
     }
@@ -374,4 +379,7 @@ public class DrumEngine {
         if (scheduler != null && !scheduler.isShutdown()) scheduleAtCurrentBpm();
     }
     public int getBpm() { return bpm; }
+
+    /** Returns the System.currentTimeMillis() of the last bass hit, or 0 if none yet. */
+    public long getLastBassHitMs() { return lastBassHitMs.get(); }
 }
