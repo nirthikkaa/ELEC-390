@@ -832,10 +832,8 @@ public class MainActivity extends AppCompatActivity {
 
         binding.tvStatus.setText(PlayUiText.headline(snapshot, bothConnected, oneConnected, connecting));
         binding.tvAudio.setText(PlayUiText.subtitle(snapshot, bothConnected, oneConnected, connecting));
-        applyConnectionChip(binding.tvPitchConn, snapshot, true);
-        applyConnectionChip(binding.tvVolConn, snapshot, false);
-        binding.tvPitchValue.setText(PlayUiText.frequency(play.mappedFreqHz));
-        binding.tvVolValue.setText(PlayUiText.volume(play.mappedVolumeLinear));
+        applyConnectionChip(binding.cardVolChip, binding.tvVolLabel, binding.tvVolValue, snapshot, false, PlayUiText.volume(play.mappedVolumeLinear));
+        applyConnectionChip(binding.cardPitchChip, binding.tvPitchLabel, binding.tvPitchValue, snapshot, true, PlayUiText.frequency(play.mappedFreqHz));
         binding.tvToneValue.setText(PlayUiText.tone(bothConnected, play.mappedFreqHz, play.mappedVolumeLinear));
 
         maybeStartAudioAfterCalibration(bothConnected);
@@ -846,28 +844,42 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    private void applyConnectionChip(TextView view, BleSnapshot snapshot, boolean isPitch) {
-        String label = isPitch ? "Pitch glove" : "Volume glove";
-        view.setText(snapshot == null ? label + "\nWaiting" : snapshot.connectionChipText(label, isPitch));
+    private void applyConnectionChip(MaterialCardView card, TextView labelView, TextView valueView,
+                                      BleSnapshot snapshot, boolean isPitch, String connectedValue) {
+        boolean connected = snapshot != null && snapshot.isGloveConnected(isPitch);
+        boolean connecting = snapshot != null && snapshot.isAnyGloveConnecting();
 
-        int bgColor = Color.parseColor("#351822");
-        int strokeColor = Color.parseColor("#FF647D");
-        int textColor = Color.parseColor("#FFF2F4");
-        if (snapshot != null && snapshot.isGloveConnected(isPitch)) {
-            bgColor = Color.parseColor("#173426");
+        int bgColor, strokeColor, labelColor, valueColor;
+        if (connected) {
+            bgColor     = Color.parseColor("#173426");
             strokeColor = Color.parseColor("#49E37A");
-            textColor = Color.parseColor("#F2FFF6");
-        } else if (snapshot != null && snapshot.isAnyGloveConnecting()) {
-            bgColor = Color.parseColor("#262041");
+            labelColor  = Color.parseColor("#49E37A");
+            valueColor  = Color.parseColor("#F2FFF6");
+        } else if (connecting) {
+            bgColor     = Color.parseColor("#262041");
             strokeColor = Color.parseColor("#8A7DFF");
-            textColor = Color.parseColor("#F3F0FF");
+            labelColor  = Color.parseColor("#8A7DFF");
+            valueColor  = Color.parseColor("#F3F0FF");
+        } else {
+            bgColor     = Color.parseColor("#351822");
+            strokeColor = Color.parseColor("#FF647D");
+            labelColor  = Color.parseColor("#FF647D");
+            valueColor  = Color.parseColor("#FFF2F4");
         }
 
-        MaterialCardView card = (MaterialCardView) view.getParent();
-        view.setTextColor(textColor);
         card.setCardBackgroundColor(bgColor);
         card.setStrokeColor(strokeColor);
         card.setCardElevation(0f);
+        labelView.setTextColor(labelColor);
+        valueView.setTextColor(valueColor);
+
+        if (connected) {
+            labelView.setText(isPitch ? "Frequency" : "Volume");
+            valueView.setText(connectedValue);
+        } else {
+            labelView.setText(isPitch ? "Pitch Glove" : "Volume Glove");
+            valueView.setText(snapshot == null ? "Waiting" : snapshot.connectionDetail(isPitch));
+        }
     }
 
 

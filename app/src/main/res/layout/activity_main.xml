@@ -89,10 +89,11 @@
                         android:orientation="horizontal">
 
                         <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardVolChip"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            app:cardBackgroundColor="@android:color/transparent"
+                            app:cardBackgroundColor="@color/app_surface_variant"
                             app:cardCornerRadius="18dp"
                             app:cardElevation="0dp"
                             app:strokeColor="@color/app_outline"
@@ -108,9 +109,10 @@
                                 android:paddingBottom="8dp">
 
                                 <TextView
+                                    android:id="@+id/tvVolLabel"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Volume"
+                                    android:text="Volume Glove"
                                     android:textColor="@color/app_primary"
                                     android:textSize="11sp"
                                     android:textStyle="bold" />
@@ -120,7 +122,9 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="4dp"
-                                    android:text="Volume • 0%"
+                                    android:minHeight="36dp"
+                                    android:gravity="center_vertical"
+                                    android:text="Waiting"
                                     android:textColor="@color/app_on_surface"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />
@@ -128,6 +132,7 @@
                         </com.google.android.material.card.MaterialCardView>
 
                         <com.google.android.material.card.MaterialCardView
+                            android:id="@+id/cardPitchChip"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
@@ -148,9 +153,10 @@
                                 android:paddingBottom="8dp">
 
                                 <TextView
+                                    android:id="@+id/tvPitchLabel"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Frequency"
+                                    android:text="Pitch Glove"
                                     android:textColor="@color/app_secondary"
                                     android:textSize="11sp"
                                     android:textStyle="bold" />
@@ -160,71 +166,13 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="4dp"
-                                    android:text="Frequency • 20 Hz"
+                                    android:minHeight="36dp"
+                                    android:gravity="center_vertical"
+                                    android:text="Waiting"
                                     android:textColor="@color/app_on_surface"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />
                             </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal">
-
-                        <com.google.android.material.card.MaterialCardView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            app:cardBackgroundColor="@color/app_surface_variant"
-                            app:cardCornerRadius="18dp"
-                            app:cardElevation="0dp"
-                            app:strokeColor="@color/app_outline"
-                            app:strokeWidth="1dp">
-
-                            <TextView
-                                android:id="@+id/tvVolConn"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:minHeight="58dp"
-                                android:paddingStart="12dp"
-                                android:paddingTop="9dp"
-                                android:paddingEnd="12dp"
-                                android:paddingBottom="9dp"
-                                android:text="Volume glove&#10;Waiting"
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
-                        </com.google.android.material.card.MaterialCardView>
-
-                        <com.google.android.material.card.MaterialCardView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1"
-                            app:cardBackgroundColor="@color/app_surface_variant"
-                            app:cardCornerRadius="18dp"
-                            app:cardElevation="0dp"
-                            app:strokeColor="@color/app_outline"
-                            app:strokeWidth="1dp">
-
-                            <TextView
-                                android:id="@+id/tvPitchConn"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:minHeight="58dp"
-                                android:paddingStart="12dp"
-                                android:paddingTop="9dp"
-                                android:paddingEnd="12dp"
-                                android:paddingBottom="9dp"
-                                android:text="Pitch glove&#10;Waiting"
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="15sp"
-                                android:textStyle="bold" />
                         </com.google.android.material.card.MaterialCardView>
                     </LinearLayout>
                 </LinearLayout>
