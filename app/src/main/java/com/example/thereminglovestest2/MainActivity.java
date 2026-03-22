@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean suppressSliderCallbacks;
     private boolean pendingAutoStartAudio;
     private boolean waitingForServiceToStop;
+    private boolean performanceModeActive = false;
     private long lastLogFlushMs;
     private long recordingStartElapsedMs;
     private ObjectAnimator recordBlinkAnimator;
@@ -143,6 +144,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         onVisible();
+        performanceModeActive = getSharedPreferences("theremin_prefs", MODE_PRIVATE)
+                .getBoolean("performance_mode_active", false);
+        applyPerformanceMode(performanceModeActive);
     }
 
     @Override
@@ -277,6 +281,7 @@ public class MainActivity extends AppCompatActivity {
 
         binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
         binding.btnRecord.setOnClickListener(v -> onRecordButtonPressed());
+        binding.btnPerformanceMode.setOnClickListener(v -> togglePerformanceMode());
 
         binding.toneKnob.setToneSequence(TONE_CYCLE);
         binding.toneKnob.setOnToneStepListener(this::cycleTone);
@@ -1087,5 +1092,23 @@ public class MainActivity extends AppCompatActivity {
 
     private String yesNo(boolean value) {
         return value ? "YES" : "NO";
+    }
+
+    private void togglePerformanceMode() {
+        performanceModeActive = !performanceModeActive;
+        applyPerformanceMode(performanceModeActive);
+        getSharedPreferences("theremin_prefs", MODE_PRIVATE)
+                .edit().putBoolean("performance_mode_active", performanceModeActive).apply();
+    }
+
+    private void applyPerformanceMode(boolean active) {
+        int hide = active ? View.GONE : View.VISIBLE;
+
+        if (binding.cardDebugLog != null)    binding.cardDebugLog.setVisibility(hide);
+        if (binding.cardPlayMapping != null) binding.cardPlayMapping.setVisibility(hide);
+        if (binding.cardGloveCommands != null) binding.cardGloveCommands.setVisibility(hide);
+        if (binding.tvAudio != null)         binding.tvAudio.setVisibility(hide);
+
+        binding.btnPerformanceMode.setText(active ? "Exit Stage" : "Stage View");
     }
 }
