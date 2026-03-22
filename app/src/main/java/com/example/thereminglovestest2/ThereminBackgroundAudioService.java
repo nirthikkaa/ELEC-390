@@ -26,9 +26,14 @@ public class ThereminBackgroundAudioService extends Service {
     private static volatile AppSettings calibrationPreviewSettings;
     private static volatile ThereminBackgroundAudioService activeInstance;
     private static volatile boolean thereminMuted = false;
+    // Sprint 3: Octave shift applied in the sync thread before pushing freq targets.
+    // Range is clamped to [-2, 2] (4 octaves total).
+    private static volatile int octaveShift = 0;
 
     private final AppSettings fallbackSettings = new AppSettings();
     private ThereminAudioEngine audioEngine;
+    // Sprint 3: Drum engine owned by the service so it survives Play screen navigation.
+    private DrumEngine drumEngine;
     private SettingsStore settingsStore;
     private Thread syncThread;
     private volatile boolean syncRunning;
@@ -79,6 +84,27 @@ public class ThereminBackgroundAudioService extends Service {
         thereminMuted = muted;
     }
 
+    /**
+     * Sprint 3: Shift the theremin pitch by whole octaves without changing the
+     * glove mapping. Applied in the sync thread before setTargets() is called.
+     * @param shift Number of octaves to shift; clamped to [-2, 2].
+     */
+    public static void setOctaveShift(int shift) {
+        octaveShift = Math.max(-2, Math.min(2, shift));
+    }
+
+    /** Sprint 3: Returns the current octave shift value. */
+    public static int getOctaveShift() { return octaveShift; }
+
+    /**
+     * Sprint 3: Expose the service's DrumEngine so MainActivity can toggle
+     * drums without owning a separate instance.
+     */
+    public static DrumEngine getDrumEngine() {
+        ThereminBackgroundAudioService svc = activeInstance;
+        return svc != null ? svc.drumEngine : null;
+    }
+
     public static void setRecordingManager(RecordingManager rm) {
         ThereminBackgroundAudioService svc = activeInstance;
         if (svc != null && svc.audioEngine != null) {
@@ -92,6 +118,10 @@ public class ThereminBackgroundAudioService extends Service {
         BleSessionManager.initialize(getApplicationContext());
         settingsStore = new SettingsStore(getApplicationContext());
         audioEngine = new ThereminAudioEngine();
+        // Sprint 3: Create and start the drum engine; wire it to the audio engine for reference.
+        drumEngine = new DrumEngine(getApplicationContext());
+        drumEngine.start();
+        audioEngine.setDrumEngine(drumEngine);
         createNotificationChannelIfNeeded();
     }
 
@@ -104,6 +134,8 @@ public class ThereminBackgroundAudioService extends Service {
     @Override public void onDestroy() {
         stopLoop();
         if (audioEngine != null) audioEngine.shutdown();
+        // Sprint 3: release drum engine resources before the service exits.
+        if (drumEngine != null) { drumEngine.release(); drumEngine = null; }
         calibrationPreviewSettings = null;
         serviceActive = false;
         if (activeInstance == this) activeInstance = null;
@@ -170,7 +202,13 @@ public class ThereminBackgroundAudioService extends Service {
             audioEngine.setToneType(active.toneType);
             lastPushedToneType = active.toneType;
         }
-        audioEngine.setTargets(pitchOk ? freq : active.freqMinHz, (ready && !thereminMuted) ? volume : 0f);
+
+        // Sprint 3: Apply octave shift — multiply frequency by 2^shift, then re-clamp.
+        float pitchFreq = pitchOk ? freq : active.freqMinHz;
+        int shift = octaveShift;
+        if (shift != 0) pitchFreq = Math.max(20f, Math.min(20000f, pitchFreq * (float) Math.pow(2.0, shift)));
+
+        audioEngine.setTargets(pitchFreq, (ready && !thereminMuted) ? volume : 0f);
     }
 
     private static AppSettings copySettings(AppSettings source) {

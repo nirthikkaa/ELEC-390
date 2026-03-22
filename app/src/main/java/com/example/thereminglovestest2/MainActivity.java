@@ -67,6 +67,9 @@ public class MainActivity extends AppCompatActivity {
     private final PlayMappingState play = new PlayMappingState();
 
     private ThereminAudioEngine audioEngine;
+    // Sprint 3: Local drum engine, active only when the foreground audio engine owns playback.
+    // When the background service takes over, drums are handled by the service's own DrumEngine.
+    private DrumEngine drumEngine;
     private SettingsStore settingsRepo;
     private RecordingManager recordingManager;
     private RecordingRepository recordingRepository;
@@ -102,6 +105,10 @@ public class MainActivity extends AppCompatActivity {
 
         BleSessionManager.initialize(getApplicationContext());
         audioEngine = new ThereminAudioEngine();
+        // Sprint 3: Create and start the local drum engine for foreground playback.
+        drumEngine = new DrumEngine(this);
+        drumEngine.start();
+        audioEngine.setDrumEngine(drumEngine);
         recordingManager = new RecordingManager(this);
         recordingRepository = new RecordingRepository(this);
         recordingManager.setAudioEngine(audioEngine);
@@ -168,6 +175,8 @@ public class MainActivity extends AppCompatActivity {
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
         stopRecordBlink();
         if (recordingManager != null) recordingManager.release();
+        // Sprint 3: Release local drum engine SoundPool resources.
+        if (drumEngine != null) { drumEngine.release(); drumEngine = null; }
         super.onDestroy();
         uiTicker.stop();
         if (audioEngine != null && (!bgAudioEnabled || isFinishing())) audioEngine.shutdown();

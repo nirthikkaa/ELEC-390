@@ -56,6 +56,31 @@ public final class ThereminAudioEngine {
     // Volatile so the recording start/stop from the UI thread is immediately visible to audio thread.
     private volatile PcmListener pcmListener;
 
+    // Sprint 3: Effects pipeline fields.
+    // All buffers are pre-allocated here — no allocation inside fillBuffer().
+    private volatile boolean reverbEnabled = false;
+    private volatile float reverbMix = 0.3f;
+    private final float[] combBuffer = new float[4800]; // ~100ms at 48kHz
+    private int combIdx = 0;
+
+    private volatile boolean delayEnabled = false;
+    private volatile float delayMix = 0.4f;
+    private volatile float delayFeedback = 0.35f;
+    private final float[] delayBuffer = new float[24000]; // ~500ms at 48kHz
+    private int delayIdx = 0;
+
+    private volatile boolean distortionEnabled = false;
+    private volatile float distortionGain = 3.0f;
+
+    // Sprint 3: Scale lock — snaps the smoothed frequency to the nearest note in the chosen scale.
+    private volatile String activeScale = "CHROMATIC";
+    private static final int[] SCALE_MAJOR      = {0, 2, 4, 5, 7, 9, 11};
+    private static final int[] SCALE_MINOR      = {0, 2, 3, 5, 7, 8, 10};
+    private static final int[] SCALE_PENTATONIC = {0, 2, 4, 7, 9};
+
+    // Sprint 3: Reference to the drum engine — held here so effects and drums share the same owner.
+    private DrumEngine drumEngine;
+
     private float phase;
     private float vibratoPhase;
     private float smoothFreqHz = 880f;
@@ -171,14 +196,20 @@ public final class ThereminAudioEngine {
 
     // Fill one PCM block. Each sample uses the latest smoothed pitch and volume, not the raw UI
     // target values, which avoids clicks and sudden jumps.
+    // Sprint 3: effects (reverb, delay, distortion) and scale lock are applied per-sample here.
     private void fillBuffer(short[] buffer) {
         // toneType is always normalized by setToneType(); no need to normalize again here.
         String tone = toneType;
         for (int i = 0; i < buffer.length; i++) {
             float freq = updateFrequency();
+            // Sprint 3: snap smoothed frequency to the nearest scale note before synthesis.
+            freq = snapToScale(freq);
             float volume = updateVolume();
-            float sample = clamp(sample(tone, phase, volume) * volume * OUTPUT_GAIN, -1f, 1f);
-            buffer[i] = (short) (sample * Short.MAX_VALUE);
+            float s = sample(tone, phase, volume) * volume * OUTPUT_GAIN;
+            // Sprint 3: run the effects chain, then hard-clip to valid PCM range.
+            s = applyEffects(s);
+            s = clamp(s, -1f, 1f);
+            buffer[i] = (short) (s * Short.MAX_VALUE);
             advancePhase(freq);
         }
     }
@@ -298,4 +329,103 @@ public final class ThereminAudioEngine {
     private static float clamp(float value, float min, float max) {
         return Math.max(min, Math.min(max, value));
     }
+
+    // -------------------------------------------------------------------------
+    // Sprint 3: Effects pipeline — all methods must be non-blocking, allocation-free.
+    // -------------------------------------------------------------------------
+
+    /** Route the sample through whichever effects are enabled, in series. */
+    private float applyEffects(float x) {
+        if (reverbEnabled)     x = applyReverb(x);
+        if (delayEnabled)      x = applyDelay(x);
+        if (distortionEnabled) x = applyDistortion(x);
+        return x;
+    }
+
+    /**
+     * Single-comb reverb. Feeds the sample into a ~100 ms comb filter and blends
+     * the wet signal with the dry signal at ratio reverbMix.
+     */
+    private float applyReverb(float x) {
+        float delayed = combBuffer[combIdx];
+        float out = x + delayed * 0.7f;
+        combBuffer[combIdx] = out;
+        combIdx = (combIdx + 1) % combBuffer.length;
+        return x * (1f - reverbMix) + out * reverbMix;
+    }
+
+    /**
+     * Feedback delay line (~500 ms). The delayed signal is added to the output and
+     * fed back into the buffer with decay controlled by delayFeedback.
+     */
+    private float applyDelay(float x) {
+        float delayed = delayBuffer[delayIdx];
+        delayBuffer[delayIdx] = x + delayed * delayFeedback;
+        delayIdx = (delayIdx + 1) % delayBuffer.length;
+        return x + delayed * delayMix;
+    }
+
+    /**
+     * Soft-clip distortion via tanh. At gain=1 the output is identical to the input.
+     * Higher gain values drive the signal into saturation.
+     */
+    private float applyDistortion(float x) {
+        if (distortionGain <= 1f) return x;
+        return (float) (Math.tanh(x * distortionGain) / Math.tanh(distortionGain));
+    }
+
+    /**
+     * Sprint 3: Scale lock. Snaps freqHz to the nearest MIDI note that belongs to
+     * the active scale. Returns the input unchanged when scale is CHROMATIC.
+     * Called from the audio thread — uses only stack variables, no allocation.
+     */
+    private float snapToScale(float freqHz) {
+        if ("CHROMATIC".equals(activeScale)) return freqHz;
+        if (freqHz <= 0f) return freqHz;
+        // Convert Hz → fractional MIDI note number.
+        double midi = 69.0 + 12.0 * Math.log(freqHz / 440.0) / Math.log(2.0);
+        int rounded  = (int) Math.round(midi);
+        int[] offsets = getScaleOffsets(activeScale);
+        int octave    = Math.floorDiv(rounded, 12);
+        int semitone  = rounded - octave * 12; // always 0–11
+        int nearest   = semitone;
+        int minDist   = Integer.MAX_VALUE;
+        for (int offset : offsets) {
+            int d = Math.abs(semitone - offset);
+            if (d < minDist) { minDist = d; nearest = offset; }
+            // Check wrap-around distance (e.g. semitone=0, offset=11 → d=1)
+            int d2 = 12 - d;
+            if (d2 < minDist) {
+                minDist = d2;
+                nearest = (semitone < offset) ? offset - 12 : offset + 12;
+            }
+        }
+        int snappedMidi = octave * 12 + nearest;
+        return (float) (440.0 * Math.pow(2.0, (snappedMidi - 69.0) / 12.0));
+    }
+
+    private int[] getScaleOffsets(String scale) {
+        switch (scale) {
+            case "MAJOR":      return SCALE_MAJOR;
+            case "MINOR":      return SCALE_MINOR;
+            case "PENTATONIC": return SCALE_PENTATONIC;
+            default:           return new int[]{0,1,2,3,4,5,6,7,8,9,10,11};
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Sprint 3: Public setters for effects and scale lock (called from UI thread).
+    // -------------------------------------------------------------------------
+
+    public void setReverbEnabled(boolean on)     { reverbEnabled = on; }
+    public void setReverbMix(float mix)          { reverbMix = clamp(mix, 0f, 1f); }
+    public void setDelayEnabled(boolean on)      { delayEnabled = on; }
+    public void setDelayFeedback(float fb)       { delayFeedback = clamp(fb, 0f, 0.9f); }
+    public void setDelayMix(float mix)           { delayMix = clamp(mix, 0f, 1f); }
+    public void setDistortionEnabled(boolean on) { distortionEnabled = on; }
+    public void setDistortionGain(float gain)    { distortionGain = clamp(gain, 1f, 10f); }
+    public void setActiveScale(String scale)     { activeScale = (scale != null) ? scale : "CHROMATIC"; }
+    public String getActiveScale()               { return activeScale; }
+    public void setDrumEngine(DrumEngine drum)   { this.drumEngine = drum; }
+    public DrumEngine getDrumEngine()            { return drumEngine; }
 }
