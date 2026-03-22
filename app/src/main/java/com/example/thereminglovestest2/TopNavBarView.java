@@ -4,7 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.PorterDuff;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
@@ -29,11 +29,11 @@ public class TopNavBarView extends LinearLayout {
             new MenuTarget("Launch", LaunchActivity.class)
     };
 
-    private final TextView titleView;
-    private ImageButton overflowButton;
-    private final View backButton;
-    private final GradientDrawable pitchDotDrawable = new GradientDrawable();
-    private final GradientDrawable volDotDrawable   = new GradientDrawable();
+    private final TextView    titleView;
+    private final View        backButton;
+    private       ImageButton overflowButton;
+    private       ImageButton volHandBtn;    // left hand  — volume glove
+    private       ImageButton pitchHandBtn;  // right hand — pitch glove
 
     public TopNavBarView(Context context) { this(context, null); }
     public TopNavBarView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
@@ -59,34 +59,27 @@ public class TopNavBarView extends LinearLayout {
         backButton = iconButton(androidx.appcompat.R.drawable.abc_ic_ab_back_material, "Back", v -> handleBackPressed(), onSurface);
         addView(backButton, new LayoutParams(dp(40), dp(40)));
 
-        // Glove connection indicator dots (vol then pitch, left-to-right after back button)
-        int dotSize = dp(11);
-        int dotMargin = dp(5);
-        volDotDrawable.setShape(GradientDrawable.OVAL);
-        volDotDrawable.setColor(0xFFFF647D);
-        View volDot = new View(context);
-        volDot.setBackground(volDotDrawable);
-        LayoutParams volDotLp = new LayoutParams(dotSize, dotSize);
-        volDotLp.leftMargin = dotMargin;
-        addView(volDot, volDotLp);
-
-        pitchDotDrawable.setShape(GradientDrawable.OVAL);
-        pitchDotDrawable.setColor(0xFFFF647D);
-        View pitchDot = new View(context);
-        pitchDot.setBackground(pitchDotDrawable);
-        LayoutParams pitchDotLp = new LayoutParams(dotSize, dotSize);
-        pitchDotLp.leftMargin = dp(3);
-        addView(pitchDot, pitchDotLp);
-
         titleView = new TextView(context);
         titleView.setTextSize(18f);
         titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
         titleView.setTextColor(onSurface);
         titleView.setText(NavigationUtils.resolveScreenTitle(context));
         LayoutParams titleLp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
-        titleLp.leftMargin = dp(8);
-        titleLp.rightMargin = dp(10);
+        titleLp.leftMargin = dp(10);
+        titleLp.rightMargin = dp(4);
         addView(titleView, titleLp);
+
+        // Glove hand icons — hidden by default, shown via setGloveStatus()
+        int handSize = dp(34);
+        volHandBtn = handIconButton(context, false); // left hand (mirrored)
+        LayoutParams volLp = new LayoutParams(handSize, handSize);
+        volLp.rightMargin = dp(2);
+        addView(volHandBtn, volLp);
+
+        pitchHandBtn = handIconButton(context, true); // right hand
+        LayoutParams pitchLp = new LayoutParams(handSize, handSize);
+        pitchLp.rightMargin = dp(2);
+        addView(pitchHandBtn, pitchLp);
 
         overflowButton = iconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material, "More options", this::showMenu, onSurface);
         addView(overflowButton, new LayoutParams(dp(40), dp(40)));
@@ -100,14 +93,22 @@ public class TopNavBarView extends LinearLayout {
         backButton.setVisibility(visible ? VISIBLE : GONE);
     }
 
+    /** Show or hide the 3-dot overflow menu button. */
+    public void setOverflowButtonVisible(boolean visible) {
+        overflowButton.setVisibility(visible ? VISIBLE : GONE);
+    }
+
     /**
-     * Update the glove connection indicator dot colors.
-     * @param pitchColor ARGB color for the pitch (right) glove dot
-     * @param volColor   ARGB color for the volume (left) glove dot
+     * Set glove connection indicator hand icon tints (and make them visible).
+     * Green = connected, amber = connecting, red = disconnected.
+     * @param pitchColor ARGB tint for the right-hand (pitch) icon
+     * @param volColor   ARGB tint for the left-hand (volume) icon
      */
     public void setGloveStatus(int pitchColor, int volColor) {
-        pitchDotDrawable.setColor(pitchColor);
-        volDotDrawable.setColor(volColor);
+        pitchHandBtn.setColorFilter(pitchColor, PorterDuff.Mode.SRC_IN);
+        volHandBtn.setColorFilter(volColor,     PorterDuff.Mode.SRC_IN);
+        pitchHandBtn.setVisibility(VISIBLE);
+        volHandBtn.setVisibility(VISIBLE);
     }
 
     /** Override the 3-dot button's click listener. Pass null to restore the default menu. */
@@ -124,6 +125,26 @@ public class TopNavBarView extends LinearLayout {
         ImageButton btn = iconButton(iconRes, desc, listener, onSurface);
         // getChildCount()-1 inserts just before the overflow button (always last child)
         addView(btn, getChildCount() - 1, new LayoutParams(dp(40), dp(40)));
+    }
+
+    /**
+     * Creates a non-clickable hand icon button for glove status display.
+     * @param isRight true = right hand (pitch glove); false = left hand (volume glove, mirrored)
+     */
+    private ImageButton handIconButton(Context ctx, boolean isRight) {
+        ImageButton btn = new ImageButton(ctx);
+        btn.setImageResource(R.drawable.ic_hand);
+        btn.setBackground(null); // no ripple — it's an indicator, not a button
+        btn.setClickable(false);
+        btn.setFocusable(false);
+        btn.setScaleType(ImageButton.ScaleType.FIT_CENTER);
+        btn.setPadding(dp(4), dp(4), dp(4), dp(4));
+        // Mirror horizontally for the left hand
+        if (!isRight) btn.setScaleX(-1f);
+        btn.setColorFilter(0xFFFF4444, PorterDuff.Mode.SRC_IN); // default red
+        btn.setVisibility(GONE); // hidden until setGloveStatus() is called
+        btn.setContentDescription(isRight ? "Pitch glove" : "Volume glove");
+        return btn;
     }
 
     private ImageButton iconButton(int iconRes, String desc, OnClickListener click, int tint) {

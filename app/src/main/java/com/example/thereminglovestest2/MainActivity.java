@@ -106,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         binding.topNavBar.setBackButtonVisible(false);
+        binding.topNavBar.setOverflowButtonVisible(false);
         binding.topNavBar.setTitleText("Play");
 
         BleSessionManager.initialize(getApplicationContext());
@@ -948,11 +949,11 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    /** Returns the ARGB dot color for a glove indicator in the top nav bar. */
+    /** Returns the ARGB tint color for a glove hand icon in the top nav bar. */
     private static int gloveColor(BleSnapshot snapshot, boolean isPitch) {
         if (snapshot != null && snapshot.isGloveConnected(isPitch)) return 0xFF49E37A; // green
-        if (snapshot != null && snapshot.isAnyGloveConnecting())    return 0xFF8A7DFF; // purple
-        return 0xFFFF647D; // red
+        if (snapshot != null && snapshot.isAnyGloveConnecting())    return 0xFFFFAA00; // amber
+        return 0xFFFF4444; // red
     }
 
     private void applyConnectionChip(MaterialCardView card, TextView labelView, TextView valueView,
