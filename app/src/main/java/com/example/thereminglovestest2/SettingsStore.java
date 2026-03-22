@@ -46,6 +46,17 @@ public class SettingsStore extends SQLiteOpenHelper {
     private static final String COL_VOL_ENABLED = "volume_enabled";
     private static final String COL_UPDATED_AT_MS = "updated_at_ms";
 
+    // Sprint 3: scale lock, octave shift, effects
+    private static final String COL_ACTIVE_SCALE       = "active_scale";
+    private static final String COL_OCTAVE_SHIFT       = "octave_shift";
+    private static final String COL_REVERB_ENABLED     = "reverb_enabled";
+    private static final String COL_REVERB_MIX         = "reverb_mix";
+    private static final String COL_DELAY_ENABLED      = "delay_enabled";
+    private static final String COL_DELAY_FEEDBACK     = "delay_feedback";
+    private static final String COL_DELAY_MIX          = "delay_mix";
+    private static final String COL_DISTORTION_ENABLED = "distortion_enabled";
+    private static final String COL_DISTORTION_GAIN    = "distortion_gain";
+
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS " + TABLE + " (" +
                     COL_ID + " INTEGER PRIMARY KEY, " +
@@ -68,7 +79,17 @@ public class SettingsStore extends SQLiteOpenHelper {
             COL_TONE_TYPE,
             COL_PITCH_ENABLED,
             COL_VOL_ENABLED,
-            COL_UPDATED_AT_MS
+            COL_UPDATED_AT_MS,
+            // Sprint 3
+            COL_ACTIVE_SCALE,
+            COL_OCTAVE_SHIFT,
+            COL_REVERB_ENABLED,
+            COL_REVERB_MIX,
+            COL_DELAY_ENABLED,
+            COL_DELAY_FEEDBACK,
+            COL_DELAY_MIX,
+            COL_DISTORTION_ENABLED,
+            COL_DISTORTION_GAIN
     };
 
     private static final String[] EXTRA_DEFS = {
@@ -77,7 +98,17 @@ public class SettingsStore extends SQLiteOpenHelper {
             "TEXT NOT NULL DEFAULT 'SINE'",
             "INTEGER NOT NULL DEFAULT 1",
             "INTEGER NOT NULL DEFAULT 1",
-            "INTEGER NOT NULL DEFAULT 0"
+            "INTEGER NOT NULL DEFAULT 0",
+            // Sprint 3
+            "TEXT NOT NULL DEFAULT 'CHROMATIC'",
+            "INTEGER NOT NULL DEFAULT 0",
+            "INTEGER NOT NULL DEFAULT 0",
+            "REAL NOT NULL DEFAULT 0.3",
+            "INTEGER NOT NULL DEFAULT 0",
+            "REAL NOT NULL DEFAULT 0.35",
+            "REAL NOT NULL DEFAULT 0.4",
+            "INTEGER NOT NULL DEFAULT 0",
+            "REAL NOT NULL DEFAULT 3.0"
     };
 
     public SettingsStore(Context context) {
@@ -123,6 +154,16 @@ public class SettingsStore extends SQLiteOpenHelper {
         v.put(COL_PITCH_ENABLED, s.pitchEnabled ? 1 : 0);
         v.put(COL_VOL_ENABLED, s.volumeEnabled ? 1 : 0);
         v.put(COL_UPDATED_AT_MS, System.currentTimeMillis());
+        // Sprint 3
+        v.put(COL_ACTIVE_SCALE, s.activeScale != null ? s.activeScale : AppSettings.SCALE_CHROMATIC);
+        v.put(COL_OCTAVE_SHIFT, s.octaveShift);
+        v.put(COL_REVERB_ENABLED, s.reverbEnabled ? 1 : 0);
+        v.put(COL_REVERB_MIX, s.reverbMix);
+        v.put(COL_DELAY_ENABLED, s.delayEnabled ? 1 : 0);
+        v.put(COL_DELAY_FEEDBACK, s.delayFeedback);
+        v.put(COL_DELAY_MIX, s.delayMix);
+        v.put(COL_DISTORTION_ENABLED, s.distortionEnabled ? 1 : 0);
+        v.put(COL_DISTORTION_GAIN, s.distortionGain);
         return v;
     }
 
@@ -139,6 +180,16 @@ public class SettingsStore extends SQLiteOpenHelper {
         s.toneType = AppSettings.normalizeToneType(getString(c, COL_TONE_TYPE, AppSettings.TONE_SINE));
         s.pitchEnabled = getInt(c, COL_PITCH_ENABLED, 1) != 0;
         s.volumeEnabled = getInt(c, COL_VOL_ENABLED, 1) != 0;
+        // Sprint 3
+        s.activeScale = AppSettings.normalizeScale(getString(c, COL_ACTIVE_SCALE, AppSettings.SCALE_CHROMATIC));
+        s.octaveShift = Math.max(-2, Math.min(2, getInt(c, COL_OCTAVE_SHIFT, 0)));
+        s.reverbEnabled = getInt(c, COL_REVERB_ENABLED, 0) != 0;
+        s.reverbMix = getFloat(c, COL_REVERB_MIX, 0.3f);
+        s.delayEnabled = getInt(c, COL_DELAY_ENABLED, 0) != 0;
+        s.delayFeedback = getFloat(c, COL_DELAY_FEEDBACK, 0.35f);
+        s.delayMix = getFloat(c, COL_DELAY_MIX, 0.4f);
+        s.distortionEnabled = getInt(c, COL_DISTORTION_ENABLED, 0) != 0;
+        s.distortionGain = getFloat(c, COL_DISTORTION_GAIN, 3.0f);
         return s;
     }
 
@@ -228,6 +279,22 @@ class AppSettings {
     public static final String COMPRESSION_MEDIUM   = "MEDIUM";
     public static final String COMPRESSION_LOW      = "LOW";
 
+    // Sprint 3: scale lock
+    public static final String SCALE_CHROMATIC  = "CHROMATIC";
+    public static final String SCALE_MAJOR      = "MAJOR";
+    public static final String SCALE_MINOR      = "MINOR";
+    public static final String SCALE_PENTATONIC = "PENTATONIC";
+
+    public static String normalizeScale(String scale) {
+        if (scale == null) return SCALE_CHROMATIC;
+        switch (scale.trim().toUpperCase(Locale.US)) {
+            case SCALE_MAJOR:      return SCALE_MAJOR;
+            case SCALE_MINOR:      return SCALE_MINOR;
+            case SCALE_PENTATONIC: return SCALE_PENTATONIC;
+            default:               return SCALE_CHROMATIC;
+        }
+    }
+
     public static final String TONE_SINE = "SINE";
     public static final String TONE_SQUARE = "SQUARE";
     public static final String TONE_TRIANGLE = "TRIANGLE";
@@ -249,6 +316,17 @@ class AppSettings {
     public String toneType = TONE_SINE;
     public boolean pitchEnabled = true;
     public boolean volumeEnabled = true;
+
+    // Sprint 3 fields
+    public String  activeScale        = SCALE_CHROMATIC;
+    public int     octaveShift        = 0;
+    public boolean reverbEnabled      = false;
+    public float   reverbMix          = 0.3f;
+    public boolean delayEnabled       = false;
+    public float   delayFeedback      = 0.35f;
+    public float   delayMix           = 0.4f;
+    public boolean distortionEnabled  = false;
+    public float   distortionGain     = 3.0f;
 
     public static String normalizeToneType(String tone) {
         String n = tone == null ? "" : tone.trim().toUpperCase(Locale.US);

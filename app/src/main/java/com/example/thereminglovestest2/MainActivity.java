@@ -73,6 +73,9 @@ public class MainActivity extends AppCompatActivity {
     private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
 
 
+    // Sprint 3 fields
+    private int octaveShift = 0;
+
     private boolean bgAudioEnabled = true;
     private boolean isRecordingUiActive;
     private boolean playUiVisible;
@@ -274,6 +277,158 @@ public class MainActivity extends AppCompatActivity {
             play.restoreDefaults();
             applyMappingChange("Defaults restored", true);
         });
+
+        wireSpring3Controls();
+    }
+
+    // Sprint 3: scale lock, octave shift, drum toggle, effects
+    private void wireSpring3Controls() {
+        // Scale chip group
+        binding.chipGroupScale.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) return;
+            String scale;
+            int id = checkedIds.get(0);
+            if      (id == R.id.chipMajor)      scale = AppSettings.SCALE_MAJOR;
+            else if (id == R.id.chipMinor)      scale = AppSettings.SCALE_MINOR;
+            else if (id == R.id.chipPentatonic) scale = AppSettings.SCALE_PENTATONIC;
+            else                                scale = AppSettings.SCALE_CHROMATIC;
+            // TODO(sprint3-audio): audioEngine.setActiveScale(scale); — pending Niraj's branch merge
+            saveScaleSetting(scale);
+            appendLogSafe("Scale -> " + scale);
+        });
+
+        // Octave shift buttons
+        binding.btnOctaveDown.setOnClickListener(v -> {
+            if (octaveShift > -2) {
+                octaveShift--;
+                updateOctaveLabel();
+                // TODO(sprint3-audio): ThereminBackgroundAudioService.setOctaveShift(octaveShift); — pending Niraj's branch merge
+                AppSettings s = store().load();
+                s.octaveShift = octaveShift;
+                store().save(s);
+                appendLogSafe("Octave -> " + octaveShift);
+            }
+        });
+        binding.btnOctaveUp.setOnClickListener(v -> {
+            if (octaveShift < 2) {
+                octaveShift++;
+                updateOctaveLabel();
+                // TODO(sprint3-audio): ThereminBackgroundAudioService.setOctaveShift(octaveShift); — pending Niraj's branch merge
+                AppSettings s = store().load();
+                s.octaveShift = octaveShift;
+                store().save(s);
+                appendLogSafe("Octave -> " + octaveShift);
+            }
+        });
+
+        // Drum toggle
+        binding.btnDrumToggle.setOnClickListener(v -> {
+            // TODO(sprint3-audio): drum toggle pending DrumEngine merge from Niraj's branch
+            // DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
+            // if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
+            // if (drum != null) { drum.setEnabled(!drum.isEnabled()); updateDrumButton(); }
+            toastSafe("Drum engine available after Niraj's branch merges");
+        });
+
+        // Effects — reverb
+        binding.switchReverb.setOnCheckedChangeListener((v, on) -> {
+            // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setReverbEnabled(on);
+            saveEffectSettings();
+        });
+        binding.sbReverbMix.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean u) {
+                // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setReverbMix(p / 100f);
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) { saveEffectSettings(); }
+        });
+
+        // Effects — delay
+        binding.switchDelay.setOnCheckedChangeListener((v, on) -> {
+            // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDelayEnabled(on);
+            saveEffectSettings();
+        });
+        binding.sbDelayFeedback.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean u) {
+                // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDelayFeedback(p / 90f * 0.9f);
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) { saveEffectSettings(); }
+        });
+
+        // Effects — distortion
+        binding.switchDistortion.setOnCheckedChangeListener((v, on) -> {
+            // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDistortionEnabled(on);
+            saveEffectSettings();
+        });
+        binding.sbDistortionGain.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean u) {
+                // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setDistortionGain(1f + p / 100f * 9f);
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) { saveEffectSettings(); }
+        });
+    }
+
+    private void updateScaleChips(String scale) {
+        int id;
+        switch (scale) {
+            case AppSettings.SCALE_MAJOR:      id = R.id.chipMajor; break;
+            case AppSettings.SCALE_MINOR:      id = R.id.chipMinor; break;
+            case AppSettings.SCALE_PENTATONIC: id = R.id.chipPentatonic; break;
+            default:                           id = R.id.chipChromatic; break;
+        }
+        binding.chipGroupScale.check(id);
+    }
+
+    private void updateOctaveLabel() {
+        String label = "Oct " + (octaveShift >= 0 ? "+" + octaveShift : String.valueOf(octaveShift));
+        binding.tvOctaveLabel.setText(label);
+    }
+
+    private void updateDrumButton() {
+        // TODO(sprint3-audio): update drum button text based on DrumEngine.isEnabled()
+        // DrumEngine is not yet available — pending Niraj's branch merge
+    }
+
+    private void saveEffectSettings() {
+        AppSettings s = store().load();
+        s.reverbEnabled     = binding.switchReverb.isChecked();
+        s.reverbMix         = binding.sbReverbMix.getProgress() / 100f;
+        s.delayEnabled      = binding.switchDelay.isChecked();
+        s.delayFeedback     = binding.sbDelayFeedback.getProgress() / 90f;
+        s.delayMix          = 0.4f;
+        s.distortionEnabled = binding.switchDistortion.isChecked();
+        s.distortionGain    = 1f + binding.sbDistortionGain.getProgress() / 100f * 9f;
+        store().save(s);
+    }
+
+    private void saveScaleSetting(String scale) {
+        AppSettings s = store().load();
+        s.activeScale = scale;
+        store().save(s);
+    }
+
+    private void loadSpring3Settings(AppSettings s) {
+        String scale = s.activeScale != null ? s.activeScale : AppSettings.SCALE_CHROMATIC;
+        updateScaleChips(scale);
+        // TODO(sprint3-audio): if (audioEngine != null) audioEngine.setActiveScale(scale);
+
+        octaveShift = s.octaveShift;
+        updateOctaveLabel();
+        // TODO(sprint3-audio): ThereminBackgroundAudioService.setOctaveShift(octaveShift);
+
+        // Effects UI state
+        binding.switchReverb.setChecked(s.reverbEnabled);
+        binding.sbReverbMix.setProgress((int) (s.reverbMix * 100));
+        binding.switchDelay.setChecked(s.delayEnabled);
+        binding.sbDelayFeedback.setProgress((int) (s.delayFeedback * 90));
+        binding.switchDistortion.setChecked(s.distortionEnabled);
+        binding.sbDistortionGain.setProgress((int) ((s.distortionGain - 1f) / 9f * 100));
+
+        // TODO(sprint3-audio): pass effect values to audioEngine once Niraj's branch merges
+
+        updateDrumButton();
     }
 
     private void bindGloveButtons(boolean pitch, View neutral, View direction, View help, String title) {
@@ -624,6 +779,7 @@ public class MainActivity extends AppCompatActivity {
         play.load(settings);
         audioEngine.setToneType(play.currentToneType);
         updateToneButton();
+        loadSpring3Settings(settings);
     }
 
     private void persistSettings() {
