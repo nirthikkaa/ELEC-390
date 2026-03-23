@@ -33,150 +33,70 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="24dp"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/app_outline"
                 app:strokeWidth="0dp">
 
+                <!-- Compact single row: freq | vol | stage-view button -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="4dp"
+                    android:paddingTop="7dp"
+                    android:paddingBottom="7dp">
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:id="@+id/tvStatus"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-
-                        <TextView
-                            android:id="@+id/tvStatus"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:visibility="gone"
-                            android:text="Looking for gloves"
-                            android:textColor="@color/app_on_surface"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
-
-                        <Button
-                            android:id="@+id/btnPerformanceMode"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Stage View"
-                            android:textSize="11sp"
-                            android:minWidth="0dp"
-                            android:paddingStart="10dp"
-                            android:paddingEnd="10dp"
-                            style="?attr/borderlessButtonStyle" />
-
-                    </LinearLayout>
+                        android:layout_weight="0"
+                        android:visibility="gone"
+                        android:text="" />
 
                     <TextView
                         android:id="@+id/tvAudio"
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_weight="0"
                         android:visibility="gone"
-                        android:text="Turn on both gloves to begin playing."
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="13sp" />
+                        android:text="" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:id="@+id/tvFreqDisplay"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal">
+                        android:layout_weight="1"
+                        android:text="— Hz"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
-                        <com.google.android.material.card.MaterialCardView
-                            android:id="@+id/cardVolChip"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            app:cardBackgroundColor="@color/app_surface_variant"
-                            app:cardCornerRadius="18dp"
-                            app:cardElevation="0dp"
-                            app:strokeColor="@color/app_outline"
-                            app:strokeWidth="1dp">
+                    <TextView
+                        android:id="@+id/tvVolDisplay"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="— %"
+                        android:textColor="@color/app_on_surface"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
 
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:paddingStart="12dp"
-                                android:paddingTop="8dp"
-                                android:paddingEnd="12dp"
-                                android:paddingBottom="8dp">
+                    <Button
+                        android:id="@+id/btnPerformanceMode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Stage View"
+                        android:textSize="10sp"
+                        android:minWidth="0dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        style="?attr/borderlessButtonStyle" />
 
-                                <TextView
-                                    android:id="@+id/tvVolLabel"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Volume Glove"
-                                    android:textColor="@color/app_primary"
-                                    android:textSize="11sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:id="@+id/tvVolValue"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:minHeight="36dp"
-                                    android:gravity="center_vertical"
-                                    android:text="Waiting"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="14sp"
-                                    android:textStyle="bold" />
-                            </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
-
-                        <com.google.android.material.card.MaterialCardView
-                            android:id="@+id/cardPitchChip"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1"
-                            app:cardBackgroundColor="@color/app_surface_variant"
-                            app:cardCornerRadius="18dp"
-                            app:cardElevation="0dp"
-                            app:strokeColor="@color/app_outline"
-                            app:strokeWidth="1dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:paddingStart="12dp"
-                                android:paddingTop="8dp"
-                                android:paddingEnd="12dp"
-                                android:paddingBottom="8dp">
-
-                                <TextView
-                                    android:id="@+id/tvPitchLabel"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Pitch Glove"
-                                    android:textColor="@color/app_secondary"
-                                    android:textSize="11sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:id="@+id/tvPitchValue"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:minHeight="36dp"
-                                    android:gravity="center_vertical"
-                                    android:text="Waiting"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="14sp"
-                                    android:textStyle="bold" />
-                            </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
-                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -224,12 +144,12 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
-                    android:paddingStart="8dp"
-                    android:paddingTop="14dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="14dp">
+                    android:paddingStart="6dp"
+                    android:paddingTop="11dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="11dp">
 
-                    <!-- Record column -->
+                    <!-- Record column (20% smaller: 68→54dp button, 76→61dp frame) -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -238,8 +158,8 @@
                         android:gravity="center_horizontal">
 
                         <FrameLayout
-                            android:layout_width="76dp"
-                            android:layout_height="76dp">
+                            android:layout_width="61dp"
+                            android:layout_height="61dp">
 
                             <View
                                 android:layout_width="match_parent"
@@ -249,8 +169,8 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnRecord"
-                                android:layout_width="68dp"
-                                android:layout_height="68dp"
+                                android:layout_width="54dp"
+                                android:layout_height="54dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="Record performance"
                                 android:elevation="6dp"
@@ -258,11 +178,11 @@
                                 android:insetBottom="0dp"
                                 android:text=""
                                 app:backgroundTint="#B8222D"
-                                app:cornerRadius="34dp"
+                                app:cornerRadius="27dp"
                                 app:icon="@drawable/ic_record"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
-                                app:iconSize="24dp"
+                                app:iconSize="19dp"
                                 app:iconTint="@color/white"
                                 app:rippleColor="#99FF8A8A"
                                 app:strokeColor="#FFF2A7A7"
@@ -272,30 +192,30 @@
 
                         <TextView
                             android:id="@+id/tvRecordLabel"
-                            android:layout_width="72dp"
+                            android:layout_width="58dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="5dp"
                             android:gravity="center"
                             android:maxLines="2"
                             android:text="Record"
                             android:textColor="#FFD3D8"
-                            android:textSize="12sp"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvRecordingTimer"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="3dp"
                             android:text="@string/recording_timer_zero"
                             android:textColor="#FFF2A7A7"
-                            android:textSize="12sp"
+                            android:textSize="11sp"
                             android:textStyle="bold"
                             android:visibility="gone" />
 
                     </LinearLayout>
 
-                    <!-- Play column -->
+                    <!-- Play column (20% smaller: 94→75dp button, 106→85dp frame) -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -304,8 +224,8 @@
                         android:gravity="center_horizontal">
 
                         <FrameLayout
-                            android:layout_width="106dp"
-                            android:layout_height="106dp">
+                            android:layout_width="85dp"
+                            android:layout_height="85dp">
 
                             <View
                                 android:layout_width="match_parent"
@@ -315,8 +235,8 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnAudioStart"
-                                android:layout_width="94dp"
-                                android:layout_height="94dp"
+                                android:layout_width="75dp"
+                                android:layout_height="75dp"
                                 android:layout_gravity="center"
                                 android:contentDescription="Play or pause tone"
                                 android:elevation="8dp"
@@ -324,11 +244,11 @@
                                 android:insetBottom="0dp"
                                 android:text=""
                                 app:backgroundTint="@color/app_primary"
-                                app:cornerRadius="47dp"
+                                app:cornerRadius="38dp"
                                 app:icon="@drawable/ic_play_theremin"
                                 app:iconGravity="textStart"
                                 app:iconPadding="0dp"
-                                app:iconSize="36dp"
+                                app:iconSize="29dp"
                                 app:iconTint="@color/app_on_primary"
                                 app:rippleColor="#99E9F4FF"
                                 app:strokeColor="#FFE4F2FF"
@@ -338,19 +258,19 @@
 
                         <TextView
                             android:id="@+id/tvPlayRemoteLabel"
-                            android:layout_width="94dp"
+                            android:layout_width="75dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="5dp"
                             android:gravity="center"
                             android:maxLines="2"
                             android:text="Play"
                             android:textColor="#FFEAF3FF"
-                            android:textSize="12sp"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
 
                     </LinearLayout>
 
-                    <!-- Tone column: detented knob -->
+                    <!-- Tone column (20% smaller: 108→86dp knob) -->
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -360,19 +280,19 @@
 
                         <com.example.thereminglovestest2.ToneKnobView
                             android:id="@+id/toneKnob"
-                            android:layout_width="108dp"
-                            android:layout_height="108dp" />
+                            android:layout_width="86dp"
+                            android:layout_height="86dp" />
 
                         <TextView
                             android:id="@+id/tvToneLabel"
-                            android:layout_width="120dp"
+                            android:layout_width="96dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
+                            android:layout_marginTop="5dp"
                             android:gravity="center"
                             android:maxLines="1"
                             android:text="Sine"
                             android:textColor="@color/app_on_surface"
-                            android:textSize="13sp"
+                            android:textSize="12sp"
                             android:textStyle="bold" />
 
                     </LinearLayout>
@@ -390,114 +310,66 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sprint 3: Scale + Octave + Drum compact card -->
+            <!-- DJ Board: Scale + Drums + BPM + Octave -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardScale"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="@color/app_surface"
+                app:cardBackgroundColor="#0B0B1A"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
+                app:strokeColor="#1A2A1A"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingStart="10dp"
-                    android:paddingEnd="10dp"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp">
+                    android:orientation="vertical">
 
-                    <!-- Row 1: Scale chips (horizontal scroll so full names fit) -->
-                    <HorizontalScrollView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:scrollbars="none">
-
-                        <com.google.android.material.chip.ChipGroup
-                            android:id="@+id/chipGroupScale"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            app:singleSelection="true"
-                            app:selectionRequired="true"
-                            app:chipSpacingHorizontal="4dp">
-
-                            <com.google.android.material.chip.Chip
-                                android:id="@+id/chipChromatic"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Chromatic"
-                                android:checked="true"
-                                style="@style/Widget.Material3.Chip.Filter" />
-
-                            <com.google.android.material.chip.Chip
-                                android:id="@+id/chipMajor"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Major"
-                                style="@style/Widget.Material3.Chip.Filter" />
-
-                            <com.google.android.material.chip.Chip
-                                android:id="@+id/chipMinor"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Minor"
-                                style="@style/Widget.Material3.Chip.Filter" />
-
-                            <com.google.android.material.chip.Chip
-                                android:id="@+id/chipPentatonic"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Pentatonic"
-                                style="@style/Widget.Material3.Chip.Filter" />
-
-                        </com.google.android.material.chip.ChipGroup>
-                    </HorizontalScrollView>
-
-                    <!-- Row 2: Drum toggle (left) + Octave shift (right) -->
+                    <!-- Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginTop="6dp">
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="9dp"
+                        android:paddingBottom="7dp">
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnDrumToggle"
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#00FF9D" />
+
+                        <TextView
                             android:layout_width="0dp"
-                            android:layout_height="36dp"
+                            android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Drums Off"
-                            android:textSize="12sp"
-                            android:insetTop="0dp"
-                            android:insetBottom="0dp"
-                            style="@style/Widget.Material3.Button.OutlinedButton" />
+                            android:layout_marginStart="8dp"
+                            android:text="CONTROLS"
+                            android:textColor="#00FF9D"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnBassToggle"
-                            android:layout_width="0dp"
-                            android:layout_height="36dp"
-                            android:layout_weight="1"
-                            android:layout_marginStart="4dp"
-                            android:text="Bass Off"
-                            android:textSize="12sp"
-                            android:insetTop="0dp"
-                            android:insetBottom="0dp"
-                            style="@style/Widget.Material3.Button.OutlinedButton" />
-
+                        <!-- Octave control in header right -->
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnOctaveDown"
-                            android:layout_width="36dp"
-                            android:layout_height="36dp"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
                             android:text="−"
-                            android:textSize="16sp"
+                            android:textSize="14sp"
+                            android:textColor="#00FF9D"
                             android:contentDescription="Octave down"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
                             android:padding="0dp"
+                            app:strokeColor="#00FF9D"
+                            app:strokeWidth="1dp"
+                            app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         <TextView
@@ -506,265 +378,626 @@
                             android:layout_height="wrap_content"
                             android:gravity="center"
                             android:text="Oct +0"
-                            android:textSize="12sp"
-                            android:textColor="@color/app_on_surface"
+                            android:textSize="11sp"
+                            android:textColor="#00FF9D"
+                            android:fontFamily="monospace"
                             android:textStyle="bold" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnOctaveUp"
-                            android:layout_width="36dp"
-                            android:layout_height="36dp"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
                             android:text="+"
-                            android:textSize="16sp"
+                            android:textSize="14sp"
+                            android:textColor="#00FF9D"
                             android:contentDescription="Octave up"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
                             android:padding="0dp"
+                            app:strokeColor="#00FF9D"
+                            app:strokeWidth="1dp"
+                            app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
                     </LinearLayout>
 
+                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1A2A1A" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="10dp">
+
+                        <!-- Scale row label -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="SCALE"
+                            android:textColor="#888AAA"
+                            android:textSize="9sp"
+                            android:letterSpacing="0.2"
+                            android:fontFamily="monospace"
+                            android:layout_marginBottom="4dp" />
+
+                        <HorizontalScrollView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:scrollbars="none">
+
+                            <com.google.android.material.chip.ChipGroup
+                                android:id="@+id/chipGroupScale"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                app:singleSelection="true"
+                                app:selectionRequired="true"
+                                app:chipSpacingHorizontal="4dp">
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/chipChromatic"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Chromatic"
+                                    android:checked="true"
+                                    style="@style/Widget.Material3.Chip.Filter" />
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/chipMajor"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Major"
+                                    style="@style/Widget.Material3.Chip.Filter" />
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/chipMinor"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Minor"
+                                    style="@style/Widget.Material3.Chip.Filter" />
+
+                                <com.google.android.material.chip.Chip
+                                    android:id="@+id/chipPentatonic"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Pentatonic"
+                                    style="@style/Widget.Material3.Chip.Filter" />
+
+                            </com.google.android.material.chip.ChipGroup>
+                        </HorizontalScrollView>
+
+                        <View android:layout_width="match_parent" android:layout_height="1dp"
+                            android:background="#1A2A1A" android:layout_marginTop="8dp" android:layout_marginBottom="8dp" />
+
+                        <!-- Drums + Bass row -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="RHYTHM"
+                            android:textColor="#888AAA"
+                            android:textSize="9sp"
+                            android:letterSpacing="0.2"
+                            android:fontFamily="monospace"
+                            android:layout_marginBottom="6dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDrumToggle"
+                                android:layout_width="0dp"
+                                android:layout_height="32dp"
+                                android:layout_weight="1"
+                                android:text="DRUMS"
+                                android:textSize="10sp"
+                                android:letterSpacing="0.1"
+                                android:fontFamily="monospace"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:strokeColor="#00FF9D"
+                                app:strokeWidth="1dp"
+                                app:cornerRadius="4dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBassToggle"
+                                android:layout_width="0dp"
+                                android:layout_height="32dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="6dp"
+                                android:text="BASS"
+                                android:textSize="10sp"
+                                android:letterSpacing="0.1"
+                                android:fontFamily="monospace"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:strokeColor="#FF9D00"
+                                app:strokeWidth="1dp"
+                                app:cornerRadius="4dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                        </LinearLayout>
+
+                        <!-- DRUM preset row: 8 numbered drum patterns -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="6dp">
+                            <TextView android:layout_width="36dp" android:layout_height="wrap_content"
+                                android:text="DRUM" android:textColor="#00FF9D" android:textSize="8sp"
+                                android:fontFamily="monospace" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat1" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:text="1" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat2" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="2" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat3" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="3" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat4" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="4" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat5" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="5" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat6" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="6" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat7" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="7" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat8" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="8" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                        </LinearLayout>
+
+                        <!-- BASS preset row: 8 numbered bass lines -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="4dp">
+                            <TextView android:layout_width="36dp" android:layout_height="wrap_content"
+                                android:text="BASS" android:textColor="#CC44FF" android:textSize="8sp"
+                                android:fontFamily="monospace" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat1" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:text="1" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat2" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="2" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat3" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="3" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat4" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="4" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat5" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="5" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat6" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="6" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat7" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="7" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat8" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="8" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+                        </LinearLayout>
+
+                        <!-- VOLUME: two sliders — synth melody and beat/drums -->
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="VOLUME"
+                            android:textColor="#888AAA"
+                            android:textSize="9sp"
+                            android:letterSpacing="0.2"
+                            android:fontFamily="monospace"
+                            android:layout_marginTop="8dp"
+                            android:layout_marginBottom="2dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="2dp">
+                            <TextView android:layout_width="44dp" android:layout_height="wrap_content"
+                                android:text="SYNTH" android:textColor="#7EB8FF" android:textSize="8sp"
+                                android:fontFamily="monospace" />
+                            <SeekBar android:id="@+id/sbSynthVol"
+                                android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:max="100" android:progress="65"
+                                android:progressTint="#7EB8FF" android:thumbTint="#7EB8FF"
+                                android:thumb="@drawable/slider_thumb_rect" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="2dp">
+                            <TextView android:layout_width="44dp" android:layout_height="wrap_content"
+                                android:text="BEATS" android:textColor="#FF9F40" android:textSize="8sp"
+                                android:fontFamily="monospace" />
+                            <SeekBar android:id="@+id/sbBeatVol"
+                                android:layout_width="0dp" android:layout_height="wrap_content"
+                                android:layout_weight="1" android:max="100" android:progress="85"
+                                android:progressTint="#FF9F40" android:thumbTint="#FF9F40"
+                                android:thumb="@drawable/slider_thumb_rect" />
+                        </LinearLayout>
+
+                        <!-- BPM row -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="6dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="BPM"
+                                android:textColor="#888AAA"
+                                android:textSize="9sp"
+                                android:letterSpacing="0.1"
+                                android:fontFamily="monospace"
+                                android:layout_marginEnd="8dp" />
+
+                            <SeekBar
+                                android:id="@+id/sbBpm"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:max="140"
+                                android:progress="60"
+                                android:progressTint="#00E5FF"
+                                android:thumbTint="#00E5FF"
+                                android:thumb="@drawable/slider_thumb_rect" />
+
+                            <TextView
+                                android:id="@+id/tvBpmLabel"
+                                android:layout_width="36dp"
+                                android:layout_height="wrap_content"
+                                android:gravity="end"
+                                android:text="120"
+                                android:textColor="#00E5FF"
+                                android:textSize="12sp"
+                                android:fontFamily="monospace"
+                                android:textStyle="bold"
+                                android:layout_marginStart="8dp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sprint 3: Effects card -->
+            <!-- Sprint 3: Effects card — DJ console style -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardEffects"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="@color/app_surface"
+                app:cardBackgroundColor="#0B0B1A"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
+                app:strokeColor="#2A1A4A"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingStart="10dp"
-                    android:paddingEnd="10dp"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="10dp">
+                    android:orientation="vertical">
 
-                    <!-- Reverb row -->
+                    <!-- Header bar -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginBottom="10dp">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="8dp">
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#FFCC00" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
+                            android:layout_marginStart="8dp"
+                            android:text="EFFECTS"
+                            android:textColor="#FFCC00"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
 
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnReverb"
-                                android:layout_width="90dp"
-                                android:layout_height="32dp"
-                                android:text="Reverb"
-                                android:textSize="12sp"
-                                android:insetTop="0dp"
-                                android:insetBottom="0dp"
-                                style="@style/Widget.Material3.Button.OutlinedButton" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#1E1E30" />
+
+                    <!-- Three channel strips -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <!-- REVERB channel -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="10dp"
+                            android:paddingBottom="12dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="REVERB"
+                                android:textColor="#CC44FF"
+                                android:textSize="9sp"
+                                android:letterSpacing="0.15"
+                                android:textStyle="bold"
+                                android:fontFamily="monospace"
+                                android:layout_marginBottom="8dp" />
 
                             <SeekBar
                                 android:id="@+id/sbReverbMix"
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="8dp"
                                 android:max="100"
-                                android:progress="30" />
+                                android:progress="30"
+                                android:thumbTint="#CC44FF"
+                                android:progressTint="#CC44FF"
+                                android:progressBackgroundTint="#2A1040"
+                                android:thumb="@drawable/slider_thumb_rect" />
 
                             <TextView
                                 android:id="@+id/tvReverbVal"
-                                android:layout_width="36dp"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
-                                android:gravity="end"
                                 android:text="30%"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="11sp" />
+                                android:textColor="#CC44FF"
+                                android:textSize="10sp"
+                                android:fontFamily="monospace"
+                                android:layout_marginTop="5dp"
+                                android:layout_marginBottom="8dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnReverb"
+                                android:layout_width="56dp"
+                                android:layout_height="28dp"
+                                android:text="OFF"
+                                android:textSize="9sp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:letterSpacing="0.1"
+                                android:fontFamily="monospace"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#CC44FF"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
 
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="#1E1E30" />
+
+                        <!-- DELAY channel -->
                         <LinearLayout
-                            android:layout_width="match_parent"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginTop="2dp">
-
-                            <View android:layout_width="90dp" android:layout_height="0dp" />
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="8dp"
-                                android:text="0%"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="9sp" />
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="10dp"
+                            android:paddingBottom="12dp">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginEnd="42dp"
-                                android:text="100%"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="9sp" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                    <!-- Delay row -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginBottom="10dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnDelay"
-                                android:layout_width="90dp"
-                                android:layout_height="32dp"
-                                android:text="Delay"
-                                android:textSize="12sp"
-                                android:insetTop="0dp"
-                                android:insetBottom="0dp"
-                                style="@style/Widget.Material3.Button.OutlinedButton" />
+                                android:text="DELAY"
+                                android:textColor="#00E5FF"
+                                android:textSize="9sp"
+                                android:letterSpacing="0.15"
+                                android:textStyle="bold"
+                                android:fontFamily="monospace"
+                                android:layout_marginBottom="8dp" />
 
                             <SeekBar
                                 android:id="@+id/sbDelayFeedback"
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="8dp"
                                 android:max="90"
-                                android:progress="35" />
+                                android:progress="35"
+                                android:thumbTint="#00E5FF"
+                                android:progressTint="#00E5FF"
+                                android:progressBackgroundTint="#001A20"
+                                android:thumb="@drawable/slider_thumb_rect" />
 
                             <TextView
                                 android:id="@+id/tvDelayVal"
-                                android:layout_width="36dp"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
-                                android:gravity="end"
                                 android:text="39%"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="11sp" />
+                                android:textColor="#00E5FF"
+                                android:textSize="10sp"
+                                android:fontFamily="monospace"
+                                android:layout_marginTop="5dp"
+                                android:layout_marginBottom="8dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDelay"
+                                android:layout_width="56dp"
+                                android:layout_height="28dp"
+                                android:text="OFF"
+                                android:textSize="9sp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:letterSpacing="0.1"
+                                android:fontFamily="monospace"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#00E5FF"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
 
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="#1E1E30" />
+
+                        <!-- DISTORTION channel -->
                         <LinearLayout
-                            android:layout_width="match_parent"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginTop="2dp">
-
-                            <View android:layout_width="90dp" android:layout_height="0dp" />
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="8dp"
-                                android:text="0%"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="9sp" />
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:paddingTop="10dp"
+                            android:paddingBottom="12dp">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginEnd="42dp"
-                                android:text="90%"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="9sp" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                    <!-- Distortion row -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnDistortion"
-                                android:layout_width="90dp"
-                                android:layout_height="32dp"
-                                android:text="Distort"
-                                android:textSize="12sp"
-                                android:insetTop="0dp"
-                                android:insetBottom="0dp"
-                                style="@style/Widget.Material3.Button.OutlinedButton" />
+                                android:text="DIST"
+                                android:textColor="#FF6600"
+                                android:textSize="9sp"
+                                android:letterSpacing="0.15"
+                                android:textStyle="bold"
+                                android:fontFamily="monospace"
+                                android:layout_marginBottom="8dp" />
 
                             <SeekBar
                                 android:id="@+id/sbDistortionGain"
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="8dp"
                                 android:max="100"
-                                android:progress="20" />
+                                android:progress="20"
+                                android:thumbTint="#FF6600"
+                                android:progressTint="#FF6600"
+                                android:progressBackgroundTint="#201000"
+                                android:thumb="@drawable/slider_thumb_rect" />
 
                             <TextView
                                 android:id="@+id/tvDistortionVal"
-                                android:layout_width="36dp"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
-                                android:gravity="end"
-                                android:text="20%"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="11sp" />
-
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginTop="2dp">
-
-                            <View android:layout_width="90dp" android:layout_height="0dp" />
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="8dp"
-                                android:text="1×"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="9sp" />
-
-                            <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginEnd="42dp"
-                                android:text="10×"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="9sp" />
+                                android:text="20%"
+                                android:textColor="#FF6600"
+                                android:textSize="10sp"
+                                android:fontFamily="monospace"
+                                android:layout_marginTop="5dp"
+                                android:layout_marginBottom="8dp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDistortion"
+                                android:layout_width="56dp"
+                                android:layout_height="28dp"
+                                android:text="OFF"
+                                android:textSize="9sp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:letterSpacing="0.1"
+                                android:fontFamily="monospace"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#FF6600"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
 
                     </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Piano keyboard card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardPiano"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="#0B0B1A"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#1A2A3A"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <!-- Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="8dp">
+
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#7EB8FF" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:text="KEYS"
+                            android:textColor="#7EB8FF"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
+
+                        <TextView
+                            android:id="@+id/tvPianoNote"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="tap a key"
+                            android:textColor="#888AAA"
+                            android:textSize="10sp"
+                            android:fontFamily="monospace" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPianoMode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="28dp"
+                            android:text="NOTE"
+                            android:textSize="9sp"
+                            android:letterSpacing="0.1"
+                            android:fontFamily="monospace"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            app:strokeColor="#00CCFF"
+                            app:strokeWidth="1dp"
+                            app:cornerRadius="4dp"
+                            style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#1E1E30" />
+
+                    <com.example.thereminglovestest2.PianoKeyboardView
+                        android:id="@+id/pianoKeyboard"
+                        android:layout_width="match_parent"
+                        android:layout_height="80dp"
+                        android:layout_marginStart="6dp"
+                        android:layout_marginEnd="6dp"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

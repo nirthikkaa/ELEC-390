@@ -4,7 +4,6 @@ import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -13,7 +12,6 @@ import android.text.InputType;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.SeekBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -27,13 +25,14 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityMainBinding;
-import com.google.android.material.card.MaterialCardView;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Play screen.
@@ -55,9 +54,11 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_RECORD_AUDIO = 4109;
 
     private static final String[] TONE_CYCLE = {
-        AppSettings.TONE_SINE, AppSettings.TONE_SQUARE, AppSettings.TONE_TRIANGLE,
-        AppSettings.TONE_SAW,  AppSettings.TONE_PULSE,  AppSettings.TONE_ORGAN,
-        AppSettings.TONE_STRING, AppSettings.TONE_BELL, AppSettings.TONE_PAD
+        AppSettings.TONE_SINE,    AppSettings.TONE_SQUARE,   AppSettings.TONE_TRIANGLE,
+        AppSettings.TONE_SAW,     AppSettings.TONE_PULSE,    AppSettings.TONE_ORGAN,
+        AppSettings.TONE_STRING,  AppSettings.TONE_BELL,     AppSettings.TONE_PAD,
+        AppSettings.TONE_LEAD,    AppSettings.TONE_KEYS,
+        AppSettings.TONE_VOWEL_A, AppSettings.TONE_VOWEL_O,  AppSettings.TONE_VOWEL_I
     };
 
     private ActivityMainBinding binding;
@@ -78,6 +79,13 @@ public class MainActivity extends AppCompatActivity {
 
     // Sprint 3 fields
     private int  octaveShift          = 0;
+    private int  drumBpm              = 120;
+    private int  drumPresetIdx        = 0;
+    private int  bassPresetIdx        = 0;
+    // 0=NOTE, 1=MAJOR, 2=MINOR, 3=PENTA, 4=JAZZ (cycles on button tap)
+    private int  pianoModeIdx         = 0;
+    // Active arpeggio roots in melody mode (multi-key harmonic selection)
+    private final Set<Integer> activeMelodyNotes = new HashSet<>();
     private long lastAnimatedBassHitMs = 0L; // tracks which bass hit we've already animated
 
     private boolean bgAudioEnabled = true;
@@ -144,9 +152,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         onVisible();
-        performanceModeActive = getSharedPreferences("theremin_prefs", MODE_PRIVATE)
-                .getBoolean("performance_mode_active", false);
+        android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
+        performanceModeActive = prefs.getBoolean("performance_mode_active", false);
         applyPerformanceMode(performanceModeActive);
+        int densityLevel = prefs.getInt("pixel_density_level", 3);
+        binding.thereminVisualizerView.setPixelDensityLevel(densityLevel);
     }
 
     @Override
@@ -309,6 +319,7 @@ public class MainActivity extends AppCompatActivity {
         binding.btnOctaveDown.setOnClickListener(v -> {
             if (octaveShift > -2) {
                 octaveShift--;
+                play.setOctaveShift(octaveShift);
                 ThereminBackgroundAudioService.setOctaveShift(octaveShift);
                 updateOctaveLabel();
                 AppSettings s = store().load(); s.octaveShift = octaveShift; store().save(s);
@@ -318,6 +329,7 @@ public class MainActivity extends AppCompatActivity {
         binding.btnOctaveUp.setOnClickListener(v -> {
             if (octaveShift < 2) {
                 octaveShift++;
+                play.setOctaveShift(octaveShift);
                 ThereminBackgroundAudioService.setOctaveShift(octaveShift);
                 updateOctaveLabel();
                 AppSettings s = store().load(); s.octaveShift = octaveShift; store().save(s);
@@ -353,8 +365,62 @@ public class MainActivity extends AppCompatActivity {
             updateBassButton();
         });
 
+        // Piano mode cycle button: NOTE → MAJOR → MINOR → PENTA → JAZZ → NOTE …
+        binding.btnPianoMode.setOnClickListener(v -> {
+            pianoModeIdx = (pianoModeIdx + 1) % DrumEngine.ARPEGGIO_PATTERNS.length;
+            clearMelodyOnAllEngines(); // clear selection whenever mode changes
+            updatePianoModeButton();
+            // Stop any running arpeggio when switching to NOTE mode
+            if (pianoModeIdx == 0) clearMelodyOnAllEngines();
+        });
+
+        // BPM slider (60–200 BPM, progress 0–140)
+        binding.sbBpm.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
+                drumBpm = 60 + p;
+                applyBpm();
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) {}
+        });
+
+        // Pattern buttons
+        // Drum preset buttons 1–8
+        com.google.android.material.button.MaterialButton[] drumBtns = {
+            binding.btnDrumPat1, binding.btnDrumPat2, binding.btnDrumPat3, binding.btnDrumPat4,
+            binding.btnDrumPat5, binding.btnDrumPat6, binding.btnDrumPat7, binding.btnDrumPat8
+        };
+        for (int i = 0; i < drumBtns.length; i++) {
+            final int idx = i;
+            drumBtns[i].setOnClickListener(v -> applyDrumPreset(idx));
+        }
+        // Bass preset buttons 1–8
+        com.google.android.material.button.MaterialButton[] bassBtns = {
+            binding.btnBassPat1, binding.btnBassPat2, binding.btnBassPat3, binding.btnBassPat4,
+            binding.btnBassPat5, binding.btnBassPat6, binding.btnBassPat7, binding.btnBassPat8
+        };
+        for (int i = 0; i < bassBtns.length; i++) {
+            final int idx = i;
+            bassBtns[i].setOnClickListener(v -> applyBassPreset(idx));
+        }
+        applyDrumPresetHighlight(drumPresetIdx);
+        applyBassPresetHighlight(bassPresetIdx);
+
+        // Volume: SYNTH (theremin level) and BEATS (all drums+bass)
+        binding.sbSynthVol.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean u) { applyMixerVol(); }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) {}
+        });
+        binding.sbBeatVol.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean u) { applyMixerVol(); }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) {}
+        });
+
         // Effects — reverb (push to foreground engine AND background service)
         binding.btnReverb.addOnCheckedChangeListener((btn, on) -> {
+            applyFxLed(binding.btnReverb, on, 0xFFCC44FF, on ? "ON" : "OFF");
             if (audioEngine != null) audioEngine.setReverbEnabled(on);
             ThereminBackgroundAudioService.setReverbEnabled(on);
             saveEffectSettings();
@@ -372,6 +438,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Effects — delay
         binding.btnDelay.addOnCheckedChangeListener((btn, on) -> {
+            applyFxLed(binding.btnDelay, on, 0xFF00E5FF, on ? "ON" : "OFF");
             if (audioEngine != null) audioEngine.setDelayEnabled(on);
             ThereminBackgroundAudioService.setDelayEnabled(on);
             saveEffectSettings();
@@ -389,6 +456,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Effects — distortion
         binding.btnDistortion.addOnCheckedChangeListener((btn, on) -> {
+            applyFxLed(binding.btnDistortion, on, 0xFFFF6600, on ? "ON" : "OFF");
             if (audioEngine != null) audioEngine.setDistortionEnabled(on);
             ThereminBackgroundAudioService.setDistortionEnabled(on);
             saveEffectSettings();
@@ -402,6 +470,34 @@ public class MainActivity extends AppCompatActivity {
             }
             @Override public void onStartTrackingTouch(SeekBar sb) {}
             @Override public void onStopTrackingTouch(SeekBar sb) { saveEffectSettings(); }
+        });
+
+        // Piano keyboard
+        binding.pianoKeyboard.setNoteListener(midiNote -> {
+            DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
+            DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+            if (pianoModeIdx == 0) {
+                // NOTE mode: one-shot pluck, no persistent selection
+                if (fg != null) fg.triggerPianoKey(midiNote);
+                if (bg != null) bg.triggerPianoKey(midiNote);
+                String[] NAMES = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+                binding.tvPianoNote.setText(NAMES[(midiNote - 48) % 12] + ((midiNote - 48) / 12 + 3));
+            } else {
+                // MELODY mode: tap toggles this root in/out of the harmonic chord set
+                int[] arp = DrumEngine.ARPEGGIO_PATTERNS[pianoModeIdx];
+                if (activeMelodyNotes.contains(midiNote)) {
+                    // Deselect: remove this root
+                    activeMelodyNotes.remove(midiNote);
+                    if (fg != null) fg.removeMelodyRoot(midiNote);
+                    if (bg != null) bg.removeMelodyRoot(midiNote);
+                } else {
+                    // Select: add this root to the chord
+                    activeMelodyNotes.add(midiNote);
+                    if (fg != null) fg.addMelodyRoot(midiNote, arp);
+                    if (bg != null) bg.addMelodyRoot(midiNote, arp);
+                }
+                updatePianoKeyHighlights();
+            }
         });
     }
 
@@ -426,7 +522,7 @@ public class MainActivity extends AppCompatActivity {
         if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
         boolean on = drum != null && drum.isEnabled();
         binding.btnDrumToggle.setChecked(on);
-        binding.btnDrumToggle.setText(on ? "Drums On" : "Drums Off");
+        applyFxLed(binding.btnDrumToggle, on, 0xFF00FF9D);
     }
 
     private void updateBassButton() {
@@ -434,7 +530,107 @@ public class MainActivity extends AppCompatActivity {
         if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
         boolean on = drum != null && drum.isBassEnabled();
         binding.btnBassToggle.setChecked(on);
-        binding.btnBassToggle.setText(on ? "Bass On" : "Bass Off");
+        applyFxLed(binding.btnBassToggle, on, 0xFFFF9D00);
+    }
+
+    private void applyBpm() {
+        DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (fg != null) fg.setBpm(drumBpm);
+        DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+        if (bg != null) bg.setBpm(drumBpm);
+        binding.tvBpmLabel.setText(String.valueOf(drumBpm));
+    }
+
+    private void applyDrumPreset(int idx) {
+        drumPresetIdx = idx;
+        DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (fg != null) fg.setDrumPattern(idx);
+        DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+        if (bg != null) bg.setDrumPattern(idx);
+        applyDrumPresetHighlight(idx);
+    }
+
+    private void applyBassPreset(int idx) {
+        bassPresetIdx = idx;
+        DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (fg != null) fg.setBassPattern(idx);
+        DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+        if (bg != null) bg.setBassPattern(idx);
+        applyBassPresetHighlight(idx);
+    }
+
+    private void applyDrumPresetHighlight(int idx) {
+        int active = 0xFF00FF9D, inactive = 0xFF888AAA;
+        android.content.res.ColorStateList activeBg = android.content.res.ColorStateList.valueOf(0x3300FF9D);
+        android.content.res.ColorStateList clearBg  = android.content.res.ColorStateList.valueOf(0x00000000);
+        com.google.android.material.button.MaterialButton[] btns = {
+            binding.btnDrumPat1, binding.btnDrumPat2, binding.btnDrumPat3, binding.btnDrumPat4,
+            binding.btnDrumPat5, binding.btnDrumPat6, binding.btnDrumPat7, binding.btnDrumPat8
+        };
+        for (int i = 0; i < btns.length; i++) {
+            btns[i].setTextColor(idx == i ? active : inactive);
+            btns[i].setBackgroundTintList(idx == i ? activeBg : clearBg);
+        }
+    }
+
+    private void applyBassPresetHighlight(int idx) {
+        int active = 0xFFCC44FF, inactive = 0xFF888AAA;
+        android.content.res.ColorStateList activeBg = android.content.res.ColorStateList.valueOf(0x33CC44FF);
+        android.content.res.ColorStateList clearBg  = android.content.res.ColorStateList.valueOf(0x00000000);
+        com.google.android.material.button.MaterialButton[] btns = {
+            binding.btnBassPat1, binding.btnBassPat2, binding.btnBassPat3, binding.btnBassPat4,
+            binding.btnBassPat5, binding.btnBassPat6, binding.btnBassPat7, binding.btnBassPat8
+        };
+        for (int i = 0; i < btns.length; i++) {
+            btns[i].setTextColor(idx == i ? active : inactive);
+            btns[i].setBackgroundTintList(idx == i ? activeBg : clearBg);
+        }
+    }
+
+    private static final String[] PIANO_MODE_LABELS = {"NOTE", "MAJOR", "MINOR", "PENTA", "JAZZ"};
+
+    private void updatePianoModeButton() {
+        boolean melodic = pianoModeIdx > 0;
+        binding.btnPianoMode.setText(PIANO_MODE_LABELS[pianoModeIdx]);
+        binding.btnPianoMode.setTextColor(melodic ? 0xFF00CCFF : 0xFF888AAA);
+        if (!melodic) binding.tvPianoNote.setText("tap a key");
+    }
+
+    private void clearMelodyOnAllEngines() {
+        activeMelodyNotes.clear();
+        DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (fg != null) fg.clearMelodyRoot();
+        DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+        if (bg != null) bg.clearMelodyRoot();
+        updatePianoKeyHighlights();
+    }
+
+    private void updatePianoKeyHighlights() {
+        binding.pianoKeyboard.setActiveMidiNotes(activeMelodyNotes);
+        if (activeMelodyNotes.isEmpty()) {
+            binding.tvPianoNote.setText("tap a key");
+        } else {
+            String[] NAMES = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+            StringBuilder sb = new StringBuilder();
+            for (int midi : activeMelodyNotes) {
+                if (sb.length() > 0) sb.append('+');
+                sb.append(NAMES[(midi - 48) % 12]).append((midi - 48) / 12 + 3);
+            }
+            binding.tvPianoNote.setText(sb);
+        }
+    }
+
+    private void applyMixerVol() {
+        float synthGain = binding.sbSynthVol.getProgress() / 100f;
+        float beatVol   = binding.sbBeatVol.getProgress()  / 100f;
+        // Theremin level
+        if (audioEngine != null) audioEngine.setMixGain(synthGain);
+        ThereminBackgroundAudioService.setMixGain(synthGain);
+        // All drum + bass + piano key tracks together
+        DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (fg != null) { fg.setKickVolume(beatVol); fg.setSnareVolume(beatVol); fg.setHihatVolume(beatVol * 0.75f); fg.setBassVolume(beatVol); fg.setPianoVolume(beatVol); }
+        DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+        if (bg != null) { bg.setKickVolume(beatVol); bg.setSnareVolume(beatVol); bg.setHihatVolume(beatVol * 0.75f); bg.setBassVolume(beatVol); bg.setPianoVolume(beatVol); }
     }
 
     private void saveEffectSettings() {
@@ -462,6 +658,7 @@ public class MainActivity extends AppCompatActivity {
         ThereminBackgroundAudioService.setActiveScale(scale);
 
         octaveShift = s.octaveShift;
+        play.setOctaveShift(octaveShift);
         updateOctaveLabel();
         ThereminBackgroundAudioService.setOctaveShift(octaveShift);
 
@@ -478,6 +675,13 @@ public class MainActivity extends AppCompatActivity {
         binding.btnReverb.setChecked(s.reverbEnabled);
         binding.btnDelay.setChecked(s.delayEnabled);
         binding.btnDistortion.setChecked(s.distortionEnabled);
+        applyFxLed(binding.btnReverb,     s.reverbEnabled,     0xFFCC44FF, s.reverbEnabled     ? "ON" : "OFF");
+        applyFxLed(binding.btnDelay,      s.delayEnabled,      0xFF00E5FF, s.delayEnabled      ? "ON" : "OFF");
+        applyFxLed(binding.btnDistortion, s.distortionEnabled, 0xFFFF6600, s.distortionEnabled ? "ON" : "OFF");
+        binding.sbBpm.setProgress(drumBpm - 60);
+        binding.tvBpmLabel.setText(String.valueOf(drumBpm));
+        applyDrumPresetHighlight(drumPresetIdx);
+        applyBassPresetHighlight(bassPresetIdx);
         if (audioEngine != null) {
             audioEngine.setReverbEnabled(s.reverbEnabled);
             audioEngine.setReverbMix(s.reverbMix);
@@ -900,8 +1104,8 @@ public class MainActivity extends AppCompatActivity {
         play.syncLive(snapshot);
         play.recompute(snapshot);
 
-        applyConnectionChip(binding.cardVolChip, binding.tvVolLabel, binding.tvVolValue, snapshot, false, PlayUiText.volume(play.mappedVolumeLinear));
-        applyConnectionChip(binding.cardPitchChip, binding.tvPitchLabel, binding.tvPitchValue, snapshot, true, PlayUiText.frequency(play.mappedFreqHz));
+        binding.tvFreqDisplay.setText(PlayUiText.frequency(play.mappedFreqHz));
+        binding.tvVolDisplay.setText(PlayUiText.volume(play.mappedVolumeLinear));
         binding.tvToneValue.setText(PlayUiText.tone(bothConnected, play.mappedFreqHz, play.mappedVolumeLinear));
 
         // Update top nav bar: glove dots + dynamic title
@@ -954,43 +1158,6 @@ public class MainActivity extends AppCompatActivity {
         return 0xFFFF4444; // red
     }
 
-    private void applyConnectionChip(MaterialCardView card, TextView labelView, TextView valueView,
-                                      BleSnapshot snapshot, boolean isPitch, String connectedValue) {
-        boolean connected = snapshot != null && snapshot.isGloveConnected(isPitch);
-        boolean connecting = snapshot != null && snapshot.isAnyGloveConnecting();
-
-        int bgColor, strokeColor, labelColor, valueColor;
-        if (connected) {
-            bgColor     = Color.parseColor("#173426");
-            strokeColor = Color.parseColor("#49E37A");
-            labelColor  = Color.parseColor("#49E37A");
-            valueColor  = Color.parseColor("#F2FFF6");
-        } else if (connecting) {
-            bgColor     = Color.parseColor("#262041");
-            strokeColor = Color.parseColor("#8A7DFF");
-            labelColor  = Color.parseColor("#8A7DFF");
-            valueColor  = Color.parseColor("#F3F0FF");
-        } else {
-            bgColor     = Color.parseColor("#351822");
-            strokeColor = Color.parseColor("#FF647D");
-            labelColor  = Color.parseColor("#FF647D");
-            valueColor  = Color.parseColor("#FFF2F4");
-        }
-
-        card.setCardBackgroundColor(bgColor);
-        card.setStrokeColor(strokeColor);
-        card.setCardElevation(0f);
-        labelView.setTextColor(labelColor);
-        valueView.setTextColor(valueColor);
-
-        if (connected) {
-            labelView.setText(isPitch ? "Frequency" : "Volume");
-            valueView.setText(connectedValue);
-        } else {
-            labelView.setText(isPitch ? "Pitch Glove" : "Volume Glove");
-            valueView.setText(snapshot == null ? "Waiting" : snapshot.connectionDetail(isPitch));
-        }
-    }
 
 
 
@@ -1038,9 +1205,28 @@ public class MainActivity extends AppCompatActivity {
                 .edit().putBoolean("performance_mode_active", performanceModeActive).apply();
     }
 
+    /** Lights the DJ-console LED button: filled neon bg when on, transparent + border when off.
+     *  For effects buttons also flips text ON/OFF; for other buttons preserves existing text. */
+    private void applyFxLed(com.google.android.material.button.MaterialButton btn, boolean on, int neonArgb) {
+        applyFxLed(btn, on, neonArgb, null);
+    }
+
+    private void applyFxLed(com.google.android.material.button.MaterialButton btn, boolean on, int neonArgb, String label) {
+        if (on) {
+            btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(neonArgb & 0x55FFFFFF | 0x44000000));
+            btn.setTextColor(neonArgb);
+        } else {
+            btn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0x00000000));
+            btn.setTextColor(0xFF888AAA);
+        }
+        if (label != null) btn.setText(label);
+    }
+
     private void applyPerformanceMode(boolean active) {
         int hide = active ? View.GONE : View.VISIBLE;
 
+        binding.cardScale.setVisibility(hide);
+        binding.cardEffects.setVisibility(hide);
         if (binding.cardDebugLog != null) binding.cardDebugLog.setVisibility(hide);
 
         binding.btnPerformanceMode.setText(active ? "Exit Stage" : "Stage View");
