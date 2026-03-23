@@ -55,6 +55,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
+                            android:visibility="gone"
                             android:text="Looking for gloves"
                             android:textColor="@color/app_on_surface"
                             android:textSize="18sp"
@@ -78,6 +79,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
+                        android:visibility="gone"
                         android:text="Turn on both gloves to begin playing."
                         android:textColor="@color/app_on_surface_variant"
                         android:textSize="13sp" />

@@ -63,9 +63,10 @@ public class TopNavBarView extends LinearLayout {
         titleView.setTextSize(18f);
         titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
         titleView.setTextColor(onSurface);
+        titleView.setGravity(Gravity.CENTER);
         titleView.setText(NavigationUtils.resolveScreenTitle(context));
         LayoutParams titleLp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
-        titleLp.leftMargin = dp(10);
+        titleLp.leftMargin = dp(4);
         titleLp.rightMargin = dp(4);
         addView(titleView, titleLp);
 

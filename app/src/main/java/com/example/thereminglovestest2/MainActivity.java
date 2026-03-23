@@ -900,8 +900,6 @@ public class MainActivity extends AppCompatActivity {
         play.syncLive(snapshot);
         play.recompute(snapshot);
 
-        binding.tvStatus.setText(PlayUiText.headline(snapshot, bothConnected, oneConnected, connecting));
-        binding.tvAudio.setText(PlayUiText.subtitle(snapshot, bothConnected, oneConnected, connecting));
         applyConnectionChip(binding.cardVolChip, binding.tvVolLabel, binding.tvVolValue, snapshot, false, PlayUiText.volume(play.mappedVolumeLinear));
         applyConnectionChip(binding.cardPitchChip, binding.tvPitchLabel, binding.tvPitchValue, snapshot, true, PlayUiText.frequency(play.mappedFreqHz));
         binding.tvToneValue.setText(PlayUiText.tone(bothConnected, play.mappedFreqHz, play.mappedVolumeLinear));
@@ -934,7 +932,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void pulseBassAnimation() {
-        android.view.View target = binding.cardPlayHero;
+        android.view.View target = binding.thereminVisualizerView;
         target.animate().cancel();
         target.animate()
             .scaleX(1.025f).scaleY(1.025f)
@@ -1043,9 +1041,7 @@ public class MainActivity extends AppCompatActivity {
     private void applyPerformanceMode(boolean active) {
         int hide = active ? View.GONE : View.VISIBLE;
 
-        if (binding.cardDebugLog != null)    binding.cardDebugLog.setVisibility(hide);
-
-        if (binding.tvAudio != null)         binding.tvAudio.setVisibility(hide);
+        if (binding.cardDebugLog != null) binding.cardDebugLog.setVisibility(hide);
 
         binding.btnPerformanceMode.setText(active ? "Exit Stage" : "Stage View");
     }
