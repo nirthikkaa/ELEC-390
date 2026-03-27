@@ -53,7 +53,8 @@ public class ThereminBackgroundAudioService extends Service {
     private static volatile boolean bgDrumEnabled       = false;
     private static volatile boolean bgBassEnabled       = false;
 
-    public static boolean isServiceActive() { return serviceActive; }
+    public static boolean isServiceActive()  { return serviceActive; }
+    public static boolean isThereminMuted()  { return thereminMuted; }
     public static ThereminAudioEngine.VisualizerSnapshot getVisualizerSnapshot() {
         ThereminBackgroundAudioService service = activeInstance;
         return service != null && service.audioEngine != null ? service.audioEngine.getVisualizerSnapshot() : null;
@@ -182,7 +183,13 @@ public class ThereminBackgroundAudioService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         startForeground(NOTIFICATION_ID, buildNotification());
         startLoopIfNeeded();
-        return START_STICKY;
+        return START_NOT_STICKY; // don't auto-restart; user must explicitly press Play
+    }
+
+    /** Stop the service when the user swipes the app away from recents. */
+    @Override public void onTaskRemoved(Intent rootIntent) {
+        stopSelf();
+        super.onTaskRemoved(rootIntent);
     }
 
     @Override public void onDestroy() {
@@ -200,6 +207,7 @@ public class ThereminBackgroundAudioService extends Service {
 
     private void startLoopIfNeeded() {
         if (syncRunning) return;
+        if (audioEngine == null) return;
         serviceActive = syncRunning = true;
         refreshSettings(true);
         if (!audioEngine.isRunning()) audioEngine.start();

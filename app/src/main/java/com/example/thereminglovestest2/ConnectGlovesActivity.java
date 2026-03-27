@@ -32,6 +32,8 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private boolean prevPitchConnecting = false;
     private boolean prevVolumeConnected = false;
     private boolean prevVolumeConnecting = false;
+    private long lastBleActionMs = 0L;
+    private static final long BLE_DEBOUNCE_MS = 1200L;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +86,9 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     }
 
     private void withBleReady(Runnable action) {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (now - lastBleActionMs < BLE_DEBOUNCE_MS) return;
+        lastBleActionMs = now;
         BleSessionManager.runWhenReady(this, REQ_PERMS, REQ_ENABLE_BT, action);
     }
 

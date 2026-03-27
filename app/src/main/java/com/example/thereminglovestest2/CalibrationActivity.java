@@ -238,7 +238,7 @@ public class CalibrationActivity extends AppCompatActivity {
         }
         try {
             float value = Float.parseFloat(raw);
-            if (value < min || value > max) {
+            if (Float.isNaN(value) || Float.isInfinite(value) || value < min || value > max) {
                 inputLayout.setError(String.format(Locale.US, "Use %s to %s%s",
                         draft.formatPlainValue(min, isAngle), draft.formatPlainValue(max, isAngle), unit));
                 return;

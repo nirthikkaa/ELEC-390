@@ -25,7 +25,7 @@ public class HomeActivity extends AppCompatActivity {
     private static final long UI_POLL_MS = 200L;
     private static final int REQ_ENABLE_BT = 4201;
     private static final int REQ_BLE_PERMS = 4202;
-    private static final int REQUIRED_CONNECTED_POLLS_BEFORE_AUTOPLAY = 2;
+    private static final int REQUIRED_CONNECTED_POLLS_BEFORE_AUTOPLAY = 1;
 
     private ActivityHomeBinding binding;
     private final NavigationUtils.Poller uiPoller = new NavigationUtils.Poller(UI_POLL_MS, this::refreshHomeSnapshot);

@@ -69,7 +69,7 @@ public class SettingsStore extends SQLiteOpenHelper {
                     COL_VOL_ANGLE_MAX + " REAL NOT NULL, " +
                     COL_PITCH_DIR_INV + " INTEGER NOT NULL DEFAULT 0, " +
                     COL_VOL_DIR_INV + " INTEGER NOT NULL DEFAULT 0, " +
-                    COL_TONE_TYPE + " TEXT NOT NULL DEFAULT 'SINE', " +
+                    COL_TONE_TYPE + " TEXT NOT NULL DEFAULT 'THEREMIN', " +
                     COL_PITCH_ENABLED + " INTEGER NOT NULL DEFAULT 1, " +
                     COL_VOL_ENABLED + " INTEGER NOT NULL DEFAULT 1, " +
                     COL_UPDATED_AT_MS + " INTEGER NOT NULL)";
@@ -181,7 +181,7 @@ public class SettingsStore extends SQLiteOpenHelper {
         s.volumeAngleMaxDeg = getFloat(c, COL_VOL_ANGLE_MAX, s.volumeAngleMaxDeg);
         s.pitchDirectionInverted = getInt(c, COL_PITCH_DIR_INV, 0) != 0;
         s.volumeDirectionInverted = getInt(c, COL_VOL_DIR_INV, 0) != 0;
-        s.toneType = AppSettings.normalizeToneType(getString(c, COL_TONE_TYPE, AppSettings.TONE_SINE));
+        s.toneType = AppSettings.normalizeToneType(getString(c, COL_TONE_TYPE, AppSettings.TONE_THEREMIN));
         s.pitchEnabled = getInt(c, COL_PITCH_ENABLED, 1) != 0;
         s.volumeEnabled = getInt(c, COL_VOL_ENABLED, 1) != 0;
         // Sprint 3
@@ -300,7 +300,8 @@ class AppSettings {
         }
     }
 
-    public static final String TONE_SINE    = "SINE";
+    public static final String TONE_THEREMIN = "THEREMIN";
+    public static final String TONE_SINE    = "SINE";   // legacy alias → maps to THEREMIN
     public static final String TONE_SQUARE  = "SQUARE";
     public static final String TONE_TRIANGLE= "TRIANGLE";
     public static final String TONE_SAW     = "SAW";
@@ -320,6 +321,7 @@ class AppSettings {
     public static final String TONE_TRUMPET   = "TRUMPET";
     public static final String TONE_VIOLIN    = "VIOLIN";
     public static final String TONE_CHOIR     = "CHOIR";
+    public static final String TONE_GUITAR    = "GUITAR";
 
     public static final String SENSITIVITY_LOW    = "LOW";
     public static final String SENSITIVITY_MEDIUM = "MEDIUM";
@@ -352,7 +354,7 @@ class AppSettings {
     public float volumeAngleMaxDeg = DEFAULT_VOLUME_ANGLE_MAX_DEG;
     public boolean pitchDirectionInverted = DEFAULT_PITCH_DIRECTION_INVERTED;
     public boolean volumeDirectionInverted = DEFAULT_VOLUME_DIRECTION_INVERTED;
-    public String toneType = TONE_SINE;
+    public String toneType = TONE_THEREMIN;
     public boolean pitchEnabled = true;
     public boolean volumeEnabled = true;
 
@@ -370,20 +372,22 @@ class AppSettings {
     public static String normalizeToneType(String tone) {
         String n = tone == null ? "" : tone.trim().toUpperCase(Locale.US);
         switch (n) {
+            case TONE_THEREMIN:
             case TONE_SQUARE:  case TONE_TRIANGLE: case TONE_SAW:
             case TONE_PULSE:   case TONE_ORGAN:   case TONE_STRING:
             case TONE_BELL:    case TONE_PAD:     case TONE_LEAD:
             case TONE_KEYS:     case TONE_VOWEL_A:  case TONE_VOWEL_O:
             case TONE_VOWEL_I:  case TONE_FLUTE:    case TONE_CLARINET:
             case TONE_OBOE:     case TONE_TRUMPET:  case TONE_VIOLIN:
-            case TONE_CHOIR:
+            case TONE_CHOIR:    case TONE_GUITAR:
                 return n;
-            default: return TONE_SINE;
+            default: return TONE_THEREMIN; // "SINE" and any unknown string → THEREMIN
         }
     }
 
     public static String prettyToneType(String tone) {
         switch (normalizeToneType(tone)) {
+            case TONE_THEREMIN: return "Theremin";
             case TONE_TRIANGLE: return "Triangle";
             case TONE_SAW:      return "Saw";
             case TONE_SQUARE:   return "Square";
@@ -392,7 +396,11 @@ class AppSettings {
             case TONE_STRING:   return "String";
             case TONE_BELL:     return "Bell";
             case TONE_PAD:      return "Warm Pad";
-            default:            return "Sine";
+            case TONE_VIOLIN:   return "Violin";
+            case TONE_GUITAR:   return "Guitar";
+            case TONE_FLUTE:    return "Flute";
+            case TONE_TRUMPET:  return "Trumpet";
+            default:            return "Theremin";
         }
     }
 }

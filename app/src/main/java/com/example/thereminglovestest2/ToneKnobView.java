@@ -101,7 +101,7 @@ public class ToneKnobView extends View {
         canvas.drawCircle(cx, cy, dishR, innerDish);
 
         arcRect.set(cx - ringR, cy - ringR, cx + ringR, cy + ringR);
-        canvas.drawArc(arcRect, -120f, 300f, false, accentArc);
+        canvas.drawArc(arcRect, 120f, 300f, false, accentArc);
         drawTicks(canvas, cx, cy, ringR);
         drawPointer(canvas, cx, cy, dishR - dp(3));
         drawNotch(canvas, cx, cy, faceR);
@@ -166,17 +166,21 @@ public class ToneKnobView extends View {
     }
 
     private int angleToIndex(float x, float y) {
-        float angle = (float) Math.toDegrees(Math.atan2(y - getHeight() / 2f, x - getWidth() / 2f)) + 90f;
-        if (angle < 0f) angle += 360f;
         if (tones.length <= 1) return 0;
-        float segment = 360f / tones.length;
-        return wrapIndex(Math.round(angle / segment));
+        float raw = (float) Math.toDegrees(Math.atan2(y - getHeight() / 2f, x - getWidth() / 2f));
+        if (raw < 0f) raw += 360f;
+        // Arc occupies 120° → 420° (≡ 60°) CW; shift so arc-start maps to 0°.
+        float adj = raw - 120f;
+        if (adj < 0f) adj += 360f;
+        int idx = Math.round(adj / 300f * (tones.length - 1));
+        return clampIndex(idx);
     }
 
     private void drawTicks(Canvas canvas, float cx, float cy, float radius) {
         int count = Math.max(tones.length, 1);
+        float span = count > 1 ? 300f / (count - 1) : 0f;
         for (int i = 0; i < count; i++) {
-            double rad = Math.toRadians(i * (360f / count) - 90f);
+            double rad = Math.toRadians(120f + i * span);
             float cos = (float) Math.cos(rad);
             float sin = (float) Math.sin(rad);
             float outer = radius;
@@ -188,7 +192,8 @@ public class ToneKnobView extends View {
 
     private void drawPointer(Canvas canvas, float cx, float cy, float radius) {
         if (tones.length == 0) return;
-        double rad = Math.toRadians(currentIndex * (360f / tones.length) - 90f);
+        float span = tones.length > 1 ? 300f / (tones.length - 1) : 0f;
+        double rad = Math.toRadians(120f + currentIndex * span);
         float cos = (float) Math.cos(rad);
         float sin = (float) Math.sin(rad);
         float start = dp(13);
@@ -294,6 +299,11 @@ public class ToneKnobView extends View {
 
     private static String abbrev(String tone) {
         switch (AppSettings.normalizeToneType(tone)) {
+            case AppSettings.TONE_THEREMIN: return "THR";
+            case AppSettings.TONE_VIOLIN:   return "VLN";
+            case AppSettings.TONE_GUITAR:   return "GTR";
+            case AppSettings.TONE_FLUTE:    return "FLT";
+            case AppSettings.TONE_TRUMPET:  return "TRP";
             case AppSettings.TONE_SQUARE:   return "SQR";
             case AppSettings.TONE_TRIANGLE: return "TRI";
             case AppSettings.TONE_SAW:      return "SAW";
@@ -302,7 +312,7 @@ public class ToneKnobView extends View {
             case AppSettings.TONE_STRING:   return "STR";
             case AppSettings.TONE_BELL:     return "BEL";
             case AppSettings.TONE_PAD:      return "PAD";
-            default:                        return "SIN";
+            default:                        return "THR";
         }
     }
 }

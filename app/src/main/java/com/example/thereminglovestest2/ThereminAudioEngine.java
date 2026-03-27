@@ -13,8 +13,9 @@ package com.example.thereminglovestest2;
  */
 
 import android.media.AudioFormat;
-import android.media.AudioManager;
+import android.media.AudioAttributes;
 import android.media.AudioTrack;
+import android.os.Build;
 
 import java.util.Arrays;
 
@@ -26,18 +27,18 @@ public final class ThereminAudioEngine {
     private static final int SAMPLE_RATE = 48000;
     private static final int CHANNEL_MASK = AudioFormat.CHANNEL_OUT_MONO;
     private static final int ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-    private static final int AUDIO_WRITE_SAMPLES = 2048;
-    private static final int MIN_STREAM_BUFFER_BYTES = 16384;
+    private static final int AUDIO_WRITE_SAMPLES = 1024;
+    private static final int MIN_STREAM_BUFFER_BYTES = 4096;
     private static final int VISUALIZER_SAMPLE_COUNT = 180;
 
     private static final float TWO_PI = (float) (Math.PI * 2.0);
-    private static final float OUTPUT_GAIN = 0.22f;
+    private static final float OUTPUT_GAIN = 0.14f;
     private static final float FREQ_SMOOTHING = 0.0030f;
     private static final float ATTACK_SMOOTHING = 0.0046f;
     private static final float RELEASE_SMOOTHING = 0.0018f;
-    private static final float VIBRATO_RATE_HZ = 5.2f;
-    private static final float MIN_VIBRATO_DEPTH = 0.0020f;
-    private static final float MAX_VIBRATO_DEPTH = 0.0065f;
+    private static final float VIBRATO_RATE_HZ = 4.2f;
+    private static final float MIN_VIBRATO_DEPTH = 0.0003f;
+    private static final float MAX_VIBRATO_DEPTH = 0.0014f;
     private static final float VISUALIZER_SCALE = (AUDIO_WRITE_SAMPLES - 1f) / (VISUALIZER_SAMPLE_COUNT - 1f);
 
     // The visualizer reads a copy of the latest waveform while the audio thread keeps writing new
@@ -70,8 +71,8 @@ public final class ThereminAudioEngine {
     private int delayIdx = 0;
 
     private volatile boolean distortionEnabled = false;
-    private volatile float distortionGain = 3.0f;
-    private volatile float mixGain = 1.0f;
+    private volatile float distortionGain = 2.5f;
+    private volatile float mixGain = 0.85f;
 
     // Sprint 3: Scale lock — snaps the smoothed frequency to the nearest note in the chosen scale.
     private volatile String activeScale = "CHROMATIC";
@@ -137,6 +138,11 @@ public final class ThereminAudioEngine {
     // Start the streaming synth thread and prime the smoothing state from the latest targets.
     public void start() {
         if (running) return;
+        // Clear effect delay lines so stale large values don't cause instant clipping
+        Arrays.fill(combBuffer, 0f);
+        Arrays.fill(delayBuffer, 0f);
+        combIdx  = 0;
+        delayIdx = 0;
         track = createAndStartTrack();
         smoothFreqHz = clamp(targetFreqHz, 20f, 20000f);
         smoothVolumeLinear = lastVolumeLinear = 0f;
@@ -193,8 +199,29 @@ public final class ThereminAudioEngine {
 
     private AudioTrack createAndStartTrack() {
         int min = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING);
-        AudioTrack t = new AudioTrack(AudioManager.STREAM_MUSIC, SAMPLE_RATE, CHANNEL_MASK, ENCODING,
-                Math.max(min * 2, MIN_STREAM_BUFFER_BYTES), AudioTrack.MODE_STREAM);
+        int bufferBytes = Math.max(min, Math.max(MIN_STREAM_BUFFER_BYTES, AUDIO_WRITE_SAMPLES * 2));
+        AudioTrack t;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            AudioTrack.Builder builder = new AudioTrack.Builder()
+                    .setAudioAttributes(new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build())
+                    .setAudioFormat(new AudioFormat.Builder()
+                            .setSampleRate(SAMPLE_RATE)
+                            .setEncoding(ENCODING)
+                            .setChannelMask(CHANNEL_MASK)
+                            .build())
+                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .setBufferSizeInBytes(bufferBytes);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY);
+            }
+            t = builder.build();
+        } else {
+            t = new AudioTrack(android.media.AudioManager.STREAM_MUSIC, SAMPLE_RATE, CHANNEL_MASK, ENCODING,
+                    bufferBytes, AudioTrack.MODE_STREAM);
+        }
         t.play();
         return t;
     }
@@ -305,13 +332,57 @@ public final class ThereminAudioEngine {
                     + 0.18f * (float) Math.sin(phase * 2.014f),
                     0.88f + 0.12f * volume);
 
-            default: // SINE — warm tone with mild harmonics and gentle tanh warmth
-                float raw = (float) Math.sin(phase)
-                        + 0.22f * (float) Math.sin(phase * 2f + 0.10f)
-                        + 0.10f * (float) Math.sin(phase * 3f + 0.24f)
-                        + 0.04f * (float) Math.sin(phase * 4f + 0.38f);
-                float blend = 0.72f + 0.28f * clamp(volume, 0f, 1f);
-                return (float) Math.tanh((float) Math.sin(phase) + blend * (raw - (float) Math.sin(phase)) * 1.12f);
+            case AppSettings.TONE_VIOLIN:
+                // Bowed string: Helmholtz motion spectrum — strong 2nd and odd harmonics,
+                // driven through tanh to get the edgy "nail" quality of a bowed string.
+                // Clearly brighter and more aggressive than Theremin; different ratio from String.
+                return saturate(
+                    (float) Math.sin(phase)
+                    + 0.50f * (float) Math.sin(phase * 2f)
+                    + 0.35f * (float) Math.sin(phase * 3f)
+                    + 0.18f * (float) Math.sin(phase * 4f)
+                    + 0.10f * (float) Math.sin(phase * 5f),
+                    1.30f) * 0.52f;
+
+            case AppSettings.TONE_GUITAR:
+                // Acoustic guitar: 1:2 FM synthesis — modulator at double the carrier frequency.
+                // sin(p + M·sin(2p)) gives sideband energy at 3rd, 5th, odd partials; bright
+                // and plucky, completely different from String (1:1 FM at index 2.5).
+                return (float) Math.sin(phase + 1.20f * (float) Math.sin(phase * 2f)) * 0.88f;
+
+            case AppSettings.TONE_FLUTE:
+                // Breathy flute: near-pure tone with very low-index PM at a near-2x ratio.
+                // index 0.15 keeps it almost sinusoidal but adds a soft shimmer that reads as
+                // "breath". 1.99 (not exactly 2) creates a slow micro-detuning for air texture.
+                return (float) Math.sin(phase + 0.15f * (float) Math.sin(phase * 1.99f)) * 0.92f;
+
+            case AppSettings.TONE_TRUMPET:
+                // Bright brass: dense harmonic stack hard-driven into tanh saturation.
+                // The resulting clipped-dense waveform captures the "brassy" buzz of brass instruments.
+                // Much richer and harsher than Theremin or Organ; distinct from Square (no odd-only).
+                return saturate(
+                    (float) Math.sin(phase)
+                    + 0.75f * (float) Math.sin(phase * 2f)
+                    + 0.55f * (float) Math.sin(phase * 3f)
+                    + 0.32f * (float) Math.sin(phase * 4f)
+                    + 0.18f * (float) Math.sin(phase * 5f)
+                    + 0.08f * (float) Math.sin(phase * 6f),
+                    2.00f) * 0.40f;
+
+            case AppSettings.TONE_THEREMIN:
+                // Authentic heterodyne theremin (RCA Theremin / Moog character):
+                // Strong 2nd partial gives the characteristic warm-cello/vocal quality.
+                // Partials: 1st (1.0), 2nd (0.35), 3rd (0.18), 4th (0.07), 5th (0.03).
+                // Normalised by ~0.60 so combined peak is near unity before OUTPUT_GAIN.
+                return ((float) Math.sin(phase)
+                        + 0.35f * (float) Math.sin(phase * 2f)
+                        + 0.18f * (float) Math.sin(phase * 3f)
+                        + 0.07f * (float) Math.sin(phase * 4f)
+                        + 0.03f * (float) Math.sin(phase * 5f)) * 0.60f;
+
+            default:
+                // Fallback for any unimplemented legacy tone strings — clean sine.
+                return (float) Math.sin(phase) * 0.93f;
         }
     }
 
@@ -348,26 +419,31 @@ public final class ThereminAudioEngine {
     }
 
     /**
-     * Single-comb reverb. Feeds the sample into a ~100 ms comb filter and blends
-     * the wet signal with the dry signal at ratio reverbMix.
+     * Schroeder comb-filter reverb (~100 ms).
+     * Stores (input + damped feedback) but outputs the pure delay tap — this is the
+     * correct implementation. The previous version output the summed value which caused
+     * the buffer to grow unboundedly under sustained input and fill with clipping-level
+     * values that never decayed. Stored values are clamped to prevent any residual blowup.
      */
     private float applyReverb(float x) {
         float delayed = combBuffer[combIdx];
-        float out = x + delayed * 0.7f;
-        combBuffer[combIdx] = out;
+        // Store accumulated signal (clamped so buffer can never overflow)
+        combBuffer[combIdx] = clamp(x + delayed * 0.6f, -1f, 1f);
         combIdx = (combIdx + 1) % combBuffer.length;
-        return x * (1f - reverbMix) + out * reverbMix;
+        // Output the pure delay tap (from before this sample was added)
+        return x * (1f - reverbMix) + delayed * reverbMix;
     }
 
     /**
-     * Feedback delay line (~500 ms). The delayed signal is added to the output and
-     * fed back into the buffer with decay controlled by delayFeedback.
+     * Feedback delay line (~500 ms). Stored values and output are clamped so a loud
+     * transient cannot fill the ring buffer and sustain clipping indefinitely.
      */
     private float applyDelay(float x) {
         float delayed = delayBuffer[delayIdx];
-        delayBuffer[delayIdx] = x + delayed * delayFeedback;
+        delayBuffer[delayIdx] = clamp(x + delayed * delayFeedback, -1f, 1f);
         delayIdx = (delayIdx + 1) % delayBuffer.length;
-        return x + delayed * delayMix;
+        // Wet/dry blend — output stays at the same level as the input, not additive.
+        return x * (1f - delayMix) + delayed * delayMix;
     }
 
     /**
@@ -433,5 +509,5 @@ public final class ThereminAudioEngine {
     public String getActiveScale()               { return activeScale; }
     public void setDrumEngine(DrumEngine drum)   { this.drumEngine = drum; }
     public DrumEngine getDrumEngine()            { return drumEngine; }
-    public void setMixGain(float gain)           { mixGain = Math.max(0f, Math.min(2f, gain)); }
+    public void setMixGain(float gain)           { mixGain = Math.max(0f, Math.min(1.1f, gain)); }
 }

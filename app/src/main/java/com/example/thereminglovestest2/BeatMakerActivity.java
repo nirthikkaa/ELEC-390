@@ -50,7 +50,7 @@ public class BeatMakerActivity extends AppCompatActivity
     private String keyRow(int r)        { return slotIndex == 0 ? "beat_maker_row_" + r      : "beat_slot_" + slotIndex + "_row_" + r; }
 
     private static final int SAMPLE_RATE  = 48000;
-    private static final int BUFFER_FRAMES = 2048; // ~43ms, matches ThereminAudioEngine
+    private static final int BUFFER_FRAMES = 1024; // ~21ms, matches ThereminAudioEngine
 
     // Maps grid row index → DrumEngine sound index (must match StepGridView.ROW_NAMES order)
     private static final int[] ROW_SOUNDS = {
@@ -123,6 +123,7 @@ public class BeatMakerActivity extends AppCompatActivity
                 // Apply BPM that may have been set before engine was ready
                 engine.setBpm(currentBpm);
                 engine.setPianoSynthMode(keyboardSynthMode);
+                configurePreviewMix(engine);
                 applyBeatMakerMode();
                 pushPatternToEngine();
             });
@@ -155,7 +156,7 @@ public class BeatMakerActivity extends AppCompatActivity
                 AudioFormat.ENCODING_PCM_16BIT);
         int bufBytes = Math.max(minBuf, BUFFER_FRAMES * 2); // 2 bytes per short
 
-        audioTrack = new AudioTrack.Builder()
+        AudioTrack.Builder builder = new AudioTrack.Builder()
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -166,8 +167,11 @@ public class BeatMakerActivity extends AppCompatActivity
                         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                         .build())
                 .setBufferSizeInBytes(bufBytes)
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .build();
+                .setTransferMode(AudioTrack.MODE_STREAM);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY);
+        }
+        audioTrack = builder.build();
         audioTrack.play();
 
         audioRunning = true;
@@ -175,10 +179,21 @@ public class BeatMakerActivity extends AppCompatActivity
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
             short[] buf = new short[BUFFER_FRAMES];
             AudioTrack track = audioTrack;
+            float hpPrevIn = 0f;
+            float hpPrevOut = 0f;
             while (audioRunning && track != null) {
                 Arrays.fill(buf, (short) 0);
                 DrumEngine e = previewEngine; // re-read volatile each iteration
                 if (e != null) e.mixInto(buf, BUFFER_FRAMES);
+                for (int i = 0; i < BUFFER_FRAMES; i++) {
+                    float x = buf[i] / 32768f;
+                    // Very light high-pass to remove sub/DC mud from layered bass hits.
+                    float hp = x - hpPrevIn + 0.995f * hpPrevOut;
+                    hpPrevIn = x;
+                    hpPrevOut = hp;
+                    float mastered = softLimit(hp * 1.05f);
+                    buf[i] = (short) (mastered * Short.MAX_VALUE);
+                }
                 track.write(buf, 0, BUFFER_FRAMES);
             }
         }, "BeatMakerAudio");
@@ -408,6 +423,22 @@ public class BeatMakerActivity extends AppCompatActivity
             previewEngine.setCustomPattern(binding.stepGrid.getSteps(), pianoSteps);
     }
 
+    private void configurePreviewMix(DrumEngine engine) {
+        engine.setKickVolume(0.90f);
+        engine.setSnareVolume(0.82f);
+        engine.setHihatVolume(0.52f);
+        engine.setBassVolume(0.68f);
+        engine.setTrackVolume(DrumEngine.SND_CLAP, 0.58f);
+        engine.setTrackVolume(DrumEngine.SND_CRASH, 0.48f);
+        // Preview mode uses the recorded core kit only; the remaining synthetic rows
+        // stay muted so Beat Maker does not sound cheap or brittle during demos.
+        engine.setTrackVolume(DrumEngine.SND_TOM_HI, 0f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0f);
+        engine.setTrackVolume(DrumEngine.SND_RIM, 0f);
+        engine.setTrackVolume(DrumEngine.SND_SHAKER, 0f);
+        engine.setPianoVolume(0.52f);
+    }
+
     private void applyKeyboardSynthMode() {
         keyboardSynthMode = DrumEngine.clampPianoSynthMode(keyboardSynthMode);
         if (previewEngine != null) previewEngine.setPianoSynthMode(keyboardSynthMode);
@@ -543,5 +574,13 @@ public class BeatMakerActivity extends AppCompatActivity
         for (int i = 0; i < Math.min(StepGridView.NUM_STEPS, parts.length); i++)
             row[i] = "1".equals(parts[i].trim());
         return row;
+    }
+
+    private static float softLimit(float x) {
+        float sign = Math.signum(x);
+        float abs = Math.abs(x);
+        if (abs <= 0.72f) return x;
+        float compressed = 0.72f + (abs - 0.72f) * 0.22f;
+        return sign * Math.min(0.92f, compressed);
     }
 }

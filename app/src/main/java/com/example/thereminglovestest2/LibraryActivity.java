@@ -325,7 +325,7 @@ public class LibraryActivity extends AppCompatActivity
             player.setOnCompletionListener(mp -> {
                 switch (playbackMode) {
                     case LOOP_ONE:
-                        try { player.seekTo(0); player.start(); } catch (Exception ignored) {}
+                        try { mp.seekTo(0); mp.start(); } catch (Exception ignored) {}
                         playerProgressHandler.post(progressRunnable);
                         break;
                     case SINGLE:

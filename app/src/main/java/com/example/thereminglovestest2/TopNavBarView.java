@@ -30,6 +30,8 @@ public class TopNavBarView extends LinearLayout {
     };
 
     private final TextView    titleView;
+    private final LinearLayout leftContainer;
+    private final LinearLayout rightContainer;
     private final View        backButton;
     private       ImageButton overflowButton;
     private       ImageButton volHandBtn;    // left hand  — volume glove
@@ -56,8 +58,13 @@ public class TopNavBarView extends LinearLayout {
             return insets;
         });
 
+        leftContainer = new LinearLayout(context);
+        leftContainer.setOrientation(HORIZONTAL);
+        leftContainer.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        addView(leftContainer, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
         backButton = iconButton(androidx.appcompat.R.drawable.abc_ic_ab_back_material, "Back", v -> handleBackPressed(), onSurface);
-        addView(backButton, new LayoutParams(dp(40), dp(40)));
+        leftContainer.addView(backButton, new LayoutParams(dp(40), dp(40)));
 
         titleView = new TextView(context);
         titleView.setTextSize(18f);
@@ -70,20 +77,25 @@ public class TopNavBarView extends LinearLayout {
         titleLp.rightMargin = dp(4);
         addView(titleView, titleLp);
 
+        rightContainer = new LinearLayout(context);
+        rightContainer.setOrientation(HORIZONTAL);
+        rightContainer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        addView(rightContainer, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
         // Glove hand icons — hidden by default, shown via setGloveStatus()
         int handSize = dp(34);
         volHandBtn = handIconButton(context, false); // left hand (mirrored)
         LayoutParams volLp = new LayoutParams(handSize, handSize);
         volLp.rightMargin = dp(2);
-        addView(volHandBtn, volLp);
+        rightContainer.addView(volHandBtn, volLp);
 
         pitchHandBtn = handIconButton(context, true); // right hand
         LayoutParams pitchLp = new LayoutParams(handSize, handSize);
         pitchLp.rightMargin = dp(2);
-        addView(pitchHandBtn, pitchLp);
+        rightContainer.addView(pitchHandBtn, pitchLp);
 
         overflowButton = iconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material, "More options", this::showMenu, onSurface);
-        addView(overflowButton, new LayoutParams(dp(40), dp(40)));
+        rightContainer.addView(overflowButton, new LayoutParams(dp(40), dp(40)));
         ViewCompat.requestApplyInsets(this);
     }
 
@@ -124,8 +136,22 @@ public class TopNavBarView extends LinearLayout {
     public void addActionButton(int iconRes, String desc, View.OnClickListener listener) {
         int onSurface = ContextCompat.getColor(getContext(), R.color.app_on_surface);
         ImageButton btn = iconButton(iconRes, desc, listener, onSurface);
-        // getChildCount()-1 inserts just before the overflow button (always last child)
-        addView(btn, getChildCount() - 1, new LayoutParams(dp(40), dp(40)));
+        rightContainer.addView(btn, Math.max(0, rightContainer.indexOfChild(overflowButton)),
+                new LayoutParams(dp(40), dp(40)));
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        leftContainer.setMinimumWidth(0);
+        rightContainer.setMinimumWidth(0);
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+
+        int sideWidth = Math.max(leftContainer.getMeasuredWidth(), rightContainer.getMeasuredWidth());
+        if (leftContainer.getMinimumWidth() != sideWidth || rightContainer.getMinimumWidth() != sideWidth) {
+            leftContainer.setMinimumWidth(sideWidth);
+            rightContainer.setMinimumWidth(sideWidth);
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        }
     }
 
     /**

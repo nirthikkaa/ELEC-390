@@ -269,6 +269,7 @@ public class ThereminUnitTest {
         src.query(0, 0, true, false, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol)  { fired[0] = snd; }
             @Override public void fireBass(int slot)        { fail("bass must not fire"); }
+            @Override public void firePiano(int midiNote)   {}
         });
         assertEquals("Row 0 should fire SND_KICK", DrumEngine.SND_KICK, fired[0]);
     }
@@ -282,6 +283,7 @@ public class ThereminUnitTest {
         src.query(4, 0, true, false, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol)  { fired[0] = snd; }
             @Override public void fireBass(int slot)        { fail("bass must not fire"); }
+            @Override public void firePiano(int midiNote)   {}
         });
         assertEquals("Row 1 should fire SND_SNARE", DrumEngine.SND_SNARE, fired[0]);
     }
@@ -295,6 +297,7 @@ public class ThereminUnitTest {
         src.query(0, 0, false, false, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol) { count[0]++; }
             @Override public void fireBass(int slot)       { count[0]++; }
+            @Override public void firePiano(int midiNote)  {}
         });
         assertEquals("No sounds should fire when both drumsOn and bassOn are false", 0, count[0]);
     }
@@ -309,6 +312,7 @@ public class ThereminUnitTest {
         src.query(2, 0, false, true, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol) { percFired[0] = true; }
             @Override public void fireBass(int slot)       { bassSlot[0] = slot; }
+            @Override public void firePiano(int midiNote)  {}
         });
         assertEquals("BASS E2 row should call fireBass with slot 0", 0, bassSlot[0]);
         assertFalse("Bass row must not call fire()", percFired[0]);
@@ -323,6 +327,7 @@ public class ThereminUnitTest {
         src.query(0, 0, false, false, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol) { count[0]++; }
             @Override public void fireBass(int slot)       { count[0]++; }
+            @Override public void firePiano(int midiNote)  {}
         });
         assertEquals("Bass must not fire when bassOn=false", 0, count[0]);
     }
@@ -336,6 +341,7 @@ public class ThereminUnitTest {
         src.query(3, 0, true, true, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol) { count[0]++; }
             @Override public void fireBass(int slot)       { count[0]++; }
+            @Override public void firePiano(int midiNote)  {}
         });
         assertEquals("Should not fire at step 3 when only step 7 is set", 0, count[0]);
     }
@@ -351,6 +357,7 @@ public class ThereminUnitTest {
         src.query(0, 0, true, false, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol) { count[0]++; }
             @Override public void fireBass(int slot)       {}
+            @Override public void firePiano(int midiNote)  {}
         });
         assertEquals("Three instruments at step 0 should produce 3 fire() calls", 3, count[0]);
     }
@@ -368,22 +375,24 @@ public class ThereminUnitTest {
         int[] fired = {-1};
         src.query(0, 0, true, false, new PatternSource.TriggerDispatcher() {
             @Override public void fire(int snd, float vol) { fired[0] = snd; }
-            @Override public void fireBass(int slot) {}
+            @Override public void fireBass(int slot)       {}
+            @Override public void firePiano(int midiNote)  {}
         });
         assertEquals("After setGrid() only SNARE should fire", DrumEngine.SND_SNARE, fired[0]);
     }
 
     @Test
     public void gridPattern_allBassRowsMapToCorrectSlots() {
-        // Rows 6-9 should map to bass slots 0-3 respectively.
-        for (int bassRow = 6; bassRow <= 9; bassRow++) {
+        // Rows 6-8 map to bass slots 0-2 (E2, A2, D3). Row 9 is TOM_HI (percussion).
+        for (int bassRow = 6; bassRow <= 8; bassRow++) {
             boolean[][] grid = new boolean[14][16];
             grid[bassRow][0] = true;
             GridPatternSource src = new GridPatternSource(grid);
             int[] slot = {-1};
             src.query(0, 0, false, true, new PatternSource.TriggerDispatcher() {
                 @Override public void fire(int snd, float vol) { fail("Should use fireBass"); }
-                @Override public void fireBass(int s) { slot[0] = s; }
+                @Override public void fireBass(int s)          { slot[0] = s; }
+                @Override public void firePiano(int midiNote)  {}
             });
             int expectedSlot = bassRow - 6;
             assertEquals("Row " + bassRow + " should map to bass slot " + expectedSlot,

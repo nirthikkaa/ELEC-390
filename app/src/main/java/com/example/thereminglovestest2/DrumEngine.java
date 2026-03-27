@@ -1,7 +1,11 @@
 package com.example.thereminglovestest2;
 
 import android.content.Context;
+import android.content.res.Resources;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,6 +32,8 @@ public class DrumEngine {
 
     private static final int SAMPLE_RATE = 48000;
     private static final int MAX_VOICES  = 16;
+    private static final float DRUM_MIX_HEADROOM = 0.26f;
+    private static final float PIANO_MIX_HEADROOM = 0.22f;
 
     // Sound indices
     static final int SND_KICK    = 0;
@@ -215,31 +221,66 @@ public class DrumEngine {
     public void setPianoSynthMode(int mode) { pianoSynthMode = clampPianoSynthMode(mode); }
 
     // ── Custom pattern (from Beat Maker) ──────────────────────────────────────
-    private volatile boolean[][] customDrumGrid  = null;
-    private volatile int[]       customPianoSteps = null;
+    private volatile boolean[][] customDrumGrid    = null;
+    private volatile int[]       customPianoSteps  = null;
+    private volatile boolean     customPatternActive = false;
 
     /** Set a custom step pattern from the Beat Maker. Pass null to revert to built-in patterns. */
     public void setCustomPattern(boolean[][] grid, int[] pianoSteps) {
-        this.customDrumGrid   = grid;
+        if (grid == null) {
+            customPatternActive = false;
+            return;
+        }
+        // Deep-copy so mutations to the caller's array don't affect playback.
+        boolean[][] copy = new boolean[grid.length][];
+        for (int i = 0; i < grid.length; i++) {
+            copy[i] = grid[i] != null ? grid[i].clone() : new boolean[0];
+        }
+        this.customDrumGrid   = copy;
         this.customPianoSteps = pianoSteps != null ? pianoSteps.clone() : null;
+        this.customPatternActive = grid.length > 0;
     }
 
-    /** Revert to built-in patterns (clears any Beat Maker custom grid). */
-    public void clearCustomPattern() { customDrumGrid = null; customPianoSteps = null; }
+    /** Convenience overload — no piano steps. */
+    public void setCustomPattern(boolean[][] grid) { setCustomPattern(grid, null); }
+
+    /**
+     * Deactivate custom pattern and revert to built-in patterns.
+     * The stored grid data is retained so the pattern can be re-applied later.
+     */
+    public void clearCustomPattern() {
+        customPatternActive = false;
+        customPianoSteps = null;
+    }
+
+    /** Returns true when a Beat Maker custom pattern is active. */
+    public boolean isCustomPatternActive() { return customPatternActive; }
+
+    /** Returns the last grid set via {@link #setCustomPattern}, or null if none was ever set. */
+    public boolean[][] getCustomPattern() { return customDrumGrid; }
 
     /** Set the clap / snare-variant tone brightness (0.0–1.0). No-op in default synthesis. */
     public void setClapTone(float tone) { /* tone brightness reserved for future use */ }
 
-    /** Set overall drum mix gain applied before mixing into the theremin buffer. */
+    // Stored drum gain multiplier (1.0 = default mix level). Applied relative to base volumes.
+    private volatile float drumGain = 1.0f;
+    private static final float BASE_DRUM_VOL = 0.72f;
+    private static final float BASE_BASS_VOL = 0.82f;
+
+    /** Set overall drum mix gain (0 = mute, 1 = default, 2 = max). Clamped to [0, 2]. */
     public void setDrumGain(float gain) {
-        float g = Math.max(0f, gain);
-        for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = g;
-        // Restore bass boost
-        trackVolumes[SND_BASS_E2] = g * 1.4f;
-        trackVolumes[SND_BASS_A2] = g * 1.4f;
-        trackVolumes[SND_BASS_D3] = g * 1.4f;
-        trackVolumes[SND_BASS_G2] = g * 1.4f;
+        drumGain = Math.max(0f, Math.min(2f, gain));
+        float dv = drumGain * BASE_DRUM_VOL;
+        float bv = drumGain * BASE_BASS_VOL;
+        for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = dv;
+        trackVolumes[SND_BASS_E2] = bv;
+        trackVolumes[SND_BASS_A2] = bv;
+        trackVolumes[SND_BASS_D3] = bv;
+        trackVolumes[SND_BASS_G2] = bv;
     }
+
+    /** Returns the current drum gain multiplier (default 1.0). */
+    public float getDrumGain() { return drumGain; }
 
     /** Alias for setPianoSynthMode — called from background service wiring. */
     public void setKeyboardSynthMode(int mode) { setPianoSynthMode(mode); }
@@ -252,19 +293,26 @@ public class DrumEngine {
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
-    /** Context is unused but kept for call-site compatibility. */
-    public DrumEngine(Context context) { this(); }
+    public DrumEngine(Context context) {
+        this();
+        if (context != null) {
+            try {
+                loadBundledSamples(context.getApplicationContext().getResources());
+            } catch (Exception ignored) {
+                // Keep synthesized fallback sounds when bundled samples cannot be decoded.
+            }
+        }
+    }
 
     public DrumEngine() {
         for (int i = 0; i < MAX_VOICES; i++) voicePos.set(i, -1);
         for (int i = 0; i < MAX_PIANO_VOICES; i++) { pianoVoicePos.set(i, -1); pianoVoiceStartAt.set(i, 0); }
         for (int i = 0; i < MAX_MELODY_ROOTS; i++) melodyRoots.set(i, -1);
-        for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = 1.0f;
-        // Bass starts louder — fundamental freq is often lost on phone speakers
-        trackVolumes[SND_BASS_E2] = 1.4f;
-        trackVolumes[SND_BASS_A2] = 1.4f;
-        trackVolumes[SND_BASS_D3] = 1.4f;
-        trackVolumes[SND_BASS_G2] = 1.4f;
+        for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = 0.72f;
+        trackVolumes[SND_BASS_E2] = 0.82f;
+        trackVolumes[SND_BASS_A2] = 0.82f;
+        trackVolumes[SND_BASS_D3] = 0.82f;
+        trackVolumes[SND_BASS_G2] = 0.82f;
         synthesizeSounds();
         // Pre-synthesize piano hit for every chromatic key C3–C5
         for (int k = 0; k < NUM_PIANO_KEYS; k++) {
@@ -290,6 +338,99 @@ public class DrumEngine {
         sounds[SND_TOM_LOW] = synthesizeTom(180f, 0.18f);
         sounds[SND_RIM]     = synthesizeRim();
         sounds[SND_SHAKER]  = synthesizeShaker();
+    }
+
+    private void loadBundledSamples(Resources res) throws IOException {
+        sounds[SND_KICK]    = loadWavMonoAs48k(res, R.raw.drum_kick, 0.92f);
+        sounds[SND_SNARE]   = loadWavMonoAs48k(res, R.raw.drum_snare, 0.86f);
+        sounds[SND_HIHAT_C] = loadWavMonoAs48k(res, R.raw.drum_hihat, 0.72f);
+        sounds[SND_HIHAT_O] = loadWavMonoAs48k(res, R.raw.drum_hihat_open, 0.62f);
+        sounds[SND_CLAP]    = loadWavMonoAs48k(res, R.raw.drum_clap, 0.76f);
+        sounds[SND_BASS_E2] = loadWavMonoAs48k(res, R.raw.bass_e2, 0.72f);
+        sounds[SND_BASS_A2] = loadWavMonoAs48k(res, R.raw.bass_a2, 0.72f);
+        sounds[SND_BASS_D3] = loadWavMonoAs48k(res, R.raw.bass_d3, 0.72f);
+        sounds[SND_BASS_G2] = loadWavMonoAs48k(res, R.raw.bass_g2, 0.72f);
+    }
+
+    private float[] loadWavMonoAs48k(Resources res, int rawId, float gain) throws IOException {
+        byte[] bytes;
+        try (InputStream in = res.openRawResource(rawId);
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int read;
+            while ((read = in.read(buf)) != -1) out.write(buf, 0, read);
+            bytes = out.toByteArray();
+        }
+
+        if (bytes.length < 44 || readLe32(bytes, 0) != 0x46464952 || readLe32(bytes, 8) != 0x45564157) {
+            throw new IOException("Invalid WAV");
+        }
+
+        int channels = 1;
+        int sampleRate = SAMPLE_RATE;
+        int bitsPerSample = 16;
+        int formatCode = 1;
+        int dataOffset = -1;
+        int dataSize = 0;
+        int pos = 12;
+        while (pos + 8 <= bytes.length) {
+            int chunkId = readLe32(bytes, pos);
+            int chunkSize = readLe32(bytes, pos + 4);
+            int chunkData = pos + 8;
+            if (chunkData + chunkSize > bytes.length) break;
+            if (chunkId == 0x20746d66) { // "fmt "
+                formatCode = readLe16(bytes, chunkData);
+                channels = readLe16(bytes, chunkData + 2);
+                sampleRate = readLe32(bytes, chunkData + 4);
+                bitsPerSample = readLe16(bytes, chunkData + 14);
+            } else if (chunkId == 0x61746164) { // "data"
+                dataOffset = chunkData;
+                dataSize = chunkSize;
+                break;
+            }
+            pos = chunkData + chunkSize + (chunkSize & 1);
+        }
+        if (dataOffset < 0 || channels < 1) throw new IOException("Missing WAV data");
+
+        int frames;
+        float[] mono;
+        if (formatCode == 1 && bitsPerSample == 16) {
+            int frameSize = channels * 2;
+            frames = dataSize / frameSize;
+            mono = new float[frames];
+            for (int i = 0; i < frames; i++) {
+                int sample = readLe16Signed(bytes, dataOffset + i * frameSize);
+                mono[i] = (sample / 32768f) * gain;
+            }
+        } else if (formatCode == 3 && bitsPerSample == 32) {
+            int frameSize = channels * 4;
+            frames = dataSize / frameSize;
+            mono = new float[frames];
+            for (int i = 0; i < frames; i++) {
+                int bits = readLe32(bytes, dataOffset + i * frameSize);
+                mono[i] = clamp(Float.intBitsToFloat(bits) * gain, -1f, 1f);
+            }
+        } else {
+            throw new IOException("Unsupported WAV format");
+        }
+
+        if (sampleRate == SAMPLE_RATE) return mono;
+        return resampleLinear(mono, sampleRate, SAMPLE_RATE);
+    }
+
+    private float[] resampleLinear(float[] input, int srcRate, int dstRate) {
+        if (input.length == 0 || srcRate <= 0 || dstRate <= 0) return input;
+        int outLen = Math.max(1, Math.round(input.length * (dstRate / (float) srcRate)));
+        float[] out = new float[outLen];
+        float scale = (input.length - 1f) / Math.max(1f, outLen - 1f);
+        for (int i = 0; i < outLen; i++) {
+            float srcPos = i * scale;
+            int idx = (int) srcPos;
+            int next = Math.min(input.length - 1, idx + 1);
+            float frac = srcPos - idx;
+            out[i] = input[idx] + (input[next] - input[idx]) * frac;
+        }
+        return out;
     }
 
     /** Kick: wide pitch sweep 255→55 Hz with harmonics and slow punch envelope. */
@@ -560,7 +701,7 @@ public class DrumEngine {
         lastTickMs += intervalMs();
 
         boolean[][] customGrid = customDrumGrid;
-        if (customGrid != null) {
+        if (customPatternActive && customGrid != null) {
             // Beat Maker custom pattern: rows map to ROW_SOUNDS order
             int[] rowSounds = {
                 SND_KICK, SND_SNARE, SND_HIHAT_C, SND_HIHAT_O, SND_CRASH, SND_CLAP,
@@ -640,8 +781,9 @@ public class DrumEngine {
             float vol = trackVolumes[snd];
             for (int i = 0; i < count; i++) {
                 if (pos >= pcm.length) { pos = -1; break; }
-                int mixed = buffer[i] + (int)(pcm[pos] * vol * Short.MAX_VALUE);
-                buffer[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, mixed));
+                float dry = buffer[i] / (float) Short.MAX_VALUE;
+                float mixed = dry + pcm[pos] * vol * DRUM_MIX_HEADROOM;
+                buffer[i] = (short) (clamp(mixed, -0.98f, 0.98f) * Short.MAX_VALUE);
                 pos++;
             }
             voicePos.set(v, pos);
@@ -654,7 +796,8 @@ public class DrumEngine {
             for (int ri = 0; ri < MAX_MELODY_ROOTS; ri++) {
                 if (melodyRoots.get(ri) >= 0) { anyRoot = true; break; }
             }
-            if (anyRoot && arp != null && arp.length > 0) {
+            // Guard: arpeggio must respect the enabled flag — no sound when instrument is off
+            if (enabled && anyRoot && arp != null && arp.length > 0) {
                 if (arpPendingStart) {
                     arpPendingStart   = false;
                     arpSampleClock    = 0L;
@@ -696,8 +839,9 @@ public class DrumEngine {
             int startAt = pianoVoiceStartAt.get(v);
             for (int i = startAt; i < count; i++) {
                 if (pos >= pcm.length) { pos = -1; break; }
-                int mixed = buffer[i] + (int)(pcm[pos] * pianoVol * Short.MAX_VALUE);
-                buffer[i] = (short) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, mixed));
+                float dry = buffer[i] / (float) Short.MAX_VALUE;
+                float mixed = dry + pcm[pos] * pianoVol * PIANO_MIX_HEADROOM;
+                buffer[i] = (short) (clamp(mixed, -0.98f, 0.98f) * Short.MAX_VALUE);
                 pos++;
             }
             pianoVoiceStartAt.set(v, 0); // subsequent buffers always start at offset 0
@@ -747,10 +891,16 @@ public class DrumEngine {
 
     // ── Getters / setters ──────────────────────────────────────────────────────
 
-    public void setEnabled(boolean on)     { enabled = on; }
+    public void setEnabled(boolean on) {
+        enabled = on;
+        if (!on) clearActiveVoices();
+    }
     public boolean isEnabled()             { return enabled; }
 
-    public void setBassEnabled(boolean on)    { bassEnabled = on; }
+    public void setBassEnabled(boolean on) {
+        bassEnabled = on;
+        if (!on) clearBassVoices();
+    }
     public boolean isBassEnabled()            { return bassEnabled; }
 
     /** Returns true if any arpeggio root is currently active. */
@@ -886,5 +1036,42 @@ public class DrumEngine {
     /** Get current track volume for a sound index. */
     public float getTrackVolume(int sndIdx) {
         return (sndIdx >= 0 && sndIdx < NUM_SOUNDS) ? trackVolumes[sndIdx] : 1f;
+    }
+
+    private void clearActiveVoices() {
+        for (int i = 0; i < MAX_VOICES; i++) voicePos.set(i, -1);
+        for (int i = 0; i < MAX_PIANO_VOICES; i++) {
+            pianoVoicePos.set(i, -1);
+            pianoVoiceStartAt.set(i, 0);
+        }
+        clearMelodyRoot();
+    }
+
+    private void clearBassVoices() {
+        for (int i = 0; i < MAX_VOICES; i++) {
+            int pos = voicePos.get(i);
+            if (pos < 0) continue;
+            int snd = voiceSound.get(i);
+            if (snd >= SND_BASS_E2 && snd <= SND_BASS_G2) voicePos.set(i, -1);
+        }
+    }
+
+    private static float clamp(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static int readLe16(byte[] bytes, int offset) {
+        return (bytes[offset] & 0xFF) | ((bytes[offset + 1] & 0xFF) << 8);
+    }
+
+    private static int readLe16Signed(byte[] bytes, int offset) {
+        return (short) readLe16(bytes, offset);
+    }
+
+    private static int readLe32(byte[] bytes, int offset) {
+        return (bytes[offset] & 0xFF)
+                | ((bytes[offset + 1] & 0xFF) << 8)
+                | ((bytes[offset + 2] & 0xFF) << 16)
+                | ((bytes[offset + 3] & 0xFF) << 24);
     }
 }

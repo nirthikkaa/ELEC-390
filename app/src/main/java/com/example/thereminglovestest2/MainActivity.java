@@ -21,6 +21,10 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -60,11 +64,11 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_KEYBOARD_SYNTH_MODE = "keyboard_synth_mode";
 
     private static final String[] TONE_CYCLE = {
-        AppSettings.TONE_SINE,     AppSettings.TONE_FLUTE,    AppSettings.TONE_CLARINET,
-        AppSettings.TONE_OBOE,     AppSettings.TONE_TRUMPET,  AppSettings.TONE_VIOLIN,
-        AppSettings.TONE_CHOIR,    AppSettings.TONE_SQUARE,   AppSettings.TONE_TRIANGLE,
-        AppSettings.TONE_SAW,      AppSettings.TONE_PULSE,    AppSettings.TONE_ORGAN,
-        AppSettings.TONE_STRING,   AppSettings.TONE_BELL,     AppSettings.TONE_PAD
+        AppSettings.TONE_THEREMIN, AppSettings.TONE_VIOLIN,   AppSettings.TONE_GUITAR,
+        AppSettings.TONE_FLUTE,    AppSettings.TONE_TRUMPET,  AppSettings.TONE_SAW,
+        AppSettings.TONE_SQUARE,   AppSettings.TONE_TRIANGLE, AppSettings.TONE_PULSE,
+        AppSettings.TONE_ORGAN,    AppSettings.TONE_STRING,   AppSettings.TONE_BELL,
+        AppSettings.TONE_PAD
     };
 
     private ActivityMainBinding binding;
@@ -94,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
     // Active arpeggio roots in melody mode (multi-key harmonic selection)
     private final Set<Integer> activeMelodyNotes = new HashSet<>();
     private long lastAnimatedBassHitMs = 0L; // tracks which bass hit we've already animated
+    private int  lastDrumStep = -1;           // tracks drum step to detect new beats for visualizer
 
     private ActivityResultLauncher<Intent> beatMakerLauncher;
 
@@ -103,9 +108,11 @@ public class MainActivity extends AppCompatActivity {
     private boolean pendingAutoStartAudio;
     private boolean waitingForServiceToStop;
     private boolean performanceModeActive = false;
+    private boolean lastAudioRunningState = false; // cache for updateAudioStatusText change-check
     private long lastLogFlushMs;
     private long recordingStartElapsedMs;
     private ObjectAnimator recordBlinkAnimator;
+    private int baseRootScrollTopPadding;
 
     private final Runnable recordingTimerRunnable = new Runnable() {
         @Override
@@ -156,6 +163,18 @@ public class MainActivity extends AppCompatActivity {
         play.refreshFreqRangeLimit(this);
         recomputeMappedOutputs();
         wireButtons();
+        baseRootScrollTopPadding = binding.rootScroll.getPaddingTop();
+        ViewCompat.setOnApplyWindowInsetsListener(binding.rootScroll, (v, insets) -> {
+            int sideInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).left;
+            int rightInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).right;
+            int topInset = Math.max(
+                    insets.getInsets(WindowInsetsCompat.Type.systemBars()).top,
+                    insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top);
+            int extraTop = performanceModeActive ? topInset + dp(8) : 0;
+            v.setPadding(sideInset, baseRootScrollTopPadding + extraTop, rightInset, v.getPaddingBottom());
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(binding.rootScroll);
 
         appendLogSafe("Play opened");
         appendLogSafe("BG audio: " + onOff(bgAudioEnabled));
@@ -166,19 +185,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        onVisible();
         uiTicker.start();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        onVisible();
+        onVisible(); // single call here; onStart no longer duplicates it
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
         performanceModeActive = prefs.getBoolean("performance_mode_active", false);
         applyPerformanceMode(performanceModeActive);
         int densityLevel = prefs.getInt("pixel_density_level", 3);
         binding.thereminVisualizerView.setPixelDensityLevel(densityLevel);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && performanceModeActive) {
+            applySystemUiMode(true);
+        }
     }
 
     @Override
@@ -250,7 +276,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isAnyAudioRunning() {
-        return isAudioRunning() || isServiceOwningAudio();
+        if (isServiceOwningAudio()) return !ThereminBackgroundAudioService.isThereminMuted();
+        return isAudioRunning();
     }
 
     private void loadBgAudioPref() {
@@ -658,8 +685,8 @@ public class MainActivity extends AppCompatActivity {
             if (firstActiveBpm != drumBpm) { drumBpm = firstActiveBpm; applyBpm(); }
             else { ThereminBackgroundAudioService.setDrumBpm(drumBpm); }
         } else {
-            if (fg != null) { fg.clearCustomPattern(); fg.setEnabled(false); }
-            if (bg != null) { bg.clearCustomPattern(); bg.setEnabled(false); }
+            if (fg != null) { fg.clearCustomPattern(); fg.setEnabled(false); fg.setBassEnabled(false); }
+            if (bg != null) { bg.clearCustomPattern(); bg.setEnabled(false); bg.setBassEnabled(false); }
             ThereminBackgroundAudioService.setCustomPattern(null);
             ThereminBackgroundAudioService.setDrumEnabled(false);
             ThereminBackgroundAudioService.setBassEnabled(false);
@@ -923,6 +950,7 @@ public class MainActivity extends AppCompatActivity {
         isRecordingUiActive = false;
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
         stopRecordBlink();
+        if (binding == null) return;
         binding.tvRecordLabel.setText("Record");
         // Swap square icon → circle icon
         binding.btnRecord.setIconResource(R.drawable.ic_record);
@@ -1042,11 +1070,16 @@ public class MainActivity extends AppCompatActivity {
         }
         if (bgAudioEnabled) {
             if (ThereminBackgroundAudioService.isServiceActive()) {
-                waitingForServiceToStop = false;
-                ThereminBackgroundAudioService.stopIfRunning(this);
-                appendLogSafe("Background audio stopped from Play");
+                // Mute/unmute is instant — AudioTrack stays alive, volume goes to 0 in ≤20ms.
+                // Avoids the 200-400ms service stop/start cycle entirely.
+                boolean nowMuted = !ThereminBackgroundAudioService.isThereminMuted();
+                ThereminBackgroundAudioService.setThereminMuted(nowMuted);
+                appendLogSafe(nowMuted ? "theremin paused (muted)" : "theremin playing (unmuted)");
             } else {
-                persistSettings();
+                // Service not running — start it. Save settings on a background thread
+                // so the main thread isn't blocked by SQLite before the service can start.
+                new Thread(this::persistSettings).start();
+                ThereminBackgroundAudioService.setThereminMuted(false); // ensure unmuted on fresh start
                 ThereminBackgroundAudioService.startIfNeeded(this);
                 if (isAudioRunning()) audioEngine.stop();
                 appendLogSafe("Background audio started from Play");
@@ -1218,15 +1251,27 @@ public class MainActivity extends AppCompatActivity {
         if (waveSnapshot == null) {
             binding.thereminVisualizerView.setAudioWave(
                     null, play.mappedFreqHz, play.mappedVolumeLinear, play.freqMinHz, play.freqMaxHz);
-            return;
+        } else {
+            binding.thereminVisualizerView.setAudioWave(
+                    waveSnapshot.samples,
+                    waveSnapshot.freqHz,
+                    waveSnapshot.volumeLinear,
+                    play.freqMinHz,
+                    play.freqMaxHz
+            );
         }
-        binding.thereminVisualizerView.setAudioWave(
-                waveSnapshot.samples,
-                waveSnapshot.freqHz,
-                waveSnapshot.volumeLinear,
-                play.freqMinHz,
-                play.freqMaxHz
-        );
+        // Pulse the pixel grid on every new drum/bass step so all sounds drive the visualizer
+        DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
+        if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
+        if (drum != null && drum.isEnabled()) {
+            int step = drum.getCurrentStep16();
+            if (step != lastDrumStep) {
+                lastDrumStep = step;
+                // On-beat steps (0,4,8,12) get a stronger kick than off-beat 16ths
+                float strength = (step % 4 == 0) ? 0.75f : 0.38f;
+                binding.thereminVisualizerView.pulse(strength);
+            }
+        }
     }
 
     private void maybeStartAudioAfterCalibration(boolean bothConnected) {
@@ -1317,11 +1362,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateAudioStatusText() {
         boolean running = isAnyAudioRunning();
+        if (running == lastAudioRunningState) return; // skip redundant view updates at 20fps
+        lastAudioRunningState = running;
         binding.btnAudioStart.setText("");
         binding.btnAudioStart.setIconResource(running ? R.drawable.ic_pause_theremin : R.drawable.ic_play_theremin);
         binding.btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         binding.tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
-
     }
 
     private void appendLogSafe(String msg) {
@@ -1378,10 +1424,29 @@ public class MainActivity extends AppCompatActivity {
     private void applyPerformanceMode(boolean active) {
         int hide = active ? View.GONE : View.VISIBLE;
 
-        binding.cardScale.setVisibility(hide);
-        binding.cardEffects.setVisibility(hide);
-        if (binding.cardDebugLog != null) binding.cardDebugLog.setVisibility(hide);
+        binding.topNavBar.setVisibility(hide);
+        binding.bottomNavBar.setVisibility(hide);
 
         binding.btnPerformanceMode.setText(active ? "Exit Stage" : "Stage View");
+        applySystemUiMode(active);
+        ViewCompat.requestApplyInsets(binding.rootScroll);
+    }
+
+    private void applySystemUiMode(boolean fullscreen) {
+        WindowInsetsControllerCompat controller =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        if (controller == null) return;
+
+        controller.setSystemBarsBehavior(
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+        if (fullscreen) {
+            controller.hide(WindowInsetsCompat.Type.systemBars());
+        } else {
+            controller.show(WindowInsetsCompat.Type.systemBars());
+        }
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
