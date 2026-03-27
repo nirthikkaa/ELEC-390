@@ -40,7 +40,11 @@ public class DrumEngine {
     static final int SND_BASS_A2 = 7;  // A2 ~110 Hz
     static final int SND_BASS_D3 = 8;  // D3 ~147 Hz
     static final int SND_BASS_G2 = 9;  // G2  ~98 Hz
-    static final int NUM_SOUNDS  = 10;
+    static final int SND_TOM_HI  = 10; // high tom ~300 Hz
+    static final int SND_TOM_LOW = 11; // low  tom ~180 Hz
+    static final int SND_RIM     = 12; // rimshot
+    static final int SND_SHAKER  = 13; // shaker
+    static final int NUM_SOUNDS  = 14;
 
     // Track volume group indices (used by setters)
     private static final int GRP_KICK  = SND_KICK;
@@ -89,7 +93,7 @@ public class DrumEngine {
     private int  arpNoteIdx        = 0;
     // Per-voice buffer start offset — set when a voice is triggered mid-buffer
     private final AtomicIntegerArray pianoVoiceStartAt = new AtomicIntegerArray(MAX_PIANO_VOICES);
-    private int              step            = 0; // only touched on scheduler thread
+    private volatile int     step            = 0; // scheduler thread writes, UI thread reads
     private long             lastTickMs      = 0; // only touched on scheduler thread
 
     /** Timestamp (System.currentTimeMillis) of the most recent bass note trigger. Used by UI for pulse animation. */
@@ -198,6 +202,54 @@ public class DrumEngine {
         {0, 4, 7, 12, 7, 4},         // 4: Major up & back
     };
 
+    // ── Piano synth modes ─────────────────────────────────────────────────────
+    static final int      PIANO_SYNTH_KEYS   = 0;
+    static final int      PIANO_SYNTH_BELLS  = 1;
+    static final int      PIANO_SYNTH_ORGAN  = 2;
+    static final String[] PIANO_SYNTH_LABELS = {"KEYS", "BELLS", "ORGAN"};
+    private volatile int pianoSynthMode = PIANO_SYNTH_KEYS;
+
+    public static int clampPianoSynthMode(int mode) {
+        return ((mode % PIANO_SYNTH_LABELS.length) + PIANO_SYNTH_LABELS.length) % PIANO_SYNTH_LABELS.length;
+    }
+    public void setPianoSynthMode(int mode) { pianoSynthMode = clampPianoSynthMode(mode); }
+
+    // ── Custom pattern (from Beat Maker) ──────────────────────────────────────
+    private volatile boolean[][] customDrumGrid  = null;
+    private volatile int[]       customPianoSteps = null;
+
+    /** Set a custom step pattern from the Beat Maker. Pass null to revert to built-in patterns. */
+    public void setCustomPattern(boolean[][] grid, int[] pianoSteps) {
+        this.customDrumGrid   = grid;
+        this.customPianoSteps = pianoSteps != null ? pianoSteps.clone() : null;
+    }
+
+    /** Revert to built-in patterns (clears any Beat Maker custom grid). */
+    public void clearCustomPattern() { customDrumGrid = null; customPianoSteps = null; }
+
+    /** Set the clap / snare-variant tone brightness (0.0–1.0). No-op in default synthesis. */
+    public void setClapTone(float tone) { /* tone brightness reserved for future use */ }
+
+    /** Set overall drum mix gain applied before mixing into the theremin buffer. */
+    public void setDrumGain(float gain) {
+        float g = Math.max(0f, gain);
+        for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = g;
+        // Restore bass boost
+        trackVolumes[SND_BASS_E2] = g * 1.4f;
+        trackVolumes[SND_BASS_A2] = g * 1.4f;
+        trackVolumes[SND_BASS_D3] = g * 1.4f;
+        trackVolumes[SND_BASS_G2] = g * 1.4f;
+    }
+
+    /** Alias for setPianoSynthMode — called from background service wiring. */
+    public void setKeyboardSynthMode(int mode) { setPianoSynthMode(mode); }
+
+    /** Returns the current 16th-note step position (0–15). Safe to read from any thread. */
+    public int getCurrentStep16() { return step; }
+
+    /** Immediately trigger a one-shot hit for audition/preview. Safe to call from any thread. */
+    public void auditSound(int sndIdx) { triggerVoice(sndIdx); }
+
     // ── Constructor ───────────────────────────────────────────────────────────
 
     /** Context is unused but kept for call-site compatibility. */
@@ -234,6 +286,10 @@ public class DrumEngine {
         sounds[SND_BASS_A2] = synthesizeBass(110.0f);
         sounds[SND_BASS_D3] = synthesizeBass(146.83f);
         sounds[SND_BASS_G2] = synthesizeBass(98.0f);
+        sounds[SND_TOM_HI]  = synthesizeTom(300f, 0.14f);
+        sounds[SND_TOM_LOW] = synthesizeTom(180f, 0.18f);
+        sounds[SND_RIM]     = synthesizeRim();
+        sounds[SND_SHAKER]  = synthesizeShaker();
     }
 
     /** Kick: wide pitch sweep 255→55 Hz with harmonics and slow punch envelope. */
@@ -376,6 +432,54 @@ public class DrumEngine {
         return pcm;
     }
 
+    /** Tom: pitched sine decay with pitch sweep from startFreq. */
+    private float[] synthesizeTom(float startFreq, float decaySec) {
+        int len = (int)(SAMPLE_RATE * decaySec * 3f);
+        float[] pcm = new float[len];
+        float phase = 0f;
+        for (int i = 0; i < len; i++) {
+            float t   = (float) i / SAMPLE_RATE;
+            float env = (float) Math.exp(-t / decaySec);
+            float freq = startFreq * (float) Math.exp(-t * 8.0);
+            pcm[i] = env * (float) Math.sin(phase) * 0.80f;
+            phase += (float)(2.0 * Math.PI * freq / SAMPLE_RATE);
+            if (phase >= (float)(2.0 * Math.PI)) phase -= (float)(2.0 * Math.PI);
+        }
+        return pcm;
+    }
+
+    /** Rimshot: short HPF noise burst with a sharp transient. */
+    private float[] synthesizeRim() {
+        int len = (int)(SAMPLE_RATE * 0.05f);
+        float[] pcm = new float[len];
+        Random rng = new Random(99L);
+        float prev = 0f;
+        for (int i = 0; i < len; i++) {
+            float t   = (float) i / SAMPLE_RATE;
+            float env = (float) Math.exp(-t * 60.0);
+            float noise = (float) rng.nextGaussian();
+            float hp = noise - prev; prev = noise;  // simple 1-pole HPF
+            pcm[i] = env * hp * 0.70f;
+        }
+        return pcm;
+    }
+
+    /** Shaker: high-frequency noise burst, 80 ms. */
+    private float[] synthesizeShaker() {
+        int len = (int)(SAMPLE_RATE * 0.08f);
+        float[] pcm = new float[len];
+        Random rng = new Random(77L);
+        float prev = 0f;
+        for (int i = 0; i < len; i++) {
+            float t   = (float) i / SAMPLE_RATE;
+            float env = (float) Math.exp(-t * 30.0);
+            float noise = (float) rng.nextGaussian();
+            float hp = noise - prev * 0.85f; prev = noise;
+            pcm[i] = env * hp * 0.45f;
+        }
+        return pcm;
+    }
+
     /**
      * Piano key hit: 3 ms linear attack ramp (kills onset click) followed by a smooth
      * single-exponent decay (exp(-4.5t)).  At 120 BPM the note is still at ~57% when the
@@ -455,20 +559,46 @@ public class DrumEngine {
         // Record the time this tick should have fired (not when it actually ran, to prevent drift)
         lastTickMs += intervalMs();
 
-        boolean[][] drumPat = DRUM_PATTERNS[Math.min(drumPatternIdx, DRUM_PATTERNS.length - 1)];
-        int[]       bassPat = BASS_PATTERNS[Math.min(bassPatternIdx, BASS_PATTERNS.length - 1)];
-
-        if (enabled) {
-            if (drumPat[0][step]) triggerVoice(SND_KICK);
-            if (drumPat[1][step]) triggerVoice(SND_SNARE);
-            if (drumPat[2][step]) triggerVoice(SND_HIHAT_C);
-            if (drumPat[3][step]) triggerVoice(SND_HIHAT_O);
-            if (drumPat[4][step]) triggerVoice(SND_CRASH);
-            if (drumPat[5][step]) triggerVoice(SND_CLAP);
-        }
-        if (bassEnabled && bassPat[step] >= 0) {
-            triggerVoice(SND_BASS_E2 + bassPat[step]);
-            lastBassHitMs.set(System.currentTimeMillis());
+        boolean[][] customGrid = customDrumGrid;
+        if (customGrid != null) {
+            // Beat Maker custom pattern: rows map to ROW_SOUNDS order
+            int[] rowSounds = {
+                SND_KICK, SND_SNARE, SND_HIHAT_C, SND_HIHAT_O, SND_CRASH, SND_CLAP,
+                SND_BASS_E2, SND_BASS_A2, SND_BASS_D3,
+                SND_TOM_HI, SND_TOM_LOW, SND_RIM, SND_SHAKER
+            };
+            int[] bassSounds = {SND_BASS_E2, SND_BASS_A2, SND_BASS_D3};
+            for (int row = 0; row < Math.min(customGrid.length, rowSounds.length); row++) {
+                boolean[] rowData = customGrid[row];
+                if (rowData == null || step >= rowData.length || !rowData[step]) continue;
+                int snd = rowSounds[row];
+                // rows 6-8 are bass
+                if (snd == SND_BASS_E2 || snd == SND_BASS_A2 || snd == SND_BASS_D3) {
+                    if (bassEnabled) { triggerVoice(snd); lastBassHitMs.set(System.currentTimeMillis()); }
+                } else if (enabled) {
+                    triggerVoice(snd);
+                }
+            }
+            // Piano steps from custom pattern
+            int[] cps = customPianoSteps;
+            if (enabled && cps != null && step < cps.length && cps[step] >= 0) {
+                triggerPianoKey(cps[step]);
+            }
+        } else {
+            boolean[][] drumPat = DRUM_PATTERNS[Math.min(drumPatternIdx, DRUM_PATTERNS.length - 1)];
+            int[]       bassPat = BASS_PATTERNS[Math.min(bassPatternIdx, BASS_PATTERNS.length - 1)];
+            if (enabled) {
+                if (drumPat[0][step]) triggerVoice(SND_KICK);
+                if (drumPat[1][step]) triggerVoice(SND_SNARE);
+                if (drumPat[2][step]) triggerVoice(SND_HIHAT_C);
+                if (drumPat[3][step]) triggerVoice(SND_HIHAT_O);
+                if (drumPat[4][step]) triggerVoice(SND_CRASH);
+                if (drumPat[5][step]) triggerVoice(SND_CLAP);
+            }
+            if (bassEnabled && bassPat[step] >= 0) {
+                triggerVoice(SND_BASS_E2 + bassPat[step]);
+                lastBassHitMs.set(System.currentTimeMillis());
+            }
         }
         step = (step + 1) % 16;
 

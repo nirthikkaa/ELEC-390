@@ -300,15 +300,26 @@ class AppSettings {
         }
     }
 
-    public static final String TONE_SINE = "SINE";
-    public static final String TONE_SQUARE = "SQUARE";
-    public static final String TONE_TRIANGLE = "TRIANGLE";
-    public static final String TONE_SAW = "SAW";
-    public static final String TONE_PULSE  = "PULSE";
-    public static final String TONE_ORGAN  = "ORGAN";
-    public static final String TONE_STRING = "STRING";
-    public static final String TONE_BELL   = "BELL";
-    public static final String TONE_PAD    = "PAD";
+    public static final String TONE_SINE    = "SINE";
+    public static final String TONE_SQUARE  = "SQUARE";
+    public static final String TONE_TRIANGLE= "TRIANGLE";
+    public static final String TONE_SAW     = "SAW";
+    public static final String TONE_PULSE   = "PULSE";
+    public static final String TONE_ORGAN   = "ORGAN";
+    public static final String TONE_STRING  = "STRING";
+    public static final String TONE_BELL    = "BELL";
+    public static final String TONE_PAD     = "PAD";
+    public static final String TONE_LEAD      = "LEAD";
+    public static final String TONE_KEYS      = "KEYS";
+    public static final String TONE_VOWEL_A   = "VOWEL_A";
+    public static final String TONE_VOWEL_O   = "VOWEL_O";
+    public static final String TONE_VOWEL_I   = "VOWEL_I";
+    public static final String TONE_FLUTE     = "FLUTE";
+    public static final String TONE_CLARINET  = "CLARINET";
+    public static final String TONE_OBOE      = "OBOE";
+    public static final String TONE_TRUMPET   = "TRUMPET";
+    public static final String TONE_VIOLIN    = "VIOLIN";
+    public static final String TONE_CHOIR     = "CHOIR";
 
     public static final String SENSITIVITY_LOW    = "LOW";
     public static final String SENSITIVITY_MEDIUM = "MEDIUM";
@@ -359,9 +370,13 @@ class AppSettings {
     public static String normalizeToneType(String tone) {
         String n = tone == null ? "" : tone.trim().toUpperCase(Locale.US);
         switch (n) {
-            case TONE_SQUARE: case TONE_TRIANGLE: case TONE_SAW:
-            case TONE_PULSE:  case TONE_ORGAN:   case TONE_STRING:
-            case TONE_BELL:   case TONE_PAD:
+            case TONE_SQUARE:  case TONE_TRIANGLE: case TONE_SAW:
+            case TONE_PULSE:   case TONE_ORGAN:   case TONE_STRING:
+            case TONE_BELL:    case TONE_PAD:     case TONE_LEAD:
+            case TONE_KEYS:     case TONE_VOWEL_A:  case TONE_VOWEL_O:
+            case TONE_VOWEL_I:  case TONE_FLUTE:    case TONE_CLARINET:
+            case TONE_OBOE:     case TONE_TRUMPET:  case TONE_VIOLIN:
+            case TONE_CHOIR:
                 return n;
             default: return TONE_SINE;
         }

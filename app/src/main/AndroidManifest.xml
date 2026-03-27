@@ -58,6 +58,9 @@
         <activity
             android:name=".SettingsActivity"
             android:exported="false" />
+        <activity
+            android:name=".BeatMakerActivity"
+            android:exported="false" />
 
         <service
             android:name=".ThereminBackgroundAudioService"

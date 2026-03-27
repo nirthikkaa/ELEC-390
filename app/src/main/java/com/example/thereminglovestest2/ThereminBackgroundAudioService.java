@@ -119,6 +119,36 @@ public class ThereminBackgroundAudioService extends Service {
     public static void setDistortionGain(float gain)      { bgDistortionGain = gain; }
     public static void setDrumEnabled(boolean on)         { bgDrumEnabled = on; }
     public static void setBassEnabled(boolean on)         { bgBassEnabled = on; }
+    public static void setMixGain(float gain) {
+        ThereminBackgroundAudioService svc = activeInstance;
+        if (svc != null && svc.audioEngine != null) svc.audioEngine.setMixGain(gain);
+    }
+    public static void setDrumBpm(int bpm) {
+        DrumEngine d = getDrumEngine();
+        if (d != null) d.setBpm(bpm);
+    }
+    public static void setDrumGain(float gain) {
+        DrumEngine d = getDrumEngine();
+        if (d != null) d.setDrumGain(gain);
+    }
+    public static void setClapTone(float tone) {
+        DrumEngine d = getDrumEngine();
+        if (d != null) d.setClapTone(tone);
+    }
+    public static void setKeyboardSynthMode(int mode) {
+        DrumEngine d = getDrumEngine();
+        if (d != null) d.setKeyboardSynthMode(mode);
+    }
+    public static void setCustomPattern(boolean[][] grid, int[] pianoSteps) {
+        DrumEngine d = getDrumEngine();
+        if (d != null) {
+            if (grid != null) d.setCustomPattern(grid, pianoSteps);
+            else d.clearCustomPattern();
+        }
+    }
+    public static void setCustomPattern(boolean[][] grid) {
+        setCustomPattern(grid, null);
+    }
 
     /**
      * Sprint 3: Expose the service's DrumEngine so MainActivity can toggle

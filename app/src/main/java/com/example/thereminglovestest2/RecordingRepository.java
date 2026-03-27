@@ -108,6 +108,10 @@ public class RecordingRepository {
     // ── Recordings ────────────────────────────────────────────────────────────
 
     public void saveRecording(String filePath, String name, long durationMs, String quality) {
+        saveRecording(filePath, name, durationMs, quality, null);
+    }
+
+    public void saveRecording(String filePath, String name, long durationMs, String quality, String exportedPath) {
         ContentValues v = new ContentValues();
         v.put("file_path", filePath);
         v.put("display_name", name);

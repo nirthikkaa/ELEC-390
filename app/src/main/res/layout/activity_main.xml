@@ -399,6 +399,26 @@
                             app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnBeatMaker"
+                            android:layout_width="wrap_content"
+                            android:layout_height="28dp"
+                            android:layout_marginStart="8dp"
+                            android:text="GRID"
+                            android:textSize="9sp"
+                            android:textColor="#00FF9D"
+                            android:fontFamily="monospace"
+                            android:letterSpacing="0.1"
+                            android:contentDescription="Open Beat Maker"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp"
+                            app:strokeColor="#00FF9D"
+                            app:strokeWidth="1dp"
+                            app:cornerRadius="4dp"
+                            style="@style/Widget.Material3.Button.OutlinedButton" />
+
                     </LinearLayout>
 
                     <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#1A2A1A" />
@@ -471,140 +491,220 @@
                         <View android:layout_width="match_parent" android:layout_height="1dp"
                             android:background="#1A2A1A" android:layout_marginTop="8dp" android:layout_marginBottom="8dp" />
 
-                        <!-- Drums + Bass row -->
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="RHYTHM"
-                            android:textColor="#888AAA"
-                            android:textSize="9sp"
-                            android:letterSpacing="0.2"
-                            android:fontFamily="monospace"
-                            android:layout_marginBottom="6dp" />
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnDrumToggle"
-                                android:layout_width="0dp"
-                                android:layout_height="32dp"
-                                android:layout_weight="1"
-                                android:text="DRUMS"
-                                android:textSize="10sp"
-                                android:letterSpacing="0.1"
-                                android:fontFamily="monospace"
-                                android:insetTop="0dp"
-                                android:insetBottom="0dp"
-                                app:strokeColor="#00FF9D"
-                                app:strokeWidth="1dp"
-                                app:cornerRadius="4dp"
-                                style="@style/Widget.Material3.Button.OutlinedButton" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnBassToggle"
-                                android:layout_width="0dp"
-                                android:layout_height="32dp"
-                                android:layout_weight="1"
-                                android:layout_marginStart="6dp"
-                                android:text="BASS"
-                                android:textSize="10sp"
-                                android:letterSpacing="0.1"
-                                android:fontFamily="monospace"
-                                android:insetTop="0dp"
-                                android:insetBottom="0dp"
-                                app:strokeColor="#FF9D00"
-                                app:strokeWidth="1dp"
-                                app:cornerRadius="4dp"
-                                style="@style/Widget.Material3.Button.OutlinedButton" />
-
-                        </LinearLayout>
-
-                        <!-- DRUM preset row: 8 numbered drum patterns -->
+                        <!-- Beat Maker preset slots — 4 user-programmable patterns -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:gravity="center_vertical"
                             android:layout_marginTop="6dp">
-                            <TextView android:layout_width="36dp" android:layout_height="wrap_content"
-                                android:text="DRUM" android:textColor="#00FF9D" android:textSize="8sp"
-                                android:fontFamily="monospace" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat1" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:text="1" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat2" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="2" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat3" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="3" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat4" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="4" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat5" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="5" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat6" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="6" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat7" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="7" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnDrumPat8" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="8" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset1"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:text="BEAT 1"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset2"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="BEAT 2"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset3"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="BEAT 3"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset4"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="BEAT 4"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
                         </LinearLayout>
 
-                        <!-- BASS preset row: 8 numbered bass lines -->
+                        <!-- Beat Maker preset slots — row 2 (slots 5-8) -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:gravity="center_vertical"
                             android:layout_marginTop="4dp">
-                            <TextView android:layout_width="36dp" android:layout_height="wrap_content"
-                                android:text="BASS" android:textColor="#CC44FF" android:textSize="8sp"
-                                android:fontFamily="monospace" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat1" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:text="1" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat2" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="2" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat3" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="3" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat4" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="4" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat5" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="5" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat6" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="6" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat7" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="7" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
-                            <com.google.android.material.button.MaterialButton android:id="@+id/btnBassPat8" android:layout_width="0dp" android:layout_height="26dp" android:layout_weight="1" android:layout_marginStart="2dp" android:text="8" android:textSize="9sp" android:fontFamily="monospace" android:insetTop="0dp" android:insetBottom="0dp" app:cornerRadius="3dp" app:strokeColor="#888AAA" app:strokeWidth="1dp" style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset5"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:text="BEAT 5"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset6"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="BEAT 6"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset7"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="BEAT 7"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnBeatPreset8"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="BEAT 8"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="1dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
+
                         </LinearLayout>
 
-                        <!-- VOLUME: two sliders — synth melody and beat/drums -->
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="VOLUME"
-                            android:textColor="#888AAA"
-                            android:textSize="9sp"
-                            android:letterSpacing="0.2"
-                            android:fontFamily="monospace"
-                            android:layout_marginTop="8dp"
-                            android:layout_marginBottom="2dp" />
-
+                        <!-- VOLUME: synth melody level (snaps every 10%) -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:gravity="center_vertical"
-                            android:layout_marginTop="2dp">
-                            <TextView android:layout_width="44dp" android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp">
+                            <TextView android:layout_width="52dp" android:layout_height="wrap_content"
                                 android:text="SYNTH" android:textColor="#7EB8FF" android:textSize="8sp"
                                 android:fontFamily="monospace" />
-                            <SeekBar android:id="@+id/sbSynthVol"
-                                android:layout_width="0dp" android:layout_height="wrap_content"
-                                android:layout_weight="1" android:max="100" android:progress="65"
-                                android:progressTint="#7EB8FF" android:thumbTint="#7EB8FF"
-                                android:thumb="@drawable/slider_thumb_rect" />
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/sbSynthVol"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:valueFrom="0"
+                                android:valueTo="100"
+                                android:stepSize="10"
+                                app:thumbColor="#7EB8FF"
+                                app:trackColorActive="#7EB8FF"
+                                app:trackColorInactive="#222244"
+                                app:tickColorActive="#FFFFFF"
+                                app:tickColorInactive="#444466"
+                                app:haloColor="#337EB8FF"
+                                app:labelBehavior="gone" />
                         </LinearLayout>
 
+                        <!-- BEAT VOL: drum/bass level (snaps every 10%) -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
                             android:gravity="center_vertical"
-                            android:layout_marginTop="2dp">
-                            <TextView android:layout_width="44dp" android:layout_height="wrap_content"
-                                android:text="BEATS" android:textColor="#FF9F40" android:textSize="8sp"
+                            android:layout_marginTop="4dp">
+                            <TextView android:layout_width="52dp" android:layout_height="wrap_content"
+                                android:text="BEATS" android:textColor="#00FF9D" android:textSize="8sp"
                                 android:fontFamily="monospace" />
-                            <SeekBar android:id="@+id/sbBeatVol"
-                                android:layout_width="0dp" android:layout_height="wrap_content"
-                                android:layout_weight="1" android:max="100" android:progress="85"
-                                android:progressTint="#FF9F40" android:thumbTint="#FF9F40"
-                                android:thumb="@drawable/slider_thumb_rect" />
+                            <com.google.android.material.slider.Slider
+                                android:id="@+id/sbBeatVol"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:valueFrom="0"
+                                android:valueTo="100"
+                                android:stepSize="10"
+                                app:thumbColor="#00FF9D"
+                                app:trackColorActive="#00FF9D"
+                                app:trackColorInactive="#0A2A1A"
+                                app:tickColorActive="#FFFFFF"
+                                app:tickColorInactive="#1A4432"
+                                app:haloColor="#3300FF9D"
+                                app:labelBehavior="gone" />
                         </LinearLayout>
 
                         <!-- BPM row -->
@@ -614,40 +714,58 @@
                             android:orientation="horizontal"
                             android:gravity="center_vertical"
                             android:layout_marginTop="6dp">
-
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="52dp"
                                 android:layout_height="wrap_content"
                                 android:text="BPM"
-                                android:textColor="#888AAA"
-                                android:textSize="9sp"
-                                android:letterSpacing="0.1"
-                                android:fontFamily="monospace"
-                                android:layout_marginEnd="8dp" />
-
+                                android:textColor="#AAAACC"
+                                android:textSize="8sp"
+                                android:fontFamily="monospace" />
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDrumBpmMinus"
+                                android:layout_width="30dp"
+                                android:layout_height="28dp"
+                                android:text="−"
+                                android:textSize="14sp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                app:strokeColor="#333355" />
                             <SeekBar
-                                android:id="@+id/sbBpm"
+                                android:id="@+id/sbDrumBpm"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
+                                android:layout_marginStart="4dp"
                                 android:max="140"
                                 android:progress="60"
-                                android:progressTint="#00E5FF"
-                                android:thumbTint="#00E5FF"
+                                android:progressTint="#AAAACC"
+                                android:thumbTint="#AAAACC"
                                 android:thumb="@drawable/slider_thumb_rect" />
-
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDrumBpmPlus"
+                                android:layout_width="30dp"
+                                android:layout_height="28dp"
+                                android:text="+"
+                                android:textSize="14sp"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                android:layout_marginStart="4dp"
+                                app:cornerRadius="4dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                app:strokeColor="#333355" />
                             <TextView
-                                android:id="@+id/tvBpmLabel"
+                                android:id="@+id/tvDrumBpm"
                                 android:layout_width="36dp"
                                 android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
                                 android:gravity="end"
                                 android:text="120"
-                                android:textColor="#00E5FF"
-                                android:textSize="12sp"
+                                android:textColor="#FFFFFF"
+                                android:textSize="13sp"
                                 android:fontFamily="monospace"
-                                android:textStyle="bold"
-                                android:layout_marginStart="8dp" />
-
+                                android:textStyle="bold" />
                         </LinearLayout>
 
                     </LinearLayout>
@@ -989,6 +1107,109 @@
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:background="#1E1E30" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="12dp"
+                        android:paddingTop="8dp"
+                        android:paddingEnd="12dp">
+
+                        <TextView
+                            android:layout_width="44dp"
+                            android:layout_height="wrap_content"
+                            android:text="SYNTH"
+                            android:textColor="#00CCFF"
+                            android:textSize="8sp"
+                            android:fontFamily="monospace" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPianoSynth"
+                            android:layout_width="wrap_content"
+                            android:layout_height="28dp"
+                            android:text="KEYS"
+                            android:textSize="9sp"
+                            android:letterSpacing="0.1"
+                            android:fontFamily="monospace"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            app:strokeColor="#00CCFF"
+                            app:strokeWidth="1dp"
+                            app:cornerRadius="4dp"
+                            style="@style/Widget.Material3.Button.OutlinedButton" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="12dp"
+                        android:paddingTop="6dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="2dp">
+
+                        <TextView
+                            android:layout_width="44dp"
+                            android:layout_height="wrap_content"
+                            android:text="BPM"
+                            android:textColor="#888AAA"
+                            android:textSize="8sp"
+                            android:fontFamily="monospace" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPianoBpmMinus"
+                            android:layout_width="28dp"
+                            android:layout_height="26dp"
+                            android:text="−"
+                            android:textSize="13sp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            app:cornerRadius="4dp"
+                            app:strokeColor="#334455"
+                            style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                        <SeekBar
+                            android:id="@+id/sbPianoBpm"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="4dp"
+                            android:max="140"
+                            android:progress="60"
+                            android:progressTint="#7EB8FF"
+                            android:thumbTint="#7EB8FF"
+                            android:thumb="@drawable/slider_thumb_rect" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPianoBpmPlus"
+                            android:layout_width="28dp"
+                            android:layout_height="26dp"
+                            android:layout_marginStart="4dp"
+                            android:text="+"
+                            android:textSize="13sp"
+                            android:insetTop="0dp"
+                            android:insetBottom="0dp"
+                            app:cornerRadius="4dp"
+                            app:strokeColor="#334455"
+                            style="@style/Widget.Material3.Button.OutlinedButton" />
+
+                        <TextView
+                            android:id="@+id/tvPianoBpm"
+                            android:layout_width="34dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:gravity="end"
+                            android:text="120"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:fontFamily="monospace"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <com.example.thereminglovestest2.PianoKeyboardView
                         android:id="@+id/pianoKeyboard"

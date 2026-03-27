@@ -28,6 +28,11 @@ final class PlayMappingState {
     float audioTargetVolumeLinear;
     String currentToneType = AppSettings.TONE_SINE;
     private float sensitivityMultiplier = 1.0f;
+    private int   octaveShift = 0;
+
+    void setOctaveShift(int shift) {
+        octaveShift = Math.max(-2, Math.min(2, shift));
+    }
 
     void setSensitivityMultiplier(float mult) {
         sensitivityMultiplier = Math.max(0.1f, Math.min(3.0f, mult));
@@ -116,6 +121,7 @@ final class PlayMappingState {
         float effVolMax = volMid + volSpan / 2f;
 
         float freq = mapLinearClamped(pitchActiveDeltaDeg, effPitchMin, effPitchMax, freqMinHz, freqMaxHz);
+        if (octaveShift != 0) freq = clamp(freq * (float) Math.pow(2.0, octaveShift), 20f, 20000f);
         float vol = mapLinearClamped(volActiveDeltaDeg, effVolMin, effVolMax, 0f, 1f);
         if (!pitchHasAngle) freq = freqMinHz;
         if (!volHasAngle) vol = 0f;

@@ -71,6 +71,7 @@ public final class ThereminAudioEngine {
 
     private volatile boolean distortionEnabled = false;
     private volatile float distortionGain = 3.0f;
+    private volatile float mixGain = 1.0f;
 
     // Sprint 3: Scale lock — snaps the smoothed frequency to the nearest note in the chosen scale.
     private volatile String activeScale = "CHROMATIC";
@@ -209,7 +210,7 @@ public final class ThereminAudioEngine {
             // Sprint 3: snap smoothed frequency to the nearest scale note before synthesis.
             freq = snapToScale(freq);
             float volume = updateVolume();
-            float s = sample(tone, phase, volume) * volume * OUTPUT_GAIN;
+            float s = sample(tone, phase, volume) * volume * OUTPUT_GAIN * mixGain;
             // Sprint 3: run the effects chain, then hard-clip to valid PCM range.
             s = applyEffects(s);
             s = clamp(s, -1f, 1f);
@@ -432,4 +433,5 @@ public final class ThereminAudioEngine {
     public String getActiveScale()               { return activeScale; }
     public void setDrumEngine(DrumEngine drum)   { this.drumEngine = drum; }
     public DrumEngine getDrumEngine()            { return drumEngine; }
+    public void setMixGain(float gain)           { mixGain = Math.max(0f, Math.min(2f, gain)); }
 }
