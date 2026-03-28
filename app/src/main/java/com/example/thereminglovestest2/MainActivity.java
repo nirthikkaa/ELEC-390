@@ -34,8 +34,10 @@ import androidx.core.content.ContextCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityMainBinding;
 
-import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.Gravity;
+import android.graphics.Typeface;
+import android.widget.TextView;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -111,6 +113,10 @@ public class MainActivity extends AppCompatActivity {
     private boolean pendingAutoStartAudio;
     private boolean waitingForServiceToStop;
     private boolean performanceModeActive = false;
+
+    // Beat Maker drag-to-open state
+    private float      bmDragStartX = Float.NaN;
+    private FrameLayout bmPreview;   // overlay panel that slides in from the right
     private boolean lastAudioRunningState = false; // cache for updateAudioStatusText change-check
     private int lastGlovePitchColor = 0; // cache for setGloveStatus change-guard
     private int lastGloveVolColor   = 0;
@@ -197,6 +203,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // Reset any drag translation left over if the user cancelled a swipe or returned from BeatMaker.
+        binding.cardVisualizer.setTranslationX(0);
         onVisible(); // single call here; onStart no longer duplicates it
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
         // Stage mode is never restored on launch — always start in normal view.
@@ -346,29 +354,41 @@ public class MainActivity extends AppCompatActivity {
         binding.toneKnob.setToneSequence(TONE_CYCLE);
         binding.toneKnob.setOnToneStepListener(this::cycleTone);
 
-        // Swipe left on the visualizer to open Beat Maker
-        GestureDetector swipeDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-            private static final float MIN_SWIPE_DIST = 80f;
-            private static final float MIN_SWIPE_VEL  = 200f;
-            @Override
-            public boolean onFling(MotionEvent e1, MotionEvent e2, float vX, float vY) {
-                if (e1 == null || e2 == null) return false;
-                float dx = e2.getX() - e1.getX();
-                if (dx < -MIN_SWIPE_DIST && Math.abs(vX) > MIN_SWIPE_VEL
-                        && Math.abs(dx) > Math.abs(e2.getY() - e1.getY())) {
-                    int editSlot = 0;
-                    for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
-                    Intent bm = new Intent(MainActivity.this, BeatMakerActivity.class);
-                    bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, editSlot);
-                    beatMakerLauncher.launch(bm);
-                    return true;
+        // Swipe left on the visualizer → drag-synchronized open of Beat Maker
+        buildBeatMakerPreview();
+        binding.thereminVisualizerView.setOnTouchListener((v, event) -> {
+            int screenW = binding.getRoot().getWidth();
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    bmDragStartX = event.getRawX();
+                    bmPreview.setVisibility(android.view.View.VISIBLE);
+                    bmPreview.setTranslationX(screenW);
+                    binding.cardVisualizer.setTranslationX(0);
+                    break;
+                case MotionEvent.ACTION_MOVE: {
+                    float drag = Math.max(0f, bmDragStartX - event.getRawX());
+                    bmPreview.setTranslationX(screenW - drag);
+                    binding.cardVisualizer.setTranslationX(-drag * 0.4f); // slight parallax
+                    break;
                 }
-                return false;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL: {
+                    float drag = Float.isNaN(bmDragStartX) ? 0 : Math.max(0f, bmDragStartX - event.getRawX());
+                    boolean commit = event.getActionMasked() == MotionEvent.ACTION_UP
+                            && drag > screenW * 0.25f;
+                    if (commit) {
+                        launchBeatMakerFromSwipe();
+                    } else {
+                        binding.cardVisualizer.animate().translationX(0).setDuration(180).start();
+                        bmPreview.animate().translationX(screenW).setDuration(180)
+                                .withEndAction(() -> bmPreview.setVisibility(android.view.View.GONE))
+                                .start();
+                    }
+                    bmDragStartX = Float.NaN;
+                    break;
+                }
             }
-        });
-        binding.thereminVisualizerView.setOnTouchListener((v, e) -> {
-            swipeDetector.onTouchEvent(e);
-            return true; // consume so gesture detector receives the full DOWN→MOVE→UP sequence
+            return true;
         });
 
         wireSpring3Controls();
@@ -1447,6 +1467,45 @@ public class MainActivity extends AppCompatActivity {
 
     private String yesNo(boolean value) {
         return value ? "YES" : "NO";
+    }
+
+    /** Creates the Beat Maker drag-preview overlay and attaches it as a full-screen content overlay. */
+    private void buildBeatMakerPreview() {
+        bmPreview = new FrameLayout(this);
+        bmPreview.setBackgroundColor(0xFF0F0A1E); // matches BeatMaker dark background
+        bmPreview.setVisibility(android.view.View.GONE);
+
+        // "Beat Maker" label centered in the panel
+        TextView lbl = new TextView(this);
+        lbl.setText("Beat Maker");
+        lbl.setTextSize(26f);
+        lbl.setTypeface(lbl.getTypeface(), Typeface.BOLD);
+        lbl.setTextColor(0xFF00FF9D); // BeatMaker accent green
+        lbl.setGravity(Gravity.CENTER);
+        FrameLayout.LayoutParams lblLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+        bmPreview.addView(lbl, lblLp);
+
+        // Overlay on top of all content
+        addContentView(bmPreview, new android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void launchBeatMakerFromSwipe() {
+        int editSlot = 0;
+        for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
+        final int slot = editSlot;
+        // Animate preview fully on-screen, then launch
+        int screenW = binding.getRoot().getWidth();
+        bmPreview.animate().translationX(0).setDuration(120)
+                .withEndAction(() -> {
+                    binding.cardVisualizer.setTranslationX(0);
+                    bmPreview.setVisibility(android.view.View.GONE);
+                    Intent bm = new Intent(MainActivity.this, BeatMakerActivity.class);
+                    bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, slot);
+                    beatMakerLauncher.launch(bm);
+                }).start();
     }
 
     private void togglePerformanceMode() {
