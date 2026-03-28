@@ -231,20 +231,27 @@ public class MainActivity extends AppCompatActivity {
 
     // ── Swipe gesture (visualizer → Beat Maker) ──────────────────────────────
 
-    private static final float SWIPE_THRESHOLD = 0.33f;  // fraction of screen width
-    private static final float SWIPE_FLING_DPS = 500f;   // dp/s to count as a fling
+    private static final float SWIPE_THRESHOLD = 0.50f;  // 50% of screen → commit on slow drag
+    private static final float SWIPE_FLING_DPS = 400f;   // dp/s → commit regardless of position
 
-    /** Route all window-level touch events through the swipe handler first. */
+    /**
+     * Route all window-level touch events through the swipe handler.
+     * While an active horizontal drag is in progress, consume the event so the
+     * view hierarchy never sees MOVE/UP — this prevents the ScrollView from
+     * scrolling and buttons from firing click during the swipe.
+     */
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        handleBmSwipeTouch(ev);
+        boolean consumed = handleBmSwipeTouch(ev);
+        if (consumed) return true;
         return super.dispatchTouchEvent(ev);
     }
 
-    private void handleBmSwipeTouch(MotionEvent ev) {
-        if (bmPreview == null) return;
+    /** Returns true if the event was consumed (active drag owns it). */
+    private boolean handleBmSwipeTouch(MotionEvent ev) {
+        if (bmPreview == null) return false;
         final int screenW = binding.getRoot().getWidth();
-        if (screenW == 0) return;
+        if (screenW == 0) return false;
         final float density = getResources().getDisplayMetrics().density;
 
         switch (ev.getActionMasked()) {
@@ -254,54 +261,56 @@ public class MainActivity extends AppCompatActivity {
                 bmDragStartY = ev.getRawY();
                 bmDragActive = false;
                 bmDragIgnore = false;
-                // Only track drags that originate on the visualizer card.
                 binding.cardVisualizer.getGlobalVisibleRect(bmVisBounds);
                 if (!bmVisBounds.contains((int) ev.getRawX(), (int) ev.getRawY())) {
                     bmDragIgnore = true;
-                    return;
+                }  else {
+                    if (bmVelocityTracker == null) bmVelocityTracker = VelocityTracker.obtain();
+                    else bmVelocityTracker.clear();
+                    bmVelocityTracker.addMovement(ev);
                 }
-                if (bmVelocityTracker == null) bmVelocityTracker = VelocityTracker.obtain();
-                else bmVelocityTracker.clear();
-                bmVelocityTracker.addMovement(ev);
-                break;
+                return false;  // always let DOWN through so views set pressed state
             }
 
             case MotionEvent.ACTION_MOVE: {
-                if (bmDragIgnore || Float.isNaN(bmDragStartX)) return;
+                if (bmDragIgnore || Float.isNaN(bmDragStartX)) return false;
                 if (bmVelocityTracker != null) bmVelocityTracker.addMovement(ev);
 
-                float dx = bmDragStartX - ev.getRawX();     // + = moving left
+                float dx = bmDragStartX - ev.getRawX();   // + = dragging left
                 float dy = Math.abs(ev.getRawY() - bmDragStartY);
-                float slop = 12f * density;
+                float slop = 10f * density;
 
                 if (!bmDragActive) {
                     if (dx < 0 || dy > Math.abs(dx)) {
-                        // Rightward or vertical — give up on this gesture
                         if (dy > slop || dx < -slop) bmDragIgnore = true;
-                        return;
+                        return false;
                     }
-                    if (dx < slop) return;  // not enough movement yet
-                    // Commit to horizontal swipe
+                    if (dx < slop) return false;
+
+                    // Locked to horizontal — cancel any in-progress view touches first.
+                    MotionEvent cancel = MotionEvent.obtain(ev);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    super.dispatchTouchEvent(cancel);
+                    cancel.recycle();
+
                     bmDragActive = true;
                     bmPreview.setTranslationX(screenW);
                     bmPreview.setVisibility(View.VISIBLE);
                     binding.rootScroll.setTranslationX(0);
-                    // Prevent ScrollView from consuming vertical component.
-                    binding.rootScroll.requestDisallowInterceptTouchEvent(true);
                 }
 
+                // Consume — views don't see MOVE while we own the drag.
                 dx = Math.min(Math.max(dx, 0f), screenW);
-                bmPreview.setTranslationX(screenW - dx);          // 1:1 with finger
-                binding.rootScroll.setTranslationX(-dx * 0.7f);  // 0.7× parallax outgoing
-                break;
+                bmPreview.setTranslationX(screenW - dx);         // 1:1 with finger
+                binding.rootScroll.setTranslationX(-dx * 0.7f); // 0.7× parallax outgoing
+                return true;
             }
 
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL: {
-                binding.rootScroll.requestDisallowInterceptTouchEvent(false);
                 if (bmDragIgnore || !bmDragActive) {
                     resetSwipeState();
-                    return;
+                    return false;
                 }
 
                 float drag = Math.max(0f, bmDragStartX - ev.getRawX());
@@ -317,23 +326,56 @@ public class MainActivity extends AppCompatActivity {
 
                 boolean commit = ev.getActionMasked() == MotionEvent.ACTION_UP
                         && (fling || drag > screenW * SWIPE_THRESHOLD);
+                resetSwipeState();
+
                 if (commit) {
-                    launchBeatMakerFromSwipe();
+                    commitSwipeToEnd(screenW, drag);
                 } else {
                     snapSwipeBack(screenW);
                 }
-                resetSwipeState();
-                break;
+                return true;
             }
         }
+        return false;
+    }
+
+    /**
+     * On commit: animate both panels to their final positions (preview fills screen,
+     * content slides fully off), THEN launch BeatMaker with no Activity animation.
+     * This gives a smooth "page flips into place" feel instead of a hard cut.
+     */
+    private void commitSwipeToEnd(int screenW, float currentDrag) {
+        int editSlot = 0;
+        for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
+        final int slot = editSlot;
+
+        // Duration scales with remaining distance so a nearly-complete drag is faster.
+        float progress = Math.min(currentDrag / screenW, 1f);
+        long dur = Math.max(60L, (long) ((1f - progress) * 180f));
+
+        DecelerateInterpolator interp = new DecelerateInterpolator(1.5f);
+        bmPreview.animate().translationX(0).setDuration(dur).setInterpolator(interp).start();
+        binding.rootScroll.animate()
+                .translationX(-screenW * 0.7f)
+                .setDuration(dur).setInterpolator(interp)
+                .withEndAction(() -> {
+                    binding.rootScroll.setTranslationX(0);
+                    bmPreview.setVisibility(View.GONE);
+                    Intent bm = new Intent(this, BeatMakerActivity.class);
+                    bm.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                    bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, slot);
+                    beatMakerLauncher.launch(bm,
+                            androidx.core.app.ActivityOptionsCompat.makeCustomAnimation(this, 0, 0));
+                })
+                .start();
     }
 
     private void snapSwipeBack(int screenW) {
         DecelerateInterpolator interp = new DecelerateInterpolator(2f);
         binding.rootScroll.animate().translationX(0)
-                .setDuration(260).setInterpolator(interp).start();
+                .setDuration(250).setInterpolator(interp).start();
         bmPreview.animate().translationX(screenW)
-                .setDuration(260).setInterpolator(interp)
+                .setDuration(250).setInterpolator(interp)
                 .withEndAction(() -> bmPreview.setVisibility(View.GONE))
                 .start();
     }
