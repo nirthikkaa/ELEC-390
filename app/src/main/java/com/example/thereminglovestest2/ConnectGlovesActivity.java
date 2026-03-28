@@ -37,6 +37,7 @@ public class ConnectGlovesActivity extends AppCompatActivity {
 
     private int     consecutiveFullyConnectedPolls = 0;
     private boolean autoNavigatedToPlayThisVisit   = false;
+    private boolean autoConnectRequestedThisVisit  = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,6 +117,13 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         updateReadyText(snapshot, permissionsOk, bluetoothOn);
         updateButtons(snapshot, permissionsOk, bluetoothOn);
         notifyReconnectTransitions(snapshot);
+
+        // Auto-connect on arrival when BLE is ready and no gloves are connecting/connected.
+        if (permissionsOk && bluetoothOn && !snapshot.isAnyGloveConnected()
+                && !snapshot.isAnyGloveConnecting() && !autoConnectRequestedThisVisit) {
+            autoConnectRequestedThisVisit = true;
+            BleSessionManager.maybeStartAutoConnect();
+        }
 
         // Auto-navigate to Play when both gloves are connected.
         if (snapshot.areBothGlovesConnected()) {

@@ -401,20 +401,23 @@ public class MainActivity extends AppCompatActivity {
         binding.btnDelay.setCheckable(true);
         binding.btnDistortion.setCheckable(true);
 
-        // Scale chip group — push to foreground engine AND background service
-        binding.chipGroupScale.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (checkedIds.isEmpty()) return;
-            int id = checkedIds.get(0);
+        // Scale buttons — push to foreground engine AND background service
+        View.OnClickListener scaleClick = v -> {
             String scale;
-            if      (id == R.id.chipMajor)      scale = AppSettings.SCALE_MAJOR;
-            else if (id == R.id.chipMinor)      scale = AppSettings.SCALE_MINOR;
-            else if (id == R.id.chipPentatonic) scale = AppSettings.SCALE_PENTATONIC;
-            else                                scale = AppSettings.SCALE_CHROMATIC;
+            if      (v.getId() == R.id.btnScaleMajor)      scale = AppSettings.SCALE_MAJOR;
+            else if (v.getId() == R.id.btnScaleMinor)      scale = AppSettings.SCALE_MINOR;
+            else if (v.getId() == R.id.btnScalePentatonic) scale = AppSettings.SCALE_PENTATONIC;
+            else                                           scale = AppSettings.SCALE_CHROMATIC;
             if (audioEngine != null) audioEngine.setActiveScale(scale);
             ThereminBackgroundAudioService.setActiveScale(scale);
             saveScaleSetting(scale);
+            updateScaleButtons(scale);
             appendLogSafe("Scale -> " + scale);
-        });
+        };
+        binding.btnScaleChromatic.setOnClickListener(scaleClick);
+        binding.btnScaleMajor.setOnClickListener(scaleClick);
+        binding.btnScaleMinor.setOnClickListener(scaleClick);
+        binding.btnScalePentatonic.setOnClickListener(scaleClick);
 
         // Octave shift buttons
         binding.btnOctaveDown.setOnClickListener(v -> {
@@ -628,15 +631,20 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void updateScaleChips(String scale) {
-        int id;
-        switch (scale) {
-            case AppSettings.SCALE_MAJOR:      id = R.id.chipMajor; break;
-            case AppSettings.SCALE_MINOR:      id = R.id.chipMinor; break;
-            case AppSettings.SCALE_PENTATONIC: id = R.id.chipPentatonic; break;
-            default:                           id = R.id.chipChromatic; break;
+    private void updateScaleButtons(String scale) {
+        com.google.android.material.button.MaterialButton[] scaleBtns = {
+            binding.btnScaleChromatic, binding.btnScaleMajor,
+            binding.btnScaleMinor, binding.btnScalePentatonic
+        };
+        String[] scales = {
+            AppSettings.SCALE_CHROMATIC, AppSettings.SCALE_MAJOR,
+            AppSettings.SCALE_MINOR, AppSettings.SCALE_PENTATONIC
+        };
+        for (int i = 0; i < scaleBtns.length; i++) {
+            boolean active = scales[i].equals(scale);
+            scaleBtns[i].setTextColor(active ? 0xFF00FF9D : 0xFF555777);
+            scaleBtns[i].setBackgroundColor(active ? 0x1400FF9D : 0x00000000);
         }
-        binding.chipGroupScale.check(id);
     }
 
     private void updateOctaveLabel() {
@@ -867,7 +875,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadSpring3Settings(AppSettings s) {
         String scale = s.activeScale != null ? s.activeScale : AppSettings.SCALE_CHROMATIC;
-        updateScaleChips(scale);
+        updateScaleButtons(scale);
         if (audioEngine != null) audioEngine.setActiveScale(scale);
         ThereminBackgroundAudioService.setActiveScale(scale);
 

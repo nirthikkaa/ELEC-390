@@ -532,50 +532,83 @@
                             android:fontFamily="monospace"
                             android:layout_marginBottom="4dp" />
 
-                        <HorizontalScrollView
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:scrollbars="none">
+                            android:orientation="horizontal">
 
-                            <com.google.android.material.chip.ChipGroup
-                                android:id="@+id/chipGroupScale"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                app:singleSelection="true"
-                                app:selectionRequired="true"
-                                app:chipSpacingHorizontal="4dp">
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnScaleChromatic"
+                                android:layout_width="0dp"
+                                android:layout_height="32dp"
+                                android:layout_weight="1"
+                                android:text="CHROM"
+                                android:textSize="9sp"
+                                android:textColor="#00FF9D"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="0dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
 
-                                <com.google.android.material.chip.Chip
-                                    android:id="@+id/chipChromatic"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Chromatic"
-                                    android:checked="true"
-                                    style="@style/Widget.Material3.Chip.Filter" />
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnScaleMajor"
+                                android:layout_width="0dp"
+                                android:layout_height="32dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="MAJOR"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="0dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
 
-                                <com.google.android.material.chip.Chip
-                                    android:id="@+id/chipMajor"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Major"
-                                    style="@style/Widget.Material3.Chip.Filter" />
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnScaleMinor"
+                                android:layout_width="0dp"
+                                android:layout_height="32dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="MINOR"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="0dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
 
-                                <com.google.android.material.chip.Chip
-                                    android:id="@+id/chipMinor"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Minor"
-                                    style="@style/Widget.Material3.Chip.Filter" />
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnScalePentatonic"
+                                android:layout_width="0dp"
+                                android:layout_height="32dp"
+                                android:layout_weight="1"
+                                android:layout_marginStart="5dp"
+                                android:text="PENTA"
+                                android:textSize="9sp"
+                                android:textColor="#555777"
+                                android:fontFamily="monospace"
+                                android:letterSpacing="0.05"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:cornerRadius="4dp"
+                                app:strokeColor="#333355"
+                                app:strokeWidth="0dp"
+                                style="@style/Widget.Material3.Button.OutlinedButton" />
 
-                                <com.google.android.material.chip.Chip
-                                    android:id="@+id/chipPentatonic"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Pentatonic"
-                                    style="@style/Widget.Material3.Chip.Filter" />
-
-                            </com.google.android.material.chip.ChipGroup>
-                        </HorizontalScrollView>
+                        </LinearLayout>
 
                         <View android:layout_width="match_parent" android:layout_height="1dp"
                             android:background="#1A2A1A" android:layout_marginTop="8dp" android:layout_marginBottom="8dp" />
