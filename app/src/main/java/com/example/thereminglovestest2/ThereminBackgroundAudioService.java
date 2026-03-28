@@ -50,8 +50,9 @@ public class ThereminBackgroundAudioService extends Service {
     private static volatile float   bgDelayMix          = 0.4f;
     private static volatile boolean bgDistortionEnabled = false;
     private static volatile float   bgDistortionGain    = 3.0f;
-    private static volatile boolean bgDrumEnabled       = false;
-    private static volatile boolean bgBassEnabled       = false;
+    private static volatile boolean bgDrumEnabled          = false;
+    private static volatile boolean bgBassEnabled          = false;
+    private static volatile float   bgSensitivityMult      = 1.0f;
 
     public static boolean isServiceActive()  { return serviceActive; }
     public static boolean isThereminMuted()  { return thereminMuted; }
@@ -104,6 +105,10 @@ public class ThereminBackgroundAudioService extends Service {
      */
     public static void setOctaveShift(int shift) {
         octaveShift = Math.max(-2, Math.min(2, shift));
+    }
+
+    public static void setSensitivityMultiplier(float mult) {
+        bgSensitivityMult = Math.max(0.1f, Math.min(3.0f, mult));
     }
 
     /** Sprint 3: Returns the current octave shift value. */
@@ -251,10 +256,22 @@ public class ThereminBackgroundAudioService extends Service {
 
     private void pushTargets(BleSnapshot s, AppSettings a) {
         AppSettings active = calibrationPreviewSettings != null ? calibrationPreviewSettings : a;
+        float sens = bgSensitivityMult;
+
+        float pitchMid  = (active.pitchAngleMinDeg + active.pitchAngleMaxDeg) / 2f;
+        float pitchSpan = (active.pitchAngleMaxDeg - active.pitchAngleMinDeg) * sens;
+        float effPitchMin = pitchMid - pitchSpan / 2f;
+        float effPitchMax = pitchMid + pitchSpan / 2f;
+
+        float volMid  = (active.volumeAngleMinDeg + active.volumeAngleMaxDeg) / 2f;
+        float volSpan = (active.volumeAngleMaxDeg - active.volumeAngleMinDeg) * sens;
+        float effVolMin = volMid - volSpan / 2f;
+        float effVolMax = volMid + volSpan / 2f;
+
         float freq = map(s != null ? s.pitchActiveDeltaDeg : 0f,
-                active.pitchAngleMinDeg, active.pitchAngleMaxDeg, active.freqMinHz, active.freqMaxHz);
+                effPitchMin, effPitchMax, active.freqMinHz, active.freqMaxHz);
         float volume = map(s != null ? s.volumeActiveDeltaDeg : 0f,
-                active.volumeAngleMinDeg, active.volumeAngleMaxDeg, 0f, 1f);
+                effVolMin, effVolMax, 0f, 1f);
 
         boolean pitchOk = s != null && s.isPitchConnected() && active.pitchEnabled;
         boolean volumeOk = s != null && s.isVolumeConnected() && active.volumeEnabled;

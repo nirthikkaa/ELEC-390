@@ -1243,7 +1243,9 @@ public class MainActivity extends AppCompatActivity {
     private void reloadMappingSettingsFromRepository() {
         AppSettings settings = store().load();
         play.load(settings);
-        play.setSensitivityMultiplier(AppSettings.levelToMultiplier(settings.sensitivityLevel));
+        float sensitivityMult = AppSettings.levelToMultiplier(settings.sensitivityLevel);
+        play.setSensitivityMultiplier(sensitivityMult);
+        ThereminBackgroundAudioService.setSensitivityMultiplier(sensitivityMult);
         audioEngine.setToneType(play.currentToneType);
         updateToneButton();
         loadSpring3Settings(settings);
@@ -1363,6 +1365,10 @@ public class MainActivity extends AppCompatActivity {
 
         play.syncLive(snapshot);
         play.recompute(snapshot);
+        // When foreground engine is active (no service), push updated targets every tick.
+        if (!isServiceOwningAudio() && isAudioRunning()) {
+            audioEngine.setTargets(play.audioTargetFreqHz, play.audioTargetVolumeLinear);
+        }
 
         String freqText = PlayUiText.frequency(play.mappedFreqHz);
         String volText  = PlayUiText.volume(play.mappedVolumeLinear);

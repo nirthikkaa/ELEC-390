@@ -58,7 +58,7 @@ public class RecordingRepository {
 
     private static final class DbHelper extends SQLiteOpenHelper {
         private static final String DB_NAME = "recordings.db";
-        private static final int DB_VERSION = 3;
+        private static final int DB_VERSION = 4;
 
         DbHelper(Context context) {
             super(context.getApplicationContext(), DB_NAME, null, DB_VERSION);
@@ -91,11 +91,35 @@ public class RecordingRepository {
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "name TEXT NOT NULL, " +
                         "created_at_ms INTEGER NOT NULL)");
-                db.execSQL("ALTER TABLE recordings ADD COLUMN folder_id INTEGER NOT NULL DEFAULT -1");
+                addColumnIfMissing(db, "recordings", "folder_id", "INTEGER NOT NULL DEFAULT -1");
             }
             if (oldVersion < 3) {
-                db.execSQL("ALTER TABLE recordings ADD COLUMN quality TEXT NOT NULL DEFAULT ''");
+                addColumnIfMissing(db, "recordings", "quality", "TEXT NOT NULL DEFAULT ''");
             }
+            // v4: no schema changes — version bump only.
+        }
+
+        /** Never crash on downgrade — wipe and recreate so the app stays usable. */
+        @Override
+        public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+            db.execSQL("DROP TABLE IF EXISTS recordings");
+            db.execSQL("DROP TABLE IF EXISTS folders");
+            onCreate(db);
+        }
+
+        private static void addColumnIfMissing(SQLiteDatabase db, String table,
+                                               String column, String def) {
+            android.database.Cursor c = db.rawQuery(
+                    "PRAGMA table_info(" + table + ")", null);
+            boolean found = false;
+            if (c != null) {
+                int nameIdx = c.getColumnIndex("name");
+                while (c.moveToNext()) {
+                    if (nameIdx >= 0 && column.equals(c.getString(nameIdx))) { found = true; break; }
+                }
+                c.close();
+            }
+            if (!found) db.execSQL("ALTER TABLE " + table + " ADD COLUMN " + column + " " + def);
         }
     }
 
