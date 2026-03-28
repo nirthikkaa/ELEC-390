@@ -269,6 +269,7 @@ public class ThereminBackgroundAudioService extends Service {
         if (drumEngine != null) {
             drumEngine.setEnabled(bgDrumEnabled);
             drumEngine.setBassEnabled(bgBassEnabled);
+            drumEngine.setPaused(thereminMuted);
         }
 
         // Sprint 3: Forward scale lock + effects to the background audio engine every tick.

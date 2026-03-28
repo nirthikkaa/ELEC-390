@@ -35,6 +35,20 @@ final class PlayUiText {
         return String.format(Locale.US, "Volume level • %d%%", percent);
     }
 
+    /** Compact vol for stage-mode top bar pill, e.g. "42%". */
+    static String stageVol(float volumeLinear) {
+        int pct = Math.round(Math.max(0f, Math.min(1f, volumeLinear)) * 100f);
+        return pct + "%";
+    }
+
+    /** Compact freq for stage-mode top bar pill, e.g. "440 Hz" or "1.2 kHz". */
+    static String stageFreq(float freqHz) {
+        float f = Math.max(PlayMappingState.FREQ_MIN_UI, freqHz);
+        return f >= 1000f
+                ? String.format(Locale.US, "%.1f kHz", f / 1000f)
+                : String.format(Locale.US, "%.0f Hz", f);
+    }
+
     static String tone(boolean bothConnected, float mappedFreqHz, float mappedVolumeLinear) {
         if (!bothConnected) return "Connect both gloves to start shaping sound.";
         if (mappedVolumeLinear <= 0.01f) {

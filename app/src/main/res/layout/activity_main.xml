@@ -37,7 +37,7 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeColor="#26304F"
-                app:strokeWidth="1dp">
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -92,49 +92,12 @@
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/rowFreqVol"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:baselineAligned="false"
                         android:orientation="horizontal">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:background="#16203B"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
-                            android:paddingStart="12dp"
-                            android:paddingTop="6dp"
-                            android:paddingEnd="12dp"
-                            android:paddingBottom="6dp">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="HZ"
-                                android:textAllCaps="true"
-                                android:textColor="#7FC0FF"
-                                android:textSize="8sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvFreqDisplay"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:layout_marginStart="6dp"
-                                android:gravity="end"
-                                android:text="—"
-                                android:textColor="#F5FAFF"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-
-                        <Space
-                            android:layout_width="6dp"
-                            android:layout_height="1dp" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -169,12 +132,51 @@
                                 android:textSize="13sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
+
+                        <Space
+                            android:layout_width="6dp"
+                            android:layout_height="1dp" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:background="#16203B"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="12dp"
+                            android:paddingTop="6dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="6dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="HZ"
+                                android:textAllCaps="true"
+                                android:textColor="#7FC0FF"
+                                android:textSize="8sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvFreqDisplay"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="6dp"
+                                android:gravity="end"
+                                android:text="—"
+                                android:textColor="#F5FAFF"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
                     </LinearLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardVisualizer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -192,6 +194,18 @@
                         android:id="@+id/thereminVisualizerView"
                         android:layout_width="386dp"
                         android:layout_height="307dp" />
+
+                    <!-- Floating exit button — only visible in stage mode -->
+                    <Button
+                        android:id="@+id/btnExitStage"
+                        style="?attr/borderlessButtonStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|end"
+                        android:layout_margin="6dp"
+                        android:text="Exit Stage"
+                        android:textSize="9sp"
+                        android:visibility="gone" />
                 </FrameLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -203,6 +217,7 @@
                 android:text="hidden" />
 
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardControls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
@@ -210,7 +225,7 @@
                 app:cardCornerRadius="22dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/app_outline"
-                app:strokeWidth="1dp">
+                app:strokeWidth="0dp">
 
                 <!-- Three-button row: Record | Play | Tone -->
                 <LinearLayout
@@ -260,7 +275,7 @@
                                 app:iconTint="@color/white"
                                 app:rippleColor="#99FF8A8A"
                                 app:strokeColor="#FFF2A7A7"
-                                app:strokeWidth="2dp" />
+                                app:strokeWidth="0dp" />
 
                         </FrameLayout>
 
@@ -326,7 +341,7 @@
                                 app:iconTint="@color/app_on_primary"
                                 app:rippleColor="#99E9F4FF"
                                 app:strokeColor="#FFE4F2FF"
-                                app:strokeWidth="2dp" />
+                                app:strokeWidth="0dp" />
 
                         </FrameLayout>
 
@@ -394,7 +409,7 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeColor="#1A2A1A"
-                app:strokeWidth="1dp">
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -442,7 +457,7 @@
                             android:insetBottom="0dp"
                             android:padding="0dp"
                             app:strokeColor="#00FF9D"
-                            app:strokeWidth="1dp"
+                            app:strokeWidth="0dp"
                             app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
@@ -469,7 +484,7 @@
                             android:insetBottom="0dp"
                             android:padding="0dp"
                             app:strokeColor="#00FF9D"
-                            app:strokeWidth="1dp"
+                            app:strokeWidth="0dp"
                             app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
@@ -489,7 +504,7 @@
                             android:paddingStart="8dp"
                             android:paddingEnd="8dp"
                             app:strokeColor="#00FF9D"
-                            app:strokeWidth="1dp"
+                            app:strokeWidth="0dp"
                             app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
@@ -587,7 +602,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                             <com.google.android.material.button.MaterialButton
@@ -605,7 +620,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                             <com.google.android.material.button.MaterialButton
@@ -623,7 +638,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                             <com.google.android.material.button.MaterialButton
@@ -641,7 +656,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
@@ -668,7 +683,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                             <com.google.android.material.button.MaterialButton
@@ -686,7 +701,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                             <com.google.android.material.button.MaterialButton
@@ -704,7 +719,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                             <com.google.android.material.button.MaterialButton
@@ -722,7 +737,7 @@
                                 android:insetBottom="0dp"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#333355"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
@@ -856,7 +871,7 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeColor="#2A1A4A"
-                app:strokeWidth="1dp">
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -960,7 +975,7 @@
                                 android:fontFamily="monospace"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#CC44FF"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
@@ -1027,7 +1042,7 @@
                                 android:fontFamily="monospace"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#00E5FF"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
@@ -1094,7 +1109,7 @@
                                 android:fontFamily="monospace"
                                 app:cornerRadius="4dp"
                                 app:strokeColor="#FF6600"
-                                app:strokeWidth="1dp"
+                                app:strokeWidth="0dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
                         </LinearLayout>
@@ -1113,7 +1128,7 @@
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeColor="#1A2A3A"
-                app:strokeWidth="1dp">
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -1171,7 +1186,7 @@
                             android:paddingStart="10dp"
                             android:paddingEnd="10dp"
                             app:strokeColor="#00CCFF"
-                            app:strokeWidth="1dp"
+                            app:strokeWidth="0dp"
                             app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
@@ -1212,7 +1227,7 @@
                             android:paddingStart="10dp"
                             android:paddingEnd="10dp"
                             app:strokeColor="#00CCFF"
-                            app:strokeWidth="1dp"
+                            app:strokeWidth="0dp"
                             app:cornerRadius="4dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
                     </LinearLayout>
@@ -1307,7 +1322,7 @@
                 app:cardCornerRadius="22dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/app_outline"
-                app:strokeWidth="1dp">
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"

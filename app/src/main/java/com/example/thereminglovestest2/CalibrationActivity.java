@@ -3,7 +3,9 @@ package com.example.thereminglovestest2;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.InputType;
+import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -30,6 +32,7 @@ public class CalibrationActivity extends AppCompatActivity {
     private boolean pitchDirectionInverted = AppSettings.DEFAULT_PITCH_DIRECTION_INVERTED;
     private boolean volumeDirectionInverted = AppSettings.DEFAULT_VOLUME_DIRECTION_INVERTED;
     private boolean hasUnsavedChanges, pitchNeutralCapturedThisVisit, volumeNeutralCapturedThisVisit, calibrationGuideLearned;
+    private boolean showingPitchPage = true; // which calibration page is active
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +85,53 @@ public class CalibrationActivity extends AppCompatActivity {
         binding.btnDefaults.setOnClickListener(v -> restoreDefaults());
         binding.btnReload.setOnClickListener(v -> reloadSavedSettings());
         binding.btnSaveAndPlay.setOnClickListener(v -> saveAndPlay());
+        setupCalibrationTabs();
+    }
+
+    private void setupCalibrationTabs() {
+        binding.tabPitch.setOnClickListener(v -> selectCalibrationPage(true));
+        binding.tabVolume.setOnClickListener(v -> selectCalibrationPage(false));
+
+        // Swipe left on pitch card → go to volume; swipe right on volume card → go to pitch
+        GestureDetector swipe = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            private static final float MIN_DIST = 80f;
+            private static final float MIN_VEL  = 200f;
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float vX, float vY) {
+                if (e1 == null || e2 == null) return false;
+                float dx = e2.getX() - e1.getX();
+                if (Math.abs(dx) < MIN_DIST || Math.abs(vX) < MIN_VEL
+                        || Math.abs(dx) < Math.abs(e2.getY() - e1.getY())) return false;
+                if (dx < 0 && showingPitchPage) { selectCalibrationPage(false); return true; }
+                if (dx > 0 && !showingPitchPage) { selectCalibrationPage(true);  return true; }
+                return false;
+            }
+        });
+        View.OnTouchListener swipeTouchListener = (v, e) -> { swipe.onTouchEvent(e); return false; };
+        binding.cardPitch.setOnTouchListener(swipeTouchListener);
+        binding.cardVolume.setOnTouchListener(swipeTouchListener);
+
+        // Apply initial state
+        applyCalibrationPageVisibility();
+    }
+
+    private void selectCalibrationPage(boolean pitch) {
+        showingPitchPage = pitch;
+        applyCalibrationPageVisibility();
+    }
+
+    private void applyCalibrationPageVisibility() {
+        binding.cardPitch.setVisibility(showingPitchPage ? View.VISIBLE : View.GONE);
+        binding.cardVolume.setVisibility(showingPitchPage ? View.GONE : View.VISIBLE);
+
+        int activeColor   = 0xFFFFFFFF;
+        int inactiveColor = 0xFF888AAA;
+        binding.tabPitch.setTextColor(showingPitchPage ? activeColor : inactiveColor);
+        binding.tabVolume.setTextColor(showingPitchPage ? inactiveColor : activeColor);
+        binding.tabPitch.setStrokeColor(android.content.res.ColorStateList.valueOf(
+                showingPitchPage ? 0xFF6699FF : 0xFF444466));
+        binding.tabVolume.setStrokeColor(android.content.res.ColorStateList.valueOf(
+                showingPitchPage ? 0xFF444466 : 0xFF6699FF));
     }
 
     private void setupAngleKnob(KnobControlView knob, String label, FloatGetter getter, FloatSetter setter) {

@@ -3,6 +3,7 @@ package com.example.thereminglovestest2;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.Typeface;
 import android.graphics.PorterDuff;
 import android.os.Handler;
@@ -36,6 +37,11 @@ public class TopNavBarView extends LinearLayout {
     private       ImageButton overflowButton;
     private       ImageButton volHandBtn;    // left hand  — volume glove
     private       ImageButton pitchHandBtn;  // right hand — pitch glove
+    // Stage mode: mini VOL / HZ cards that mirror the play screen aesthetic
+    private LinearLayout stageVolCard;
+    private LinearLayout stageFreqCard;
+    private TextView stageVolValue;
+    private TextView stageFreqValue;
 
     public TopNavBarView(Context context) { this(context, null); }
     public TopNavBarView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
@@ -96,10 +102,57 @@ public class TopNavBarView extends LinearLayout {
 
         overflowButton = iconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material, "More options", this::showMenu, onSurface);
         rightContainer.addView(overflowButton, new LayoutParams(dp(40), dp(40)));
+
+        // Stage mode: VOL card on left, HZ card on right — same aesthetic as play screen pills
+        stageVolCard  = stageMiniCard(context, "VOL", 0xFF221A3F, 0xFFFF8ED1);
+        stageVolValue = stageValView(stageVolCard, 0xFFFFF7FC);
+        leftContainer.addView(stageVolCard, 0,
+                new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
+        stageFreqCard  = stageMiniCard(context, "HZ", 0xFF16203B, 0xFF7FC0FF);
+        stageFreqValue = stageValView(stageFreqCard, 0xFFF5FAFF);
+        rightContainer.addView(stageFreqCard, 0,
+                new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
         ViewCompat.requestApplyInsets(this);
     }
 
     public void setTitleText(String title) { titleView.setText(title); }
+
+    /**
+     * Enter or exit stage mode. Title becomes invisible (still holds center space so cards
+     * stay on opposite edges of the camera cutout). VOL and HZ mini-cards become visible.
+     * Does NOT touch the overflow button — callers manage that independently.
+     */
+    // In stage mode the glove buttons are hidden; setGloveStatus() updates colors but not visibility.
+    private boolean inStageMode = false;
+    private int     lastPitchColor = 0xFFFF4444; // default red = disconnected
+    private int     lastVolColor   = 0xFFFF4444;
+
+    public void setStageMode(boolean on) {
+        inStageMode = on;
+        // Keep titleView INVISIBLE (not GONE) so weight=1 still reserves center space between cards.
+        titleView.setVisibility(on ? INVISIBLE : VISIBLE);
+        if (stageVolCard  != null) stageVolCard.setVisibility(on ? VISIBLE : GONE);
+        if (stageFreqCard != null) stageFreqCard.setVisibility(on ? VISIBLE : GONE);
+        if (on) {
+            // Hide glove icons — VOL/HZ cards occupy the nav bar in their place.
+            volHandBtn.setVisibility(GONE);
+            pitchHandBtn.setVisibility(GONE);
+        } else {
+            // Restore glove icons with the last colours received from the poller.
+            pitchHandBtn.setColorFilter(lastPitchColor, PorterDuff.Mode.SRC_IN);
+            volHandBtn.setColorFilter(lastVolColor,     PorterDuff.Mode.SRC_IN);
+            pitchHandBtn.setVisibility(VISIBLE);
+            volHandBtn.setVisibility(VISIBLE);
+        }
+    }
+
+    /** Update the VOL / HZ readouts shown in the stage mode mini-cards. */
+    public void setStageFreqVol(String vol, String freq) {
+        if (stageVolValue  != null) stageVolValue.setText(vol);
+        if (stageFreqValue != null) stageFreqValue.setText(freq);
+    }
 
     /** Show or hide the back arrow. Pass false on screens where back navigation is irrelevant. */
     public void setBackButtonVisible(boolean visible) {
@@ -112,16 +165,19 @@ public class TopNavBarView extends LinearLayout {
     }
 
     /**
-     * Set glove connection indicator hand icon tints (and make them visible).
-     * Green = connected, amber = connecting, red = disconnected.
-     * @param pitchColor ARGB tint for the right-hand (pitch) icon
-     * @param volColor   ARGB tint for the left-hand (volume) icon
+     * Set glove connection indicator hand icon tints.
+     * In normal mode also makes the icons visible; in stage mode only caches the colours
+     * so they are correct when stage mode exits.
      */
     public void setGloveStatus(int pitchColor, int volColor) {
+        lastPitchColor = pitchColor;
+        lastVolColor   = volColor;
         pitchHandBtn.setColorFilter(pitchColor, PorterDuff.Mode.SRC_IN);
         volHandBtn.setColorFilter(volColor,     PorterDuff.Mode.SRC_IN);
-        pitchHandBtn.setVisibility(VISIBLE);
-        volHandBtn.setVisibility(VISIBLE);
+        if (!inStageMode) {
+            pitchHandBtn.setVisibility(VISIBLE);
+            volHandBtn.setVisibility(VISIBLE);
+        }
     }
 
     /** Override the 3-dot button's click listener. Pass null to restore the default menu. */
@@ -172,6 +228,42 @@ public class TopNavBarView extends LinearLayout {
         btn.setVisibility(GONE); // hidden until setGloveStatus() is called
         btn.setContentDescription(isRight ? "Pitch glove" : "Volume glove");
         return btn;
+    }
+
+    /** Creates the pill-shaped background card used in stage mode (matches play screen aesthetic). */
+    private LinearLayout stageMiniCard(Context ctx, String label, int bgColor, int labelColor) {
+        LinearLayout card = new LinearLayout(ctx);
+        card.setOrientation(HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(bgColor);
+        bg.setCornerRadius(dp(14));
+        card.setBackground(bg);
+        card.setPadding(dp(14), dp(8), dp(14), dp(8));
+        card.setVisibility(GONE);
+
+        TextView lbl = new TextView(ctx);
+        lbl.setText(label);
+        lbl.setTextSize(11f);
+        lbl.setTypeface(lbl.getTypeface(), Typeface.BOLD);
+        lbl.setTextColor(labelColor);
+        lbl.setAllCaps(true);
+        card.addView(lbl, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
+        return card;
+    }
+
+    /** Adds the value TextView to a stage mini-card and returns it. */
+    private TextView stageValView(LinearLayout card, int textColor) {
+        TextView val = new TextView(card.getContext());
+        val.setTextSize(18f);
+        val.setTypeface(val.getTypeface(), Typeface.BOLD);
+        val.setTextColor(textColor);
+        val.setText("—");
+        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = dp(7);
+        card.addView(val, lp);
+        return val;
     }
 
     private ImageButton iconButton(int iconRes, String desc, OnClickListener click, int tint) {

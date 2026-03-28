@@ -84,6 +84,7 @@ public class DrumEngine {
 
     private volatile boolean enabled          = false;
     private volatile boolean bassEnabled      = false;
+    private volatile boolean paused           = false;
     private volatile int     bpm             = 120;
     private volatile int     drumPatternIdx  = 0;
     private volatile int     bassPatternIdx  = 0;
@@ -296,11 +297,21 @@ public class DrumEngine {
     public DrumEngine(Context context) {
         this();
         if (context != null) {
-            try {
-                loadBundledSamples(context.getApplicationContext().getResources());
-            } catch (Exception ignored) {
-                // Keep synthesized fallback sounds when bundled samples cannot be decoded.
-            }
+            // Load bundled WAV samples on a background thread so the constructor returns
+            // immediately. Synthesized fallback sounds (from this()) are used until loading
+            // completes. Java reference writes are atomic, so the audio thread safely picks
+            // up the new samples without a lock.
+            final android.content.res.Resources res =
+                    context.getApplicationContext().getResources();
+            Thread loader = new Thread(() -> {
+                try {
+                    loadBundledSamples(res);
+                } catch (Exception ignored) {
+                    // Keep synthesized fallback sounds if WAV decoding fails.
+                }
+            }, "DrumSampleLoader");
+            loader.setDaemon(true);
+            loader.start();
         }
     }
 
@@ -700,6 +711,16 @@ public class DrumEngine {
         // Record the time this tick should have fired (not when it actually ran, to prevent drift)
         lastTickMs += intervalMs();
 
+        // Advance step counter regardless — keeps timing stable even when muted.
+        if (paused) {
+            step = (step + 1) % 16;
+            long nextInterval = intervalMs();
+            long delay = Math.max(0L, lastTickMs + nextInterval - System.currentTimeMillis());
+            ScheduledExecutorService s = scheduler;
+            if (s != null && !s.isShutdown()) s.schedule(this::tick, delay, TimeUnit.MILLISECONDS);
+            return;
+        }
+
         boolean[][] customGrid = customDrumGrid;
         if (customPatternActive && customGrid != null) {
             // Beat Maker custom pattern: rows map to ROW_SOUNDS order
@@ -896,6 +917,7 @@ public class DrumEngine {
         if (!on) clearActiveVoices();
     }
     public boolean isEnabled()             { return enabled; }
+    public void setPaused(boolean on)      { paused = on; }
 
     public void setBassEnabled(boolean on) {
         bassEnabled = on;

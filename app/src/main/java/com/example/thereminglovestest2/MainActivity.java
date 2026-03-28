@@ -34,6 +34,9 @@ import androidx.core.content.ContextCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityMainBinding;
 
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
@@ -109,6 +112,12 @@ public class MainActivity extends AppCompatActivity {
     private boolean waitingForServiceToStop;
     private boolean performanceModeActive = false;
     private boolean lastAudioRunningState = false; // cache for updateAudioStatusText change-check
+    private int lastGlovePitchColor = 0; // cache for setGloveStatus change-guard
+    private int lastGloveVolColor   = 0;
+    private String lastNavTitle = "";    // cache for setTitleText change-guard
+    private String lastFreqText = "";   // cache for tvFreqDisplay change-guard
+    private String lastVolText  = "";   // cache for tvVolDisplay change-guard
+    private String lastToneText = "";   // cache for tvToneValue change-guard
     private long lastLogFlushMs;
     private long recordingStartElapsedMs;
     private ObjectAnimator recordBlinkAnimator;
@@ -167,11 +176,8 @@ public class MainActivity extends AppCompatActivity {
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootScroll, (v, insets) -> {
             int sideInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).left;
             int rightInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).right;
-            int topInset = Math.max(
-                    insets.getInsets(WindowInsetsCompat.Type.systemBars()).top,
-                    insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top);
-            int extraTop = performanceModeActive ? topInset + dp(8) : 0;
-            v.setPadding(sideInset, baseRootScrollTopPadding + extraTop, rightInset, v.getPaddingBottom());
+            // TopNavBarView handles its own camera/status-bar insets; scroll content needs no extra top gap.
+            v.setPadding(sideInset, baseRootScrollTopPadding, rightInset, v.getPaddingBottom());
             return insets;
         });
         ViewCompat.requestApplyInsets(binding.rootScroll);
@@ -233,6 +239,7 @@ public class MainActivity extends AppCompatActivity {
         playUiVisible = false;
         uiTicker.stop();
         if (!isChangingConfigurations() && !bgAudioEnabled && isAudioRunning()) audioEngine.stop();
+        if (!isChangingConfigurations()) pendingAutoStartAudio = false;
     }
 
     @Override
@@ -334,9 +341,36 @@ public class MainActivity extends AppCompatActivity {
         binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
         binding.btnRecord.setOnClickListener(v -> onRecordButtonPressed());
         binding.btnPerformanceMode.setOnClickListener(v -> togglePerformanceMode());
+        binding.btnExitStage.setOnClickListener(v -> togglePerformanceMode());
 
         binding.toneKnob.setToneSequence(TONE_CYCLE);
         binding.toneKnob.setOnToneStepListener(this::cycleTone);
+
+        // Swipe left on the visualizer to open Beat Maker
+        GestureDetector swipeDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            private static final float MIN_SWIPE_DIST = 80f;
+            private static final float MIN_SWIPE_VEL  = 200f;
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float vX, float vY) {
+                if (e1 == null || e2 == null) return false;
+                float dx = e2.getX() - e1.getX();
+                if (dx < -MIN_SWIPE_DIST && Math.abs(vX) > MIN_SWIPE_VEL
+                        && Math.abs(dx) > Math.abs(e2.getY() - e1.getY())) {
+                    int editSlot = 0;
+                    for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
+                    Intent bm = new Intent(MainActivity.this, BeatMakerActivity.class);
+                    bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, editSlot);
+                    beatMakerLauncher.launch(bm);
+                    return true;
+                }
+                return false;
+            }
+        });
+        binding.thereminVisualizerView.setOnTouchListener((v, e) -> {
+            swipeDetector.onTouchEvent(e);
+            return true; // consume so gesture detector receives the full DOWN→MOVE→UP sequence
+        });
+
         wireSpring3Controls();
     }
 
@@ -1302,17 +1336,33 @@ public class MainActivity extends AppCompatActivity {
         play.syncLive(snapshot);
         play.recompute(snapshot);
 
-        binding.tvFreqDisplay.setText(PlayUiText.frequency(play.mappedFreqHz));
-        binding.tvVolDisplay.setText(PlayUiText.volume(play.mappedVolumeLinear));
-        binding.tvToneValue.setText(PlayUiText.tone(bothConnected, play.mappedFreqHz, play.mappedVolumeLinear));
+        String freqText = PlayUiText.frequency(play.mappedFreqHz);
+        String volText  = PlayUiText.volume(play.mappedVolumeLinear);
+        String toneText = PlayUiText.tone(bothConnected, play.mappedFreqHz, play.mappedVolumeLinear);
+        if (!freqText.equals(lastFreqText)) { lastFreqText = freqText; binding.tvFreqDisplay.setText(freqText); }
+        if (!volText.equals(lastVolText))   { lastVolText  = volText;  binding.tvVolDisplay.setText(volText); }
+        if (performanceModeActive) binding.topNavBar.setStageFreqVol(
+                PlayUiText.stageVol(play.mappedVolumeLinear),
+                PlayUiText.stageFreq(play.mappedFreqHz));
+        if (!toneText.equals(lastToneText)) { lastToneText = toneText; binding.tvToneValue.setText(toneText); }
 
-        // Update top nav bar: glove dots + dynamic title
+        // Update top nav bar: glove dots + dynamic title — only when state actually changes
         boolean audioOn = isAudioRunning() || isServiceOwningAudio();
-        binding.topNavBar.setGloveStatus(gloveColor(snapshot, true), gloveColor(snapshot, false));
-        binding.topNavBar.setTitleText(audioOn && bothConnected ? "Ready to Play"
+        int pitchColor = gloveColor(snapshot, true);
+        int volColor   = gloveColor(snapshot, false);
+        if (pitchColor != lastGlovePitchColor || volColor != lastGloveVolColor) {
+            lastGlovePitchColor = pitchColor;
+            lastGloveVolColor   = volColor;
+            binding.topNavBar.setGloveStatus(pitchColor, volColor);
+        }
+        String newTitle = audioOn && bothConnected ? "Ready to Play"
                 : audioOn && oneConnected  ? "One Glove Connected"
                 : audioOn                  ? "Connect Gloves"
-                : "Play");
+                : "Play";
+        if (!newTitle.equals(lastNavTitle)) {
+            lastNavTitle = newTitle;
+            binding.topNavBar.setTitleText(newTitle);
+        }
 
         maybeStartAudioAfterCalibration(bothConnected);
         updateAudioStatusText();
@@ -1368,6 +1418,8 @@ public class MainActivity extends AppCompatActivity {
         binding.btnAudioStart.setIconResource(running ? R.drawable.ic_pause_theremin : R.drawable.ic_play_theremin);
         binding.btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         binding.tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
+        // Pause foreground drum engine whenever theremin stops.
+        if (drumEngine != null) drumEngine.setPaused(!running);
     }
 
     private void appendLogSafe(String msg) {
@@ -1421,15 +1473,109 @@ public class MainActivity extends AppCompatActivity {
         if (label != null) btn.setText(label);
     }
 
+    // Saved state for restoring after stage mode exits.
+    private int savedVisualizerHeightPx    = -1;
+    private int savedVizMarginTopPx        = -1;
+    private int savedScrollContentPadTopPx = -1;
+
     private void applyPerformanceMode(boolean active) {
-        int hide = active ? View.GONE : View.VISIBLE;
+        binding.topNavBar.setStageMode(active);
+        binding.bottomNavBar.setVisibility(active ? View.GONE : View.VISIBLE);
+        binding.cardPlayHero.setVisibility(active ? View.GONE : View.VISIBLE);
+        // cardControls stays visible — it holds record, play, and tone knob.
+        binding.btnExitStage.setVisibility(active ? View.VISIBLE : View.GONE);
 
-        binding.topNavBar.setVisibility(hide);
-        binding.bottomNavBar.setVisibility(hide);
+        if (active) {
+            binding.rootScroll.scrollTo(0, 0); // reset any scroll offset before expanding
+            if (savedVisualizerHeightPx < 0)
+                savedVisualizerHeightPx = binding.thereminVisualizerView.getLayoutParams().height;
+            // Wait for cardPlayHero GONE layout pass, then expand.
+            binding.rootScroll.post(this::expandVisualizerForStage);
+        } else {
+            restoreVisualizerHeight();
+        }
 
-        binding.btnPerformanceMode.setText(active ? "Exit Stage" : "Stage View");
         applySystemUiMode(active);
         ViewCompat.requestApplyInsets(binding.rootScroll);
+    }
+
+    /**
+     * Expands the visualizer to fill the viewport flush under the nav bar.
+     * Pass 1: zero top padding/margin and request layout.
+     * Pass 2 (posted): measure updated heights and set visualizer height.
+     */
+    private void expandVisualizerForStage() {
+        int scrollH = binding.rootScroll.getHeight();
+        if (scrollH == 0) { binding.rootScroll.post(this::expandVisualizerForStage); return; }
+
+        boolean needsLayout = false;
+
+        // Zero out top padding on the scroll content LinearLayout.
+        android.view.View content = binding.rootScroll.getChildAt(0);
+        if (content != null && savedScrollContentPadTopPx < 0) {
+            savedScrollContentPadTopPx = content.getPaddingTop();
+            content.setPadding(content.getPaddingLeft(), 0,
+                               content.getPaddingRight(), content.getPaddingBottom());
+            needsLayout = true;
+        }
+
+        // Zero out the cardVisualizer top margin.
+        android.widget.LinearLayout.LayoutParams vizCardLp =
+            (android.widget.LinearLayout.LayoutParams) binding.cardVisualizer.getLayoutParams();
+        if (savedVizMarginTopPx < 0) {
+            savedVizMarginTopPx = vizCardLp.topMargin;
+            vizCardLp.topMargin = 0;
+            binding.cardVisualizer.setLayoutParams(vizCardLp);
+            needsLayout = true;
+        }
+
+        if (needsLayout) {
+            // Wait for the layout pass triggered by setLayoutParams before measuring heights.
+            binding.rootScroll.post(this::applyVisualizerStageHeight);
+        } else {
+            applyVisualizerStageHeight();
+        }
+    }
+
+    /** Pass 2: set the visualizer height after margins/paddings have been laid out. */
+    private void applyVisualizerStageHeight() {
+        int scrollH   = binding.rootScroll.getHeight();
+        int scrollPad = binding.rootScroll.getPaddingTop();
+        int ctrlsH    = binding.cardControls.getHeight();
+        int newH = scrollH - scrollPad - ctrlsH - dp(10) - dp(4); // 10dp = cardControls marginTop
+        newH = Math.max(dp(200), newH);
+
+        android.view.ViewGroup.LayoutParams lp = binding.thereminVisualizerView.getLayoutParams();
+        lp.height = newH;
+        binding.thereminVisualizerView.setLayoutParams(lp);
+    }
+
+    private void restoreVisualizerHeight() {
+        if (savedVisualizerHeightPx < 0) return;
+
+        // Restore visualizer height.
+        android.view.ViewGroup.LayoutParams lp = binding.thereminVisualizerView.getLayoutParams();
+        lp.height = savedVisualizerHeightPx;
+        binding.thereminVisualizerView.setLayoutParams(lp);
+        savedVisualizerHeightPx = -1;
+
+        // Restore cardVisualizer top margin.
+        if (savedVizMarginTopPx >= 0) {
+            android.widget.LinearLayout.LayoutParams vizCardLp =
+                (android.widget.LinearLayout.LayoutParams) binding.cardVisualizer.getLayoutParams();
+            vizCardLp.topMargin = savedVizMarginTopPx;
+            binding.cardVisualizer.setLayoutParams(vizCardLp);
+            savedVizMarginTopPx = -1;
+        }
+
+        // Restore scroll content top padding.
+        if (savedScrollContentPadTopPx >= 0) {
+            android.view.View content = binding.rootScroll.getChildAt(0);
+            if (content != null)
+                content.setPadding(content.getPaddingLeft(), savedScrollContentPadTopPx,
+                                   content.getPaddingRight(), content.getPaddingBottom());
+            savedScrollContentPadTopPx = -1;
+        }
     }
 
     private void applySystemUiMode(boolean fullscreen) {

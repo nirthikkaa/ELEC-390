@@ -28,7 +28,7 @@ public class LaunchActivity extends AppCompatActivity {
     private void openSetup() {
         if (started) return;
         started = true;
-        startActivity(new Intent(this, HomeActivity.class).addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION));
+        startActivity(new Intent(this, ConnectGlovesActivity.class).addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION));
         overridePendingTransition(0, 0);
         finish();
     }
