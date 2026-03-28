@@ -1495,17 +1495,16 @@ public class MainActivity extends AppCompatActivity {
     private void launchBeatMakerFromSwipe() {
         int editSlot = 0;
         for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
-        final int slot = editSlot;
-        // Animate preview fully on-screen, then launch
-        int screenW = binding.getRoot().getWidth();
-        bmPreview.animate().translationX(0).setDuration(120)
-                .withEndAction(() -> {
-                    binding.cardVisualizer.setTranslationX(0);
-                    bmPreview.setVisibility(android.view.View.GONE);
-                    Intent bm = new Intent(MainActivity.this, BeatMakerActivity.class);
-                    bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, slot);
-                    beatMakerLauncher.launch(bm);
-                }).start();
+        // Cancel any in-flight animations, reset views instantly, launch with no transition.
+        bmPreview.animate().cancel();
+        binding.cardVisualizer.animate().cancel();
+        binding.cardVisualizer.setTranslationX(0);
+        bmPreview.setVisibility(android.view.View.GONE);
+        Intent bm = new Intent(this, BeatMakerActivity.class);
+        bm.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+        bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, editSlot);
+        beatMakerLauncher.launch(bm,
+                androidx.core.app.ActivityOptionsCompat.makeCustomAnimation(this, 0, 0));
     }
 
     private void togglePerformanceMode() {
