@@ -35,6 +35,9 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private long lastBleActionMs = 0L;
     private static final long BLE_DEBOUNCE_MS = 1200L;
 
+    private int     consecutiveFullyConnectedPolls = 0;
+    private boolean autoNavigatedToPlayThisVisit   = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -113,6 +116,14 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         updateReadyText(snapshot, permissionsOk, bluetoothOn);
         updateButtons(snapshot, permissionsOk, bluetoothOn);
         notifyReconnectTransitions(snapshot);
+
+        // Auto-navigate to Play when both gloves are connected.
+        if (snapshot.areBothGlovesConnected()) {
+            consecutiveFullyConnectedPolls++;
+            if (consecutiveFullyConnectedPolls >= 1) openPlay();
+        } else {
+            consecutiveFullyConnectedPolls = 0;
+        }
     }
 
     private void notifyReconnectTransitions(BleSnapshot snapshot) {
@@ -137,6 +148,17 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         prevPitchConnecting = pitchConnecting;
         prevVolumeConnected = volumeConnected;
         prevVolumeConnecting = volumeConnecting;
+    }
+
+    private void openPlay() {
+        if (autoNavigatedToPlayThisVisit) return;
+        autoNavigatedToPlayThisVisit = true;
+        startActivity(new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+        overridePendingTransition(0, 0);
+        finish();
     }
 
     private void showPreparingState() {

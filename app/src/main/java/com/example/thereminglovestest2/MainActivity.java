@@ -199,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         onVisible(); // single call here; onStart no longer duplicates it
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
-        performanceModeActive = prefs.getBoolean("performance_mode_active", false);
+        // Stage mode is never restored on launch — always start in normal view.
         applyPerformanceMode(performanceModeActive);
         int densityLevel = prefs.getInt("pixel_density_level", 3);
         binding.thereminVisualizerView.setPixelDensityLevel(densityLevel);
@@ -1452,8 +1452,6 @@ public class MainActivity extends AppCompatActivity {
     private void togglePerformanceMode() {
         performanceModeActive = !performanceModeActive;
         applyPerformanceMode(performanceModeActive);
-        getSharedPreferences("theremin_prefs", MODE_PRIVATE)
-                .edit().putBoolean("performance_mode_active", performanceModeActive).apply();
     }
 
     /** Lights the DJ-console LED button: filled neon bg when on, transparent + border when off.
