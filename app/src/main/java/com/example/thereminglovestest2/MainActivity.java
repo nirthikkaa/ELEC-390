@@ -35,6 +35,9 @@ import androidx.core.content.ContextCompat;
 import com.example.thereminglovestest2.databinding.ActivityMainBinding;
 
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
+import android.view.animation.DecelerateInterpolator;
+import android.graphics.Rect;
 import android.view.Gravity;
 import android.graphics.Typeface;
 import android.widget.TextView;
@@ -115,8 +118,13 @@ public class MainActivity extends AppCompatActivity {
     private boolean performanceModeActive = false;
 
     // Beat Maker drag-to-open state
-    private float      bmDragStartX = Float.NaN;
-    private FrameLayout bmPreview;   // overlay panel that slides in from the right
+    private float          bmDragStartX      = Float.NaN;
+    private float          bmDragStartY      = Float.NaN;
+    private boolean        bmDragActive      = false;   // locked to horizontal
+    private boolean        bmDragIgnore      = false;   // locked to vertical / outside zone
+    private VelocityTracker bmVelocityTracker = null;
+    private final Rect     bmVisBounds       = new Rect(); // cached bounds of cardVisualizer
+    private FrameLayout bmPreview;   // full-screen overlay that slides in from the right
     private boolean lastAudioRunningState = false; // cache for updateAudioStatusText change-check
     private int lastGlovePitchColor = 0; // cache for setGloveStatus change-guard
     private int lastGloveVolColor   = 0;
@@ -204,7 +212,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         // Reset any drag translation left over if the user cancelled a swipe or returned from BeatMaker.
-        binding.cardVisualizer.setTranslationX(0);
+        binding.rootScroll.setTranslationX(0);
         onVisible(); // single call here; onStart no longer duplicates it
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
         // Stage mode is never restored on launch — always start in normal view.
@@ -220,6 +228,125 @@ public class MainActivity extends AppCompatActivity {
             applySystemUiMode(true);
         }
     }
+
+    // ── Swipe gesture (visualizer → Beat Maker) ──────────────────────────────
+
+    private static final float SWIPE_THRESHOLD = 0.33f;  // fraction of screen width
+    private static final float SWIPE_FLING_DPS = 500f;   // dp/s to count as a fling
+
+    /** Route all window-level touch events through the swipe handler first. */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        handleBmSwipeTouch(ev);
+        return super.dispatchTouchEvent(ev);
+    }
+
+    private void handleBmSwipeTouch(MotionEvent ev) {
+        if (bmPreview == null) return;
+        final int screenW = binding.getRoot().getWidth();
+        if (screenW == 0) return;
+        final float density = getResources().getDisplayMetrics().density;
+
+        switch (ev.getActionMasked()) {
+
+            case MotionEvent.ACTION_DOWN: {
+                bmDragStartX = ev.getRawX();
+                bmDragStartY = ev.getRawY();
+                bmDragActive = false;
+                bmDragIgnore = false;
+                // Only track drags that originate on the visualizer card.
+                binding.cardVisualizer.getGlobalVisibleRect(bmVisBounds);
+                if (!bmVisBounds.contains((int) ev.getRawX(), (int) ev.getRawY())) {
+                    bmDragIgnore = true;
+                    return;
+                }
+                if (bmVelocityTracker == null) bmVelocityTracker = VelocityTracker.obtain();
+                else bmVelocityTracker.clear();
+                bmVelocityTracker.addMovement(ev);
+                break;
+            }
+
+            case MotionEvent.ACTION_MOVE: {
+                if (bmDragIgnore || Float.isNaN(bmDragStartX)) return;
+                if (bmVelocityTracker != null) bmVelocityTracker.addMovement(ev);
+
+                float dx = bmDragStartX - ev.getRawX();     // + = moving left
+                float dy = Math.abs(ev.getRawY() - bmDragStartY);
+                float slop = 12f * density;
+
+                if (!bmDragActive) {
+                    if (dx < 0 || dy > Math.abs(dx)) {
+                        // Rightward or vertical — give up on this gesture
+                        if (dy > slop || dx < -slop) bmDragIgnore = true;
+                        return;
+                    }
+                    if (dx < slop) return;  // not enough movement yet
+                    // Commit to horizontal swipe
+                    bmDragActive = true;
+                    bmPreview.setTranslationX(screenW);
+                    bmPreview.setVisibility(View.VISIBLE);
+                    binding.rootScroll.setTranslationX(0);
+                    // Prevent ScrollView from consuming vertical component.
+                    binding.rootScroll.requestDisallowInterceptTouchEvent(true);
+                }
+
+                dx = Math.min(Math.max(dx, 0f), screenW);
+                bmPreview.setTranslationX(screenW - dx);          // 1:1 with finger
+                binding.rootScroll.setTranslationX(-dx * 0.7f);  // 0.7× parallax outgoing
+                break;
+            }
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL: {
+                binding.rootScroll.requestDisallowInterceptTouchEvent(false);
+                if (bmDragIgnore || !bmDragActive) {
+                    resetSwipeState();
+                    return;
+                }
+
+                float drag = Math.max(0f, bmDragStartX - ev.getRawX());
+                boolean fling = false;
+                if (bmVelocityTracker != null) {
+                    bmVelocityTracker.addMovement(ev);
+                    bmVelocityTracker.computeCurrentVelocity(1000, 20000f);
+                    float velXDp = (-bmVelocityTracker.getXVelocity()) / density;
+                    fling = velXDp > SWIPE_FLING_DPS;
+                    bmVelocityTracker.recycle();
+                    bmVelocityTracker = null;
+                }
+
+                boolean commit = ev.getActionMasked() == MotionEvent.ACTION_UP
+                        && (fling || drag > screenW * SWIPE_THRESHOLD);
+                if (commit) {
+                    launchBeatMakerFromSwipe();
+                } else {
+                    snapSwipeBack(screenW);
+                }
+                resetSwipeState();
+                break;
+            }
+        }
+    }
+
+    private void snapSwipeBack(int screenW) {
+        DecelerateInterpolator interp = new DecelerateInterpolator(2f);
+        binding.rootScroll.animate().translationX(0)
+                .setDuration(260).setInterpolator(interp).start();
+        bmPreview.animate().translationX(screenW)
+                .setDuration(260).setInterpolator(interp)
+                .withEndAction(() -> bmPreview.setVisibility(View.GONE))
+                .start();
+    }
+
+    private void resetSwipeState() {
+        bmDragStartX = Float.NaN;
+        bmDragStartY = Float.NaN;
+        bmDragActive = false;
+        bmDragIgnore = false;
+        if (bmVelocityTracker != null) { bmVelocityTracker.recycle(); bmVelocityTracker = null; }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     protected void onNewIntent(Intent intent) {
@@ -354,42 +481,10 @@ public class MainActivity extends AppCompatActivity {
         binding.toneKnob.setToneSequence(TONE_CYCLE);
         binding.toneKnob.setOnToneStepListener(this::cycleTone);
 
-        // Swipe left on the visualizer → drag-synchronized open of Beat Maker
+        // Swipe left on the visualizer → drag-synchronized open of Beat Maker.
+        // Touch handling is in dispatchTouchEvent() to keep tracking even when
+        // the finger moves off the visualizer card during the drag.
         buildBeatMakerPreview();
-        binding.thereminVisualizerView.setOnTouchListener((v, event) -> {
-            int screenW = binding.getRoot().getWidth();
-            switch (event.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                    bmDragStartX = event.getRawX();
-                    bmPreview.setVisibility(android.view.View.VISIBLE);
-                    bmPreview.setTranslationX(screenW);
-                    binding.cardVisualizer.setTranslationX(0);
-                    break;
-                case MotionEvent.ACTION_MOVE: {
-                    float drag = Math.max(0f, bmDragStartX - event.getRawX());
-                    bmPreview.setTranslationX(screenW - drag);
-                    binding.cardVisualizer.setTranslationX(-drag * 0.4f); // slight parallax
-                    break;
-                }
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL: {
-                    float drag = Float.isNaN(bmDragStartX) ? 0 : Math.max(0f, bmDragStartX - event.getRawX());
-                    boolean commit = event.getActionMasked() == MotionEvent.ACTION_UP
-                            && drag > screenW * 0.25f;
-                    if (commit) {
-                        launchBeatMakerFromSwipe();
-                    } else {
-                        binding.cardVisualizer.animate().translationX(0).setDuration(180).start();
-                        bmPreview.animate().translationX(screenW).setDuration(180)
-                                .withEndAction(() -> bmPreview.setVisibility(android.view.View.GONE))
-                                .start();
-                    }
-                    bmDragStartX = Float.NaN;
-                    break;
-                }
-            }
-            return true;
-        });
 
         wireSpring3Controls();
     }
@@ -1509,11 +1604,10 @@ public class MainActivity extends AppCompatActivity {
     private void launchBeatMakerFromSwipe() {
         int editSlot = 0;
         for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
-        // Cancel any in-flight animations, reset views instantly, launch with no transition.
         bmPreview.animate().cancel();
-        binding.cardVisualizer.animate().cancel();
-        binding.cardVisualizer.setTranslationX(0);
-        bmPreview.setVisibility(android.view.View.GONE);
+        binding.rootScroll.animate().cancel();
+        binding.rootScroll.setTranslationX(0);
+        bmPreview.setVisibility(View.GONE);
         Intent bm = new Intent(this, BeatMakerActivity.class);
         bm.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
         bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, editSlot);
