@@ -430,12 +430,10 @@ public class BeatMakerActivity extends AppCompatActivity
         engine.setBassVolume(0.68f);
         engine.setTrackVolume(DrumEngine.SND_CLAP, 0.58f);
         engine.setTrackVolume(DrumEngine.SND_CRASH, 0.48f);
-        // Preview mode uses the recorded core kit only; the remaining synthetic rows
-        // stay muted so Beat Maker does not sound cheap or brittle during demos.
-        engine.setTrackVolume(DrumEngine.SND_TOM_HI, 0f);
-        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0f);
-        engine.setTrackVolume(DrumEngine.SND_RIM, 0f);
-        engine.setTrackVolume(DrumEngine.SND_SHAKER, 0f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_HI, 0.52f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0.52f);
+        engine.setTrackVolume(DrumEngine.SND_RIM, 0.50f);
+        engine.setTrackVolume(DrumEngine.SND_SHAKER, 0.45f);
         engine.setPianoVolume(0.52f);
     }
 

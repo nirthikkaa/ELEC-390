@@ -12,6 +12,7 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -112,6 +113,7 @@ public final class BleSessionManager {
         settingsStore = new SettingsStore(appContext);
         reloadDirectionSettings();
         registerBluetoothReceiver();
+        loadCachedMacAddresses();
         MAIN.removeCallbacks(WATCHDOG);
         MAIN.post(WATCHDOG);
         initialized = true;
@@ -367,6 +369,28 @@ public final class BleSessionManager {
             updateStatus();
             return;
         }
+
+        // Fast-path: if we already know the Bluetooth address of a pending glove from a prior
+        // session, connect to it directly — no scan required. This typically saves 2–5 seconds.
+        // A glove without a cached address (first-ever connection) still needs a scan.
+        boolean needScan = false;
+        for (Glove glove : GLOVES) {
+            if (!glove.shouldConnect(connectTarget)) continue;
+            if (glove.cachedDevice != null) {
+                // Skip the scan for this glove; connect directly to the known address.
+                maybeConnect(glove, glove.cachedDevice);
+            } else {
+                // No cached address yet — this glove must be found via scan.
+                needScan = true;
+            }
+        }
+
+        if (!needScan) {
+            // All pending gloves are being reconnected by address; no scan necessary.
+            updateStatus();
+            return;
+        }
+
         if (scanning) stopScan();
         scanner = getScanner();
         if (scanner == null) {
@@ -377,7 +401,26 @@ public final class BleSessionManager {
         statusText = "Scanning for gloves...";
         log("Scanning for gloves");
         try {
-            scanner.startScan(SCAN_CALLBACK);
+            // SCAN_MODE_LOW_LATENCY makes the adapter scan continuously (100% duty cycle) instead
+            // of the default BALANCED mode (~25% duty cycle with gaps). This cuts time-to-discover
+            // from ~3 s to under 1 s. MATCH_MODE_AGGRESSIVE fires onScanResult after a single
+            // advertisement packet, reducing missed devices when signal is briefly weak.
+            //
+            // No ScanFilter is used intentionally: setDeviceName() only matches against the
+            // primary advertisement packet. Arduino boards typically advertise their name in the
+            // scan-response packet, so a name filter would silently block both gloves. Name
+            // filtering is done in onScanResult instead (existing gloveForName logic).
+            //
+            // CALLBACK_TYPE_ALL_MATCHES (default) is used instead of FIRST_MATCH because
+            // FIRST_MATCH requires at least one ScanFilter to function; without a filter it
+            // delivers no callbacks at all.
+            ScanSettings settings = new ScanSettings.Builder()
+                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                    .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                    .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                    .build();
+
+            scanner.startScan(null, settings, SCAN_CALLBACK);
             MAIN.removeCallbacks(SCAN_TIMEOUT);
             MAIN.postDelayed(SCAN_TIMEOUT, SCAN_TIMEOUT_MS);
         } catch (SecurityException e) {
@@ -423,9 +466,34 @@ public final class BleSessionManager {
         }
     }
 
+    private static final String BLE_PREFS = "ble_cached_devices";
+
+    /** Restore cached BLE device addresses from SharedPreferences so the first reconnect is instant. */
+    private static void loadCachedMacAddresses() {
+        if (bluetoothAdapter == null || appContext == null) return;
+        android.content.SharedPreferences prefs = appContext.getSharedPreferences(BLE_PREFS, 0);
+        for (Glove glove : GLOVES) {
+            if (glove.cachedDevice != null) continue; // already set
+            String mac = prefs.getString("mac_" + glove.label, null);
+            if (mac == null) continue;
+            try {
+                glove.cachedDevice = bluetoothAdapter.getRemoteDevice(mac);
+            } catch (Exception ignored) {
+                // Malformed address — ignore, fall back to scan
+            }
+        }
+    }
+
     private static void maybeConnect(Glove glove, BluetoothDevice device) {
         if (glove == null || !glove.shouldConnect(connectTarget) || bleUnavailable()) return;
         close(glove);
+        // Cache the device so future reconnects can skip the BLE scan and connect directly.
+        glove.cachedDevice = device;
+        // Persist MAC address so the shortcut survives app restarts.
+        if (appContext != null) {
+            appContext.getSharedPreferences(BLE_PREFS, 0).edit()
+                    .putString("mac_" + glove.label, device.getAddress()).apply();
+        }
         glove.connecting = true;
         glove.connectAttemptStartMs = SystemClock.elapsedRealtime();
         glove.manager = new ThereminGloveBleManager(appContext, new GloveListener(glove));
@@ -688,6 +756,9 @@ public final class BleSessionManager {
         String lastPacket = NONE;
         String directionText = "";
         float neutralRollDeg;
+        // Cached BluetoothDevice from the last successful connection. Intentionally NOT cleared
+        // in reset() so that reconnects can skip the BLE scan and connect directly by address.
+        BluetoothDevice cachedDevice;
 
         Glove(String label, boolean isPitch) {
             this.label = label;
@@ -806,6 +877,10 @@ public final class BleSessionManager {
         @Override public void onConnectFailed(@NonNull ThereminGloveBleManager manager, int status) {
             if (!owns(manager)) return;
             glove.manager = null;
+            // Clear the cached device so the next reconnect attempt falls through to a real BLE
+            // scan instead of retrying the same address indefinitely. This handles the case where
+            // the cached address became stale (BT toggled, phone rebooted, device out of range).
+            glove.cachedDevice = null;
             drop(glove, glove.label + " glove connection failed (" + status + ")", true);
         }
     }

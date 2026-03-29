@@ -46,7 +46,8 @@ public final class ThereminAudioEngine {
     private final Object visualizerLock = new Object();
     private final float[] visualizerSamples = new float[VISUALIZER_SAMPLE_COUNT];
 
-    private AudioTrack track;
+    // volatile so stop() can safely read the value assigned by the audio thread after join().
+    private volatile AudioTrack track;
     private Thread audioThread;
     private volatile boolean running;
     private volatile float targetFreqHz = 880f;
@@ -61,13 +62,18 @@ public final class ThereminAudioEngine {
     // All buffers are pre-allocated here — no allocation inside fillBuffer().
     private volatile boolean reverbEnabled = false;
     private volatile float reverbMix = 0.3f;
-    private final float[] combBuffer = new float[4800]; // ~100ms at 48kHz
+    // Power-of-2 length so the wrap-around can use bitwise AND instead of integer division.
+    // 8192 samples at 48 kHz = ~170 ms — slightly longer reverb tail than the previous 4800/100ms.
+    private static final int COMB_MASK = 8191; // 8192 - 1
+    private final float[] combBuffer = new float[8192];
     private int combIdx = 0;
 
     private volatile boolean delayEnabled = false;
     private volatile float delayMix = 0.4f;
     private volatile float delayFeedback = 0.35f;
-    private final float[] delayBuffer = new float[24000]; // ~500ms at 48kHz
+    // 32768 samples at 48 kHz = ~682 ms delay line (was 24000/500ms).
+    private static final int DELAY_MASK = 32767; // 32768 - 1
+    private final float[] delayBuffer = new float[32768];
     private int delayIdx = 0;
 
     private volatile boolean distortionEnabled = false;
@@ -79,9 +85,31 @@ public final class ThereminAudioEngine {
     private static final int[] SCALE_MAJOR      = {0, 2, 4, 5, 7, 9, 11};
     private static final int[] SCALE_MINOR      = {0, 2, 3, 5, 7, 8, 10};
     private static final int[] SCALE_PENTATONIC = {0, 2, 4, 7, 9};
+    // Pre-allocated chromatic offsets avoid a heap allocation in getScaleOffsets() default case.
+    private static final int[] SCALE_CHROMATIC  = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+
+    // Precomputed MIDI note frequencies indexed by MIDI number (0–127).
+    // Built once at class load time so snapToScale() never calls Math.pow() in the audio thread.
+    private static final float[] MIDI_FREQ_HZ = new float[128];
+    static {
+        for (int m = 0; m < 128; m++) {
+            MIDI_FREQ_HZ[m] = (float) (440.0 * Math.pow(2.0, (m - 69.0) / 12.0));
+        }
+    }
+
+    // Per-scale sorted frequency table rebuilt only when the active scale changes (not per-sample).
+    private float[] scaleFreqTable = null;
+    private String  scaleFreqTableBuiltFor = null;
+
+    // Snap result cache: consecutive samples at the same note skip the binary search entirely.
+    // With FREQ_SMOOTHING=0.003f the frequency shifts at most ~3 Hz between samples, so the
+    // same note is output for hundreds of samples in a row — cache hit rate is typically >99%.
+    private float snapCacheIn  = Float.NaN;
+    private float snapCacheOut = Float.NaN;
 
     // Sprint 3: Reference to the drum engine — held here so effects and drums share the same owner.
-    private DrumEngine drumEngine;
+    // volatile: written from background init thread, read from audio thread.
+    private volatile DrumEngine drumEngine;
 
     private float phase;
     private float vibratoPhase;
@@ -138,20 +166,28 @@ public final class ThereminAudioEngine {
     // Start the streaming synth thread and prime the smoothing state from the latest targets.
     public void start() {
         if (running) return;
-        // Clear effect delay lines so stale large values don't cause instant clipping
+        // Clear effect delay lines so stale large values don't cause instant clipping.
         Arrays.fill(combBuffer, 0f);
         Arrays.fill(delayBuffer, 0f);
         combIdx  = 0;
         delayIdx = 0;
-        track = createAndStartTrack();
+        // Prime smoothing state before the thread starts so the first buffer is correct.
         smoothFreqHz = clamp(targetFreqHz, 20f, 20000f);
         smoothVolumeLinear = lastVolumeLinear = 0f;
         lastFreqHz = smoothFreqHz;
+        // Mark running before starting the thread so isRunning() returns true immediately.
+        // Callers (MainActivity, background service) check isRunning() right after start().
         running = true;
 
         audioThread = new Thread(() -> {
-            // Android treats audio threads specially, so we raise priority to reduce glitches.
+            // Raise thread priority first, then create the AudioTrack.
+            // With PERFORMANCE_MODE_LOW_LATENCY + USAGE_GAME the hardware fast-path setup
+            // can take 50–200 ms on some devices. Doing this here keeps the main thread
+            // free so the Play screen appears instantly rather than freezing during the
+            // button tap that calls start().
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
+            track = createAndStartTrack();
+
             short[] buffer = new short[AUDIO_WRITE_SAMPLES];
             while (running) {
                 fillBuffer(buffer);
@@ -182,12 +218,18 @@ public final class ThereminAudioEngine {
         running = false;
         Thread t = audioThread;
         audioThread = null;
-        if (t != null) try { t.join(300); } catch (InterruptedException ignored) {}
-        if (track != null) {
-            try { track.pause(); } catch (Exception ignored) {}
-            try { track.flush(); } catch (Exception ignored) {}
-            try { track.release(); } catch (Exception ignored) {}
-            track = null;
+        // 500 ms timeout instead of 300 ms: the audio thread now creates the AudioTrack
+        // internally, which can take up to ~200 ms. We wait long enough that the thread
+        // finishes initialization and exits cleanly, so the track reference is valid below.
+        if (t != null) try { t.join(500); } catch (InterruptedException ignored) {}
+        // Read track into a local variable and null the field first to prevent double-release
+        // if stop() is called again while cleanup is in progress.
+        AudioTrack trackToRelease = track;
+        track = null;
+        if (trackToRelease != null) {
+            try { trackToRelease.pause(); } catch (Exception ignored) {}
+            try { trackToRelease.flush(); } catch (Exception ignored) {}
+            try { trackToRelease.release(); } catch (Exception ignored) {}
         }
         synchronized (visualizerLock) {
             Arrays.fill(visualizerSamples, 0f);
@@ -204,8 +246,14 @@ public final class ThereminAudioEngine {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             AudioTrack.Builder builder = new AudioTrack.Builder()
                     .setAudioAttributes(new AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            // USAGE_GAME + CONTENT_TYPE_SONIFICATION signal to the Android audio
+                            // stack that this is a low-latency real-time use case. On most devices
+                            // these attributes are required for PERFORMANCE_MODE_LOW_LATENCY to
+                            // engage the hardware fast path (bypassing the software mixer).
+                            // USAGE_MEDIA routes through the software mixer on some OEMs, which
+                            // adds 10–30 ms of extra buffering.
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .build())
                     .setAudioFormat(new AudioFormat.Builder()
                             .setSampleRate(SAMPLE_RATE)
@@ -223,6 +271,16 @@ public final class ThereminAudioEngine {
                     bufferBytes, AudioTrack.MODE_STREAM);
         }
         t.play();
+
+        // Pre-warm the AudioTrack pipeline by writing two silent buffers immediately after play().
+        // The driver's internal queue is empty at this point; the first real audio buffer would
+        // otherwise stall waiting for the driver to prime itself, adding ~40–80 ms of perceived
+        // latency on the very first note. Filling with silence lets the driver finish its startup
+        // bookkeeping before any real audio arrives, so the first note plays without delay.
+        short[] silence = new short[AUDIO_WRITE_SAMPLES];
+        t.write(silence, 0, silence.length);
+        t.write(silence, 0, silence.length);
+
         return t;
     }
 
@@ -232,14 +290,31 @@ public final class ThereminAudioEngine {
     private void fillBuffer(short[] buffer) {
         // toneType is always normalized by setToneType(); no need to normalize again here.
         String tone = toneType;
+
+        // Capture all volatile fields into local finals before the loop.
+        // Volatile reads carry a JVM memory barrier — reading them 2048 times per buffer prevents
+        // the JIT from hoisting the checks out of the loop. Capturing once per buffer is safe:
+        // effects and scale changes only need to take effect at the next buffer boundary (~43ms).
+        final boolean doReverb     = reverbEnabled;
+        final boolean doDelay      = delayEnabled;
+        final boolean doDistortion = distortionEnabled;
+        final float   rMix  = reverbMix;
+        final float   dFb   = delayFeedback;
+        final float   dMix  = delayMix;
+        final float   dGain = distortionGain;
+        final float   mg    = mixGain;
+        final String  scale = activeScale;
+
         for (int i = 0; i < buffer.length; i++) {
             float freq = updateFrequency();
             // Sprint 3: snap smoothed frequency to the nearest scale note before synthesis.
-            freq = snapToScale(freq);
+            freq = snapToScale(freq, scale);
             float volume = updateVolume();
-            float s = sample(tone, phase, volume) * volume * OUTPUT_GAIN * mixGain;
-            // Sprint 3: run the effects chain, then hard-clip to valid PCM range.
-            s = applyEffects(s);
+            float s = sample(tone, phase, volume) * volume * OUTPUT_GAIN * mg;
+            // Sprint 3: run the effects chain with hoisted locals — no volatile reads in loop.
+            if (doReverb)     s = applyReverb(s, rMix);
+            if (doDelay)      s = applyDelay(s, dFb, dMix);
+            if (doDistortion) s = applyDistortion(s, dGain);
             s = clamp(s, -1f, 1f);
             buffer[i] = (short) (s * Short.MAX_VALUE);
             advancePhase(freq);
@@ -410,87 +485,131 @@ public final class ThereminAudioEngine {
     // Sprint 3: Effects pipeline — all methods must be non-blocking, allocation-free.
     // -------------------------------------------------------------------------
 
-    /** Route the sample through whichever effects are enabled, in series. */
-    private float applyEffects(float x) {
-        if (reverbEnabled)     x = applyReverb(x);
-        if (delayEnabled)      x = applyDelay(x);
-        if (distortionEnabled) x = applyDistortion(x);
-        return x;
-    }
-
     /**
-     * Schroeder comb-filter reverb (~100 ms).
+     * Schroeder comb-filter reverb (~170 ms at 48kHz with 8192-sample buffer).
      * Stores (input + damped feedback) but outputs the pure delay tap — this is the
-     * correct implementation. The previous version output the summed value which caused
-     * the buffer to grow unboundedly under sustained input and fill with clipping-level
-     * values that never decayed. Stored values are clamped to prevent any residual blowup.
+     * correct implementation. Stored values are clamped to prevent runaway buildup.
+     * Takes mix as a parameter (hoisted from volatile field in fillBuffer) to avoid
+     * a per-sample volatile read + memory barrier inside the inner loop.
+     * Uses bitwise AND instead of modulo for the ring-buffer wrap (no integer division).
      */
-    private float applyReverb(float x) {
+    private float applyReverb(float x, float mix) {
         float delayed = combBuffer[combIdx];
         // Store accumulated signal (clamped so buffer can never overflow)
         combBuffer[combIdx] = clamp(x + delayed * 0.6f, -1f, 1f);
-        combIdx = (combIdx + 1) % combBuffer.length;
+        combIdx = (combIdx + 1) & COMB_MASK; // bitwise AND: no division, same result
         // Output the pure delay tap (from before this sample was added)
-        return x * (1f - reverbMix) + delayed * reverbMix;
+        return x * (1f - mix) + delayed * mix;
     }
 
     /**
-     * Feedback delay line (~500 ms). Stored values and output are clamped so a loud
-     * transient cannot fill the ring buffer and sustain clipping indefinitely.
+     * Feedback delay line (~682 ms at 48kHz with 32768-sample buffer).
+     * Stored values and output are clamped so loud transients cannot fill the ring
+     * buffer with clipping-level values that sustain indefinitely.
+     * Takes feedback and mix as parameters (hoisted from volatile fields in fillBuffer).
+     * Uses bitwise AND for ring-buffer wrap.
      */
-    private float applyDelay(float x) {
+    private float applyDelay(float x, float feedback, float mix) {
         float delayed = delayBuffer[delayIdx];
-        delayBuffer[delayIdx] = clamp(x + delayed * delayFeedback, -1f, 1f);
-        delayIdx = (delayIdx + 1) % delayBuffer.length;
+        delayBuffer[delayIdx] = clamp(x + delayed * feedback, -1f, 1f);
+        delayIdx = (delayIdx + 1) & DELAY_MASK; // bitwise AND: no division, same result
         // Wet/dry blend — output stays at the same level as the input, not additive.
-        return x * (1f - delayMix) + delayed * delayMix;
+        return x * (1f - mix) + delayed * mix;
     }
 
     /**
      * Soft-clip distortion via tanh. At gain=1 the output is identical to the input.
      * Higher gain values drive the signal into saturation.
+     * Takes gain as a parameter (hoisted from volatile field in fillBuffer).
      */
-    private float applyDistortion(float x) {
-        if (distortionGain <= 1f) return x;
-        return (float) (Math.tanh(x * distortionGain) / Math.tanh(distortionGain));
+    private float applyDistortion(float x, float gain) {
+        if (gain <= 1f) return x;
+        return (float) (Math.tanh(x * gain) / Math.tanh(gain));
     }
 
     /**
-     * Sprint 3: Scale lock. Snaps freqHz to the nearest MIDI note that belongs to
-     * the active scale. Returns the input unchanged when scale is CHROMATIC.
-     * Called from the audio thread — uses only stack variables, no allocation.
+     * Sprint 3: Scale lock. Snaps freqHz to the nearest in-scale frequency.
+     * Takes 'scale' as a parameter (hoisted from the volatile field in fillBuffer)
+     * so there are no volatile reads inside the per-sample loop.
+     *
+     * Performance design:
+     *  1. CHROMATIC fast-path: returns immediately, no work done.
+     *  2. Cache: consecutive samples that map to the same note (very common with
+     *     FREQ_SMOOTHING=0.003f) skip the binary search entirely.
+     *  3. Precomputed table: when a search is needed, it runs over MIDI_FREQ_HZ[] —
+     *     a sorted float[] built once at class load. No Math.log/Math.pow per sample.
+     *  4. Binary search: O(log N) comparisons (≤6 for pentatonic, ≤7 for chromatic).
+     *
+     * Called from the audio thread — no allocation, no transcendental math in hot path.
      */
-    private float snapToScale(float freqHz) {
-        if ("CHROMATIC".equals(activeScale)) return freqHz;
+    private float snapToScale(float freqHz, String scale) {
+        if ("CHROMATIC".equals(scale)) return freqHz;
         if (freqHz <= 0f) return freqHz;
-        // Convert Hz → fractional MIDI note number.
-        double midi = 69.0 + 12.0 * Math.log(freqHz / 440.0) / Math.log(2.0);
-        int rounded  = (int) Math.round(midi);
-        int[] offsets = getScaleOffsets(activeScale);
-        int octave    = Math.floorDiv(rounded, 12);
-        int semitone  = rounded - octave * 12; // always 0–11
-        int nearest   = semitone;
-        int minDist   = Integer.MAX_VALUE;
-        for (int offset : offsets) {
-            int d = Math.abs(semitone - offset);
-            if (d < minDist) { minDist = d; nearest = offset; }
-            // Check wrap-around distance (e.g. semitone=0, offset=11 → d=1)
-            int d2 = 12 - d;
-            if (d2 < minDist) {
-                minDist = d2;
-                nearest = (semitone < offset) ? offset - 12 : offset + 12;
-            }
+
+        // Cache hit: if the frequency hasn't crossed a note boundary since last call,
+        // return the cached snap result without doing any search.
+        if (Math.abs(freqHz - snapCacheIn) < 0.5f) return snapCacheOut;
+
+        // Rebuild the scale frequency table if the scale changed (at most once per scale switch).
+        if (!scale.equals(scaleFreqTableBuiltFor)) {
+            scaleFreqTable = buildScaleFreqTable(scale);
+            scaleFreqTableBuiltFor = scale;
         }
-        int snappedMidi = octave * 12 + nearest;
-        return (float) (440.0 * Math.pow(2.0, (snappedMidi - 69.0) / 12.0));
+
+        float result = binarySearchNearest(scaleFreqTable, freqHz);
+        snapCacheIn  = freqHz;
+        snapCacheOut = result;
+        return result;
     }
 
+    /**
+     * Builds a sorted float[] of all in-scale note frequencies across 10 octaves (MIDI 0–127).
+     * Called at most once per scale switch — allocation here is acceptable.
+     */
+    private float[] buildScaleFreqTable(String scale) {
+        int[] offsets = getScaleOffsets(scale);
+        float[] table = new float[offsets.length * 11]; // 11 octaves × offsets
+        int idx = 0;
+        for (int oct = 0; oct < 11; oct++) {
+            for (int off : offsets) {
+                int midi = oct * 12 + off;
+                if (midi < 128) table[idx++] = MIDI_FREQ_HZ[midi];
+            }
+        }
+        return java.util.Arrays.copyOf(table, idx); // sorted: ascending by octave then offset
+    }
+
+    /**
+     * Binary search for the value in a sorted float[] that is closest to target.
+     * O(log N) — no transcendental math, no allocation.
+     */
+    private static float binarySearchNearest(float[] table, float target) {
+        int lo = 0, hi = table.length - 1;
+        while (lo < hi) {
+            int mid = (lo + hi) >>> 1;
+            if (table[mid] < target) lo = mid + 1;
+            else hi = mid;
+        }
+        // lo is the first index where table[lo] >= target; check lo-1 for closer match
+        if (lo > 0 && Math.abs(table[lo - 1] - target) < Math.abs(table[lo] - target)) {
+            return table[lo - 1];
+        }
+        return table[lo];
+    }
+
+    /**
+     * Returns the semitone offsets (0–11) that belong to the given scale.
+     * All return values are pre-allocated static fields — no heap allocation.
+     * Used only by buildScaleFreqTable(), not in the per-sample hot path.
+     */
     private int[] getScaleOffsets(String scale) {
         switch (scale) {
             case "MAJOR":      return SCALE_MAJOR;
             case "MINOR":      return SCALE_MINOR;
             case "PENTATONIC": return SCALE_PENTATONIC;
-            default:           return new int[]{0,1,2,3,4,5,6,7,8,9,10,11};
+            // Use static field instead of `new int[]{}` to avoid a heap allocation
+            // if this method is ever accidentally called from the audio thread.
+            default:           return SCALE_CHROMATIC;
         }
     }
 

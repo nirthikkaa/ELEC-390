@@ -22,7 +22,9 @@ import com.example.thereminglovestest2.databinding.ActivityHomeBinding;
  */
 public class HomeActivity extends AppCompatActivity {
 
-    private static final long UI_POLL_MS = 200L;
+    // 80ms gives at most 80ms of delay between "both gloves connected" and auto-navigating
+    // to the play screen, which feels immediate. 200ms was visibly sluggish.
+    private static final long UI_POLL_MS = 80L;
     private static final int REQ_ENABLE_BT = 4201;
     private static final int REQ_BLE_PERMS = 4202;
     private static final int REQUIRED_CONNECTED_POLLS_BEFORE_AUTOPLAY = 1;
@@ -58,6 +60,9 @@ public class HomeActivity extends AppCompatActivity {
         BleSessionManager.initialize(getApplicationContext());
         autoNavigatedToPlayThisVisit = false;
         consecutiveFullyConnectedPolls = 0;
+        permissionPromptShownThisVisit = false;
+        bluetoothPromptShownThisVisit = false;
+        autoConnectRequestedThisVisit = false;
         uiPoller.start();
         kickAutomaticSetupFlow();
     }
@@ -144,8 +149,12 @@ public class HomeActivity extends AppCompatActivity {
             setWaitingState("Bluetooth is off",
                     "Turn Bluetooth on and the app will start looking for your gloves automatically.",
                     "Turn On Bluetooth", true, null, false);
+            // Show the system BT enable dialog automatically if we haven't yet this visit.
+            if (!bluetoothPromptShownThisVisit) kickAutomaticSetupFlow();
             return;
         }
+        // BT is on — reset the flag so the popup can appear again if BT is turned off later.
+        bluetoothPromptShownThisVisit = false;
         if (snapshot.areBothGlovesConnected()) {
             consecutiveFullyConnectedPolls++;
             showState("Gloves connected", "Opening Play so you can start right away.", "Open Play Now", true, null, true);

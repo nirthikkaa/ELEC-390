@@ -28,4 +28,14 @@
     </style>
 
     <style name="Theme.ThereminGlovestest2" parent="Base.Theme.ThereminGlovestest2" />
+
+    <!--
+        BeatMaker uses the same deep-purple window background as the swipe preview overlay
+        (0xFF0F0A1E) so the Activity window never flashes white during the slide-in transition.
+        Without this the system draws the default window color for one frame before the layout
+        inflates, causing a visible flash.
+    -->
+    <style name="Theme.BeatMaker" parent="Theme.ThereminGlovestest2">
+        <item name="android:windowBackground">#0F0A1E</item>
+    </style>
 </resources>

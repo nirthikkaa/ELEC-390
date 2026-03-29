@@ -158,7 +158,6 @@ public class MainActivity extends AppCompatActivity {
 
         BleSessionManager.initialize(getApplicationContext());
         audioEngine = new ThereminAudioEngine();
-        // Sprint 3: Create and start the local drum engine for foreground playback.
         drumEngine = new DrumEngine(this);
         drumEngine.start();
         audioEngine.setDrumEngine(drumEngine);
@@ -1589,8 +1588,6 @@ public class MainActivity extends AppCompatActivity {
         binding.btnAudioStart.setIconResource(running ? R.drawable.ic_pause_theremin : R.drawable.ic_play_theremin);
         binding.btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         binding.tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
-        // Pause foreground drum engine whenever theremin stops.
-        if (drumEngine != null) drumEngine.setPaused(!running);
     }
 
     private void appendLogSafe(String msg) {

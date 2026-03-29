@@ -63,7 +63,11 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         BleSessionManager.initialize(getApplicationContext());
+        autoNavigatedToPlayThisVisit = false;
+        consecutiveFullyConnectedPolls = 0;
+        autoConnectRequestedThisVisit = false;
         uiPoller.start();
+        withBleReady(() -> {}); // auto-trigger BT enable / permission popup on arrival
     }
 
     @Override

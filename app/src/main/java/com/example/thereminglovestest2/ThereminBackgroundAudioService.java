@@ -178,7 +178,6 @@ public class ThereminBackgroundAudioService extends Service {
         BleSessionManager.initialize(getApplicationContext());
         settingsStore = new SettingsStore(getApplicationContext());
         audioEngine = new ThereminAudioEngine();
-        // Sprint 3: Create and start the drum engine; wire it to the audio engine for reference.
         drumEngine = new DrumEngine(getApplicationContext());
         drumEngine.start();
         audioEngine.setDrumEngine(drumEngine);
@@ -286,7 +285,6 @@ public class ThereminBackgroundAudioService extends Service {
         if (drumEngine != null) {
             drumEngine.setEnabled(bgDrumEnabled);
             drumEngine.setBassEnabled(bgBassEnabled);
-            drumEngine.setPaused(thereminMuted);
         }
 
         // Sprint 3: Forward scale lock + effects to the background audio engine every tick.
