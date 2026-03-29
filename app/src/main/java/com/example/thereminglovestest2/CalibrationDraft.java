@@ -71,10 +71,20 @@ final class CalibrationDraft {
         apply(binding.knobVolumeAngleMax, volumeAngleMaxDeg, true);
     }
 
-    String summaryText(boolean unsaved) {
-        return (unsaved ? "Unsaved • " : "Saved • ") + String.format(Locale.US,
+    String summaryText(boolean unsaved, int octaveShift) {
+        String base = (unsaved ? "Unsaved • " : "Saved • ") + String.format(Locale.US,
                 "Pitch %.1f°→%.1f° | Freq %.0f→%.0f Hz | Volume %.1f°→%.1f°",
                 pitchAngleMinDeg, pitchAngleMaxDeg, freqMinHz, freqMaxHz, volumeAngleMinDeg, volumeAngleMaxDeg);
+        if (octaveShift != 0) {
+            float mult = (float) Math.pow(2.0, octaveShift);
+            base += String.format(Locale.US, " [Oct %+d → %.0f–%.0f Hz]",
+                    octaveShift, freqMinHz * mult, freqMaxHz * mult);
+        }
+        return base;
+    }
+
+    String summaryText(boolean unsaved) {
+        return summaryText(unsaved, 0);
     }
 
     String formatValue(float value, boolean isAngle) {

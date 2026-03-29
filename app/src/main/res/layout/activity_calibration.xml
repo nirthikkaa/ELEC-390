@@ -230,6 +230,21 @@
                                 android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
                                 android:textColor="@color/app_on_surface_variant"
                                 android:textSize="12sp" />
+
+                            <TextView
+                                android:id="@+id/tvCalibTone"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:background="#1A7EA4FF"
+                                android:paddingStart="10dp"
+                                android:paddingTop="3dp"
+                                android:paddingEnd="10dp"
+                                android:paddingBottom="3dp"
+                                android:text="Theremin"
+                                android:textColor="#7EA4FF"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -292,6 +307,17 @@
                             android:layout_marginStart="8dp"
                             android:layout_weight="1" />
                     </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvOctaveFreqInfo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Oct +1: actual output 40 – 4000 Hz"
+                        android:textColor="#FFBC6A"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

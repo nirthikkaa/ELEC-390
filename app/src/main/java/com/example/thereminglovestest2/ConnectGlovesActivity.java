@@ -38,6 +38,9 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private int     consecutiveFullyConnectedPolls = 0;
     private boolean autoNavigatedToPlayThisVisit   = false;
     private boolean autoConnectRequestedThisVisit  = false;
+    // Set to true after the first startup auto-navigate to Play.
+    // Prevents re-firing when the user navigates back to Connect from the Play screen.
+    private static boolean startupAutoNavUsed = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -164,7 +167,9 @@ public class ConnectGlovesActivity extends AppCompatActivity {
 
     private void openPlay() {
         if (autoNavigatedToPlayThisVisit) return;
+        if (startupAutoNavUsed) return;
         autoNavigatedToPlayThisVisit = true;
+        startupAutoNavUsed = true;
         startActivity(new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP

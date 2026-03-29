@@ -33,6 +33,8 @@ public class CalibrationActivity extends AppCompatActivity {
     private boolean volumeDirectionInverted = AppSettings.DEFAULT_VOLUME_DIRECTION_INVERTED;
     private boolean hasUnsavedChanges, pitchNeutralCapturedThisVisit, volumeNeutralCapturedThisVisit, calibrationGuideLearned;
     private boolean showingPitchPage = true; // which calibration page is active
+    private int    octaveShift       = 0;
+    private String currentToneType   = AppSettings.TONE_THEREMIN;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -167,12 +169,16 @@ public class CalibrationActivity extends AppCompatActivity {
         draft.load(settings);
         pitchDirectionInverted = settings.pitchDirectionInverted;
         volumeDirectionInverted = settings.volumeDirectionInverted;
+        octaveShift     = settings.octaveShift;
+        currentToneType = AppSettings.normalizeToneType(settings.toneType);
     }
 
     private void refreshDirectionSettings() {
         AppSettings settings = settingsRepo.load();
         pitchDirectionInverted = settings.pitchDirectionInverted;
         volumeDirectionInverted = settings.volumeDirectionInverted;
+        octaveShift     = settings.octaveShift;
+        currentToneType = AppSettings.normalizeToneType(settings.toneType);
     }
 
     private void markChanged() {
@@ -394,10 +400,26 @@ public class CalibrationActivity extends AppCompatActivity {
         updateSummaryText();
         updateCalibrationProgress(BleSessionManager.getSnapshot());
         syncCalibrationPreview();
+        // Update tone indicator in pitch card
+        if (binding.tvCalibTone != null) {
+            binding.tvCalibTone.setText(AppSettings.prettyToneType(currentToneType));
+        }
+        // Show octave-adjusted freq info below freq knobs (only when shift != 0)
+        if (binding.tvOctaveFreqInfo != null) {
+            if (octaveShift != 0) {
+                float mult = (float) Math.pow(2.0, octaveShift);
+                binding.tvOctaveFreqInfo.setText(String.format(java.util.Locale.US,
+                        "Oct %+d: actual output %.0f – %.0f Hz", octaveShift,
+                        draft.freqMinHz * mult, draft.freqMaxHz * mult));
+                binding.tvOctaveFreqInfo.setVisibility(android.view.View.VISIBLE);
+            } else {
+                binding.tvOctaveFreqInfo.setVisibility(android.view.View.GONE);
+            }
+        }
     }
 
     private void updateSummaryText() {
-        binding.tvSavedSummary.setText(draft.summaryText(hasUnsavedChanges));
+        binding.tvSavedSummary.setText(draft.summaryText(hasUnsavedChanges, octaveShift));
     }
 
     private void handleNeutralCapture(boolean isPitch) {
