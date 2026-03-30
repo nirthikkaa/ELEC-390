@@ -888,10 +888,14 @@ public class MainActivity extends AppCompatActivity {
         binding.pianoKeyboard.setNoteListener(midiNote -> {
             DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
             DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+            // Also route to the BeatMaker preview engine so the keyboard works even
+            // when the theremin audio engine is not started.
+            DrumEngine bm = (!bmPanelVisible) ? bmPreviewEngine : null;
             if (pianoModeIdx == 0) {
                 // NOTE mode: one-shot pluck, no persistent selection
                 if (fg != null) fg.triggerPianoKey(midiNote);
                 if (bg != null) bg.triggerPianoKey(midiNote);
+                if (bm != null) bm.triggerPianoKey(midiNote);
                 String[] NAMES = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
                 binding.tvPianoNote.setText(NAMES[(midiNote - 48) % 12] + ((midiNote - 48) / 12 + 3));
             } else {
@@ -902,11 +906,13 @@ public class MainActivity extends AppCompatActivity {
                     activeMelodyNotes.remove(midiNote);
                     if (fg != null) fg.removeMelodyRoot(midiNote);
                     if (bg != null) bg.removeMelodyRoot(midiNote);
+                    if (bm != null) bm.removeMelodyRoot(midiNote);
                 } else {
                     // Select: add this root to the chord
                     activeMelodyNotes.add(midiNote);
                     if (fg != null) fg.addMelodyRoot(midiNote, arp);
                     if (bg != null) bg.addMelodyRoot(midiNote, arp);
+                    if (bm != null) bm.addMelodyRoot(midiNote, arp);
                 }
                 updatePianoKeyHighlights();
             }
@@ -1019,9 +1025,13 @@ public class MainActivity extends AppCompatActivity {
 
         DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
         DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+        // Route to BeatMaker preview engine when panel is closed so presets are
+        // audible even when the theremin audio engine has not been started.
+        DrumEngine bm = (!bmPanelVisible) ? bmPreviewEngine : null;
         if (anyActive) {
             if (fg != null) { fg.setCustomPattern(merged, mergedPiano); fg.setEnabled(true); fg.setBassEnabled(true); }
             if (bg != null) { bg.setCustomPattern(merged, mergedPiano); bg.setEnabled(true); bg.setBassEnabled(true); }
+            if (bm != null) { bm.setCustomPattern(merged, mergedPiano); bm.setEnabled(true); bm.setBassEnabled(true); }
             // Cache custom pattern and BPM so the background service applies them if started later.
             ThereminBackgroundAudioService.setCustomPattern(merged, mergedPiano);
             ThereminBackgroundAudioService.setDrumEnabled(true);
@@ -1031,6 +1041,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
             if (fg != null) { fg.clearCustomPattern(); fg.setEnabled(false); fg.setBassEnabled(false); }
             if (bg != null) { bg.clearCustomPattern(); bg.setEnabled(false); bg.setBassEnabled(false); }
+            if (bm != null) { bm.clearCustomPattern(); bm.setEnabled(false); bm.setBassEnabled(false); }
             ThereminBackgroundAudioService.setCustomPattern(null);
             ThereminBackgroundAudioService.setDrumEnabled(false);
             ThereminBackgroundAudioService.setBassEnabled(false);
@@ -1106,6 +1117,7 @@ public class MainActivity extends AppCompatActivity {
         if (fg != null) fg.clearMelodyRoot();
         DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
         if (bg != null) bg.clearMelodyRoot();
+        if (!bmPanelVisible && bmPreviewEngine != null) bmPreviewEngine.clearMelodyRoot();
         updatePianoKeyHighlights();
     }
 
@@ -1790,7 +1802,6 @@ public class MainActivity extends AppCompatActivity {
         bmWireKeyboardControls();
         bmWireSlotButtons();
 
-        // Audio output is NOT started here — it starts the first time the panel is shown.
         new Thread(() -> {
             DrumEngine engine = new DrumEngine(this);
             engine.start();
@@ -1801,6 +1812,9 @@ public class MainActivity extends AppCompatActivity {
                 bmConfigurePreviewMix(engine);
                 bmApplyBeatMakerMode();
                 bmPushPatternToEngine();
+                // Start audio output eagerly so the play-screen keyboard and preset
+                // buttons always have an audio path, even before the panel is opened.
+                if (bmAudioTrack == null) bmStartAudioOutput();
             });
         }, "BmEngineInit").start();
     }
