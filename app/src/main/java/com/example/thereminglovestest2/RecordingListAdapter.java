@@ -315,7 +315,7 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
         String label; int bgColor, textColor;
         switch (quality) {
             case AppSettings.COMPRESSION_LOSSLESS:
-                label = "WAV";  bgColor = 0xFF7EA4FF; textColor = 0xFF081425; break; // app_primary
+                label = "LOSSLESS"; bgColor = 0xFFD4A520; textColor = 0xFF1A1200; break; // gold
             case AppSettings.COMPRESSION_HIGH:
                 label = "HIGH"; bgColor = 0xFF43E5FF; textColor = 0xFF082633; break; // app_secondary
             case AppSettings.COMPRESSION_MEDIUM:
