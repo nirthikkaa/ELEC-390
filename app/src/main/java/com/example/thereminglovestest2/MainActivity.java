@@ -1041,7 +1041,13 @@ public class MainActivity extends AppCompatActivity {
         } else {
             if (fg != null) { fg.clearCustomPattern(); fg.setEnabled(false); fg.setBassEnabled(false); }
             if (bg != null) { bg.clearCustomPattern(); bg.setEnabled(false); bg.setBassEnabled(false); }
-            if (bm != null) { bm.clearCustomPattern(); bm.setEnabled(false); bm.setBassEnabled(false); }
+            if (bm != null) {
+                // Keep bmPreviewEngine enabled so melody/keyboard still works; use
+                // the all-false merged grid as custom pattern so drums stay silent.
+                bm.setCustomPattern(merged, null);
+                bm.setEnabled(true);
+                bm.setBassEnabled(false);
+            }
             ThereminBackgroundAudioService.setCustomPattern(null);
             ThereminBackgroundAudioService.setDrumEnabled(false);
             ThereminBackgroundAudioService.setBassEnabled(false);
@@ -1811,7 +1817,10 @@ public class MainActivity extends AppCompatActivity {
                 engine.setPianoSynthMode(bmKeyboardSynthMode);
                 bmConfigurePreviewMix(engine);
                 bmApplyBeatMakerMode();
-                bmPushPatternToEngine();
+                bmPushPatternToEngine(); // sets an (initially empty) custom pattern
+                // Enable so arpeggio/melody mode works from the start; drums are
+                // silent because the custom grid is all-false until a preset is activated.
+                engine.setEnabled(true);
                 // Start audio output eagerly so the play-screen keyboard and preset
                 // buttons always have an audio path, even before the panel is opened.
                 if (bmAudioTrack == null) bmStartAudioOutput();
