@@ -53,7 +53,7 @@ public class BeatMakerActivity extends AppCompatActivity
     private static final int BUFFER_FRAMES = 1024; // ~21ms, matches ThereminAudioEngine
 
     // Maps grid row index → DrumEngine sound index (must match StepGridView.ROW_NAMES order)
-    private static final int[] ROW_SOUNDS = {
+    static final int[] ROW_SOUNDS = {
         DrumEngine.SND_KICK,    // 0
         DrumEngine.SND_SNARE,   // 1
         DrumEngine.SND_HIHAT_C, // 2

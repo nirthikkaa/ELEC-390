@@ -159,6 +159,11 @@ public class TopNavBarView extends LinearLayout {
         backButton.setVisibility(visible ? VISIBLE : GONE);
     }
 
+    /** Override the back button's click listener. Pass null to restore the default behaviour. */
+    public void setOnBackClickListener(View.OnClickListener listener) {
+        backButton.setOnClickListener(listener != null ? listener : v -> handleBackPressed());
+    }
+
     /** Show or hide the 3-dot overflow menu button. */
     public void setOverflowButtonVisible(boolean visible) {
         overflowButton.setVisibility(visible ? VISIBLE : GONE);

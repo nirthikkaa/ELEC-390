@@ -4,7 +4,7 @@
     android:id="@+id/connectScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/app_background"
+    android:background="#0B0B1A"
     android:orientation="vertical">
 
     <com.example.thereminglovestest2.TopNavBarView
@@ -23,390 +23,529 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="14dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="14dp"
+            android:paddingStart="12dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="12dp"
             android:paddingBottom="16dp">
 
+            <!-- Connection control card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="26dp"
+                app:cardBackgroundColor="#0D1628"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
                 app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="18dp">
+                    android:orientation="vertical">
 
+                    <!-- Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="8dp">
+
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#43E5FF" />
 
                         <TextView
-                            android:id="@+id/tvReadyHeadline"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:paddingEnd="12dp"
-                            android:text="Connection ready"
-                            android:textColor="@color/app_on_surface"
-                            android:textSize="22sp"
-                            android:textStyle="bold" />
+                            android:layout_marginStart="8dp"
+                            android:text="BLE CONNECTION"
+                            android:textColor="#43E5FF"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnRefreshInfo"
                             style="@style/Widget.Material3.Button.OutlinedButton"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:minHeight="40dp"
+                            android:minHeight="36dp"
                             android:text="Sync"
                             android:textAllCaps="false"
-                            android:textColor="@color/app_secondary"
-                            android:textSize="12sp"
-                            app:cornerRadius="16dp"
-                            app:strokeColor="@color/app_secondary" />
+                            android:textColor="#43E5FF"
+                            android:textSize="11sp"
+                            android:fontFamily="monospace"
+                            app:cornerRadius="8dp"
+                            app:strokeColor="#43E5FF" />
                     </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/tvReadySubtext"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Connect either glove on its own, or connect both together."
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="14sp" />
+                        android:orientation="vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="16dp">
 
-                    <com.google.android.material.card.MaterialCardView
+                        <TextView
+                            android:id="@+id/tvReadyHeadline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Connection ready"
+                            android:textColor="@color/app_on_surface"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvReadySubtext"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:text="Connect either glove on its own, or connect both together."
+                            android:textColor="@color/app_on_surface_variant"
+                            android:textSize="13sp" />
+
+                        <!-- Status sub-card -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            app:cardBackgroundColor="#091420"
+                            app:cardCornerRadius="10dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="12dp">
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="STATUS"
+                                    android:textColor="#43E5FF"
+                                    android:textSize="9sp"
+                                    android:textStyle="bold"
+                                    android:fontFamily="monospace"
+                                    android:letterSpacing="0.15" />
+
+                                <TextView
+                                    android:id="@+id/tvBigStatus"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="—"
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvPairSummary"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="3dp"
+                                    android:text="No gloves connected"
+                                    android:textColor="@color/app_on_surface_variant"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnConnectToggle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:minHeight="52dp"
+                            android:text="Connect All"
+                            android:textAllCaps="false"
+                            android:textColor="@color/app_on_primary"
+                            android:textStyle="bold"
+                            app:backgroundTint="@color/app_primary"
+                            app:cornerRadius="12dp" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Pitch + Volume glove cards side by side -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:baselineAligned="false"
+                android:measureWithLargestChild="true"
+                android:orientation="horizontal">
+
+                <!-- Pitch glove card -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="#16203B"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="0dp">
+
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        app:cardBackgroundColor="@color/app_surface_variant"
-                        app:cardCornerRadius="18dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="@color/app_outline"
-                        app:strokeWidth="0dp">
+                        android:orientation="vertical">
+
+                        <!-- Header -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:paddingTop="11dp"
+                            android:paddingBottom="7dp">
+
+                            <View
+                                android:layout_width="3dp"
+                                android:layout_height="12dp"
+                                android:background="#7FC0FF" />
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="7dp"
+                                android:text="PITCH"
+                                android:textColor="#7FC0FF"
+                                android:textSize="10sp"
+                                android:letterSpacing="0.2"
+                                android:textStyle="bold"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="14dp">
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="12dp">
 
                             <TextView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Connection status"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvBigStatus"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="—"
+                                android:text="Pitch Glove"
                                 android:textColor="@color/app_on_surface"
-                                android:textSize="17sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
-                                android:id="@+id/tvPairSummary"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="No gloves connected"
+                                android:layout_marginTop="1dp"
+                                android:text="ThereminGlove"
                                 android:textColor="@color/app_on_surface_variant"
-                                android:textSize="13sp" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
+                                android:textSize="11sp" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnConnectToggle"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        android:minHeight="52dp"
-                        android:text="Connect All"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_on_primary"
-                        android:textStyle="bold"
-                        app:backgroundTint="@color/app_primary"
-                        app:cornerRadius="18dp" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:baselineAligned="false"
-                android:measureWithLargestChild="true"
-                android:orientation="horizontal">
-
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    app:cardBackgroundColor="@color/app_surface"
-                    app:cardCornerRadius="22dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/app_outline"
-                    app:strokeWidth="0dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:text="Pitch Glove"
-                            android:textColor="@color/app_on_surface"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="ThereminGlove"
-                            android:textColor="@color/app_on_surface_variant"
-                            android:textSize="12sp" />
-
-                        <com.google.android.material.card.MaterialCardView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            app:cardBackgroundColor="@color/app_surface_variant"
-                            app:cardCornerRadius="16dp"
-                            app:cardElevation="0dp"
-                            app:strokeColor="@color/app_outline"
-                            app:strokeWidth="0dp">
-
-                            <LinearLayout
+                            <!-- Status sub-card -->
+                            <com.google.android.material.card.MaterialCardView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:padding="12dp">
+                                android:layout_marginTop="9dp"
+                                app:cardBackgroundColor="#0D1828"
+                                app:cardCornerRadius="9dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp">
 
-                                <TextView
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Connection"
-                                    android:textColor="@color/app_on_surface_variant"
-                                    android:textSize="11sp"
-                                    android:textStyle="bold" />
+                                    android:orientation="vertical"
+                                    android:padding="10dp">
 
-                                <TextView
-                                    android:id="@+id/tvPitchConn"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:maxLines="2"
-                                    android:minLines="2"
-                                    android:text="Unavailable"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="15sp"
-                                    android:textStyle="bold" />
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="CONNECTION"
+                                        android:textColor="#7FC0FF"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold"
+                                        android:fontFamily="monospace"
+                                        android:letterSpacing="0.1" />
 
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="8dp"
-                                    android:text="Latest packet"
-                                    android:textColor="@color/app_on_surface_variant"
-                                    android:textSize="11sp"
-                                    android:textStyle="bold" />
+                                    <TextView
+                                        android:id="@+id/tvPitchConn"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:maxLines="2"
+                                        android:minLines="2"
+                                        android:text="Unavailable"
+                                        android:textColor="@color/app_on_surface"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
 
-                                <TextView
-                                    android:id="@+id/tvPitchLast"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:ellipsize="end"
-                                    android:maxLines="2"
-                                    android:minLines="2"
-                                    android:text="—"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="7dp"
+                                        android:text="LATEST PACKET"
+                                        android:textColor="#7FC0FF"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold"
+                                        android:fontFamily="monospace"
+                                        android:letterSpacing="0.1" />
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnReconnectPitch"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            android:minHeight="46dp"
-                            android:text="Connect Pitch"
-                            android:textAllCaps="false"
-                            android:textColor="@color/app_primary"
-                            android:textSize="13sp"
-                            app:cornerRadius="16dp"
-                            app:strokeColor="@color/app_primary" />
+                                    <TextView
+                                        android:id="@+id/tvPitchLast"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:ellipsize="end"
+                                        android:maxLines="2"
+                                        android:minLines="2"
+                                        android:text="—"
+                                        android:textColor="@color/app_on_surface"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnReconnectPitch"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="9dp"
+                                android:minHeight="44dp"
+                                android:text="Connect Pitch"
+                                android:textAllCaps="false"
+                                android:textColor="#7FC0FF"
+                                android:textSize="12sp"
+                                app:cornerRadius="10dp"
+                                app:strokeColor="#7FC0FF" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- Volume glove card -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="@color/app_surface"
-                    app:cardCornerRadius="22dp"
+                    app:cardBackgroundColor="#221A3F"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeColor="@color/app_outline"
                     app:strokeWidth="0dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="14dp">
+                        android:orientation="vertical">
 
-                        <TextView
+                        <!-- Header -->
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Volume Glove"
-                            android:textColor="@color/app_on_surface"
-                            android:textSize="18sp"
-                            android:textStyle="bold" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:paddingTop="11dp"
+                            android:paddingBottom="7dp">
 
-                        <TextView
+                            <View
+                                android:layout_width="3dp"
+                                android:layout_height="12dp"
+                                android:background="#FF8ED1" />
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:layout_marginStart="7dp"
+                                android:text="VOLUME"
+                                android:textColor="#FF8ED1"
+                                android:textSize="10sp"
+                                android:letterSpacing="0.2"
+                                android:textStyle="bold"
+                                android:fontFamily="monospace" />
+                        </LinearLayout>
+
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:text="ThereminGloveVol"
-                            android:textColor="@color/app_on_surface_variant"
-                            android:textSize="12sp" />
+                            android:orientation="vertical"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="12dp">
 
-                        <com.google.android.material.card.MaterialCardView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            app:cardBackgroundColor="@color/app_surface_variant"
-                            app:cardCornerRadius="16dp"
-                            app:cardElevation="0dp"
-                            app:strokeColor="@color/app_outline"
-                            app:strokeWidth="0dp">
-
-                            <LinearLayout
+                            <TextView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:orientation="vertical"
-                                android:padding="12dp">
+                                android:text="Volume Glove"
+                                android:textColor="@color/app_on_surface"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
 
-                                <TextView
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="1dp"
+                                android:text="ThereminGloveVol"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="11sp" />
+
+                            <!-- Status sub-card -->
+                            <com.google.android.material.card.MaterialCardView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="9dp"
+                                app:cardBackgroundColor="#1A1230"
+                                app:cardCornerRadius="9dp"
+                                app:cardElevation="0dp"
+                                app:strokeWidth="0dp">
+
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:text="Connection"
-                                    android:textColor="@color/app_on_surface_variant"
-                                    android:textSize="11sp"
-                                    android:textStyle="bold" />
+                                    android:orientation="vertical"
+                                    android:padding="10dp">
 
-                                <TextView
-                                    android:id="@+id/tvVolConn"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:maxLines="2"
-                                    android:minLines="2"
-                                    android:text="Unavailable"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="15sp"
-                                    android:textStyle="bold" />
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="CONNECTION"
+                                        android:textColor="#FF8ED1"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold"
+                                        android:fontFamily="monospace"
+                                        android:letterSpacing="0.1" />
 
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="8dp"
-                                    android:text="Latest packet"
-                                    android:textColor="@color/app_on_surface_variant"
-                                    android:textSize="11sp"
-                                    android:textStyle="bold" />
+                                    <TextView
+                                        android:id="@+id/tvVolConn"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:maxLines="2"
+                                        android:minLines="2"
+                                        android:text="Unavailable"
+                                        android:textColor="@color/app_on_surface"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
 
-                                <TextView
-                                    android:id="@+id/tvVolLast"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="4dp"
-                                    android:ellipsize="end"
-                                    android:maxLines="2"
-                                    android:minLines="2"
-                                    android:text="—"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="12sp" />
-                            </LinearLayout>
-                        </com.google.android.material.card.MaterialCardView>
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="7dp"
+                                        android:text="LATEST PACKET"
+                                        android:textColor="#FF8ED1"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold"
+                                        android:fontFamily="monospace"
+                                        android:letterSpacing="0.1" />
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnReconnectVolume"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="10dp"
-                            android:minHeight="46dp"
-                            android:text="Connect Volume"
-                            android:textAllCaps="false"
-                            android:textColor="@color/app_primary"
-                            android:textSize="13sp"
-                            app:cornerRadius="16dp"
-                            app:strokeColor="@color/app_primary" />
+                                    <TextView
+                                        android:id="@+id/tvVolLast"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="4dp"
+                                        android:ellipsize="end"
+                                        android:maxLines="2"
+                                        android:minLines="2"
+                                        android:text="—"
+                                        android:textColor="@color/app_on_surface"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </com.google.android.material.card.MaterialCardView>
 
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnReconnectVolume"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="9dp"
+                                android:minHeight="44dp"
+                                android:text="Connect Volume"
+                                android:textAllCaps="false"
+                                android:textColor="#FF8ED1"
+                                android:textSize="12sp"
+                                app:cornerRadius="10dp"
+                                app:strokeColor="#FF8ED1" />
+                        </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
+            <!-- Recent events card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                app:cardBackgroundColor="@color/app_surface_variant"
-                app:cardCornerRadius="22dp"
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="#0A1A12"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
                 app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
+                    android:orientation="vertical">
 
-                    <TextView
+                    <!-- Header -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Recent Connection Events"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="11dp"
+                        android:paddingBottom="7dp">
 
-                    <TextView
-                        android:id="@+id/tvHostNote"
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#00FF9D" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:text="RECENT EVENTS"
+                            android:textColor="#00FF9D"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
+                    </LinearLayout>
+
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:ellipsize="end"
-                        android:lineSpacingExtra="2dp"
-                        android:maxLines="3"
-                        android:minLines="3"
-                        android:text="No connection events yet."
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="13sp" />
+                        android:orientation="vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="14dp">
 
+                        <TextView
+                            android:id="@+id/tvHostNote"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:lineSpacingExtra="2dp"
+                            android:maxLines="3"
+                            android:minLines="3"
+                            android:text="No connection events yet."
+                            android:textColor="@color/app_on_surface_variant"
+                            android:textSize="12sp"
+                            android:fontFamily="monospace" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

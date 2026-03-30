@@ -4,7 +4,7 @@
     android:id="@+id/calibrationScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/app_background"
+    android:background="#0B0B1A"
     android:orientation="vertical">
 
     <com.example.thereminglovestest2.TopNavBarView
@@ -23,497 +23,630 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingTop="8dp"
-            android:paddingEnd="16dp"
+            android:paddingStart="12dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="12dp"
             android:paddingBottom="20dp">
 
+            <!-- Status card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="24dp"
+                app:cardBackgroundColor="#0D1628"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
                 app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:orientation="vertical">
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Calibration"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="24sp"
-                        android:textStyle="bold" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="8dp">
 
-                    <TextView
-                        android:id="@+id/tvLiveStatus"
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#43E5FF" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:text="LIVE STATUS"
+                            android:textColor="#43E5FF"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
+                    </LinearLayout>
+
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:text="Pitch: -- | Volume: --"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:orientation="vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="14dp">
 
-                    <TextView
-                        android:id="@+id/tvHostNote"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:maxLines="2"
-                        android:text="Tap a value to type. Turn a knob to adjust. Sync only if info looks stale."
-                        android:textColor="@color/app_on_surface_variant"
-                        android:textSize="13sp" />
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        app:cardBackgroundColor="@color/app_surface_variant"
-                        app:cardCornerRadius="16dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="@color/app_outline"
-                        app:strokeWidth="0dp">
-
-                        <LinearLayout
+                        <TextView
+                            android:id="@+id/tvLiveStatus"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="12dp">
+                            android:text="Pitch: -- | Volume: --"
+                            android:textColor="@color/app_on_surface"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
 
-                            <TextView
-                                android:id="@+id/tvCalibrationProgress"
+                        <TextView
+                            android:id="@+id/tvHostNote"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:maxLines="2"
+                            android:text="Tap a value to type. Turn a knob to adjust. Sync only if info looks stale."
+                            android:textColor="@color/app_on_surface_variant"
+                            android:textSize="12sp" />
+
+                        <!-- Progress sub-card -->
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            app:cardBackgroundColor="#091420"
+                            app:cardCornerRadius="10dp"
+                            app:cardElevation="0dp"
+                            app:strokeWidth="0dp">
+
+                            <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Progress 0/3 • Connect both gloves before calibrating."
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
+                                android:orientation="vertical"
+                                android:padding="12dp">
 
-                            <ProgressBar
-                                android:id="@+id/progressCalibration"
-                                style="?android:attr/progressBarStyleHorizontal"
-                                android:layout_width="match_parent"
-                                android:layout_height="6dp"
-                                android:layout_marginTop="8dp"
-                                android:indeterminate="false"
-                                android:indeterminateOnly="false"
-                                android:max="100"
-                                android:progress="0" />
+                                <TextView
+                                    android:id="@+id/tvCalibrationProgress"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Progress 0/3 • Connect both gloves before calibrating."
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold"
+                                    android:fontFamily="monospace" />
 
-                            <TextView
-                                android:id="@+id/tvSavedSummary"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="8dp"
-                                android:maxLines="2"
-                                android:text="Pitch 0.0°→90.0° | Freq 20→2000 Hz | Volume 0.0°→90.0°"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
+                                <ProgressBar
+                                    android:id="@+id/progressCalibration"
+                                    style="?android:attr/progressBarStyleHorizontal"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="6dp"
+                                    android:layout_marginTop="8dp"
+                                    android:indeterminate="false"
+                                    android:indeterminateOnly="false"
+                                    android:max="100"
+                                    android:progress="0" />
 
-
+                                <TextView
+                                    android:id="@+id/tvSavedSummary"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="7dp"
+                                    android:maxLines="2"
+                                    android:text="Pitch 0.0°→90.0° | Freq 20→2000 Hz | Volume 0.0°→90.0°"
+                                    android:textColor="@color/app_on_surface_variant"
+                                    android:textSize="11sp"
+                                    android:fontFamily="monospace" />
+                            </LinearLayout>
+                        </com.google.android.material.card.MaterialCardView>
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Pitch / Volume tab row -->
+            <!-- Tab row -->
             <LinearLayout
                 android:id="@+id/calibrationTabRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="10dp"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/tabPitch"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="46dp"
                     android:layout_weight="1"
-                    android:text="Pitch"
+                    android:text="PITCH"
                     android:textAllCaps="false"
                     android:textStyle="bold"
-                    app:cornerRadius="12dp" />
+                    android:textColor="#7FC0FF"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.1"
+                    app:cornerRadius="10dp"
+                    app:strokeColor="#7FC0FF" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/tabVolume"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_marginStart="10dp"
+                    android:layout_height="46dp"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:text="Volume"
+                    android:text="VOLUME"
                     android:textAllCaps="false"
-                    app:cornerRadius="12dp" />
+                    android:textColor="#FF8ED1"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.1"
+                    app:cornerRadius="10dp"
+                    app:strokeColor="#FF8ED1" />
             </LinearLayout>
 
+            <!-- Pitch card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardPitch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="24dp"
+                app:cardBackgroundColor="#16203B"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
                 app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="18dp">
+                    android:orientation="vertical">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="top"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="8dp">
 
-                        <LinearLayout
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#7FC0FF" />
+
+                        <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical"
-                            android:paddingEnd="12dp">
+                            android:layout_marginStart="8dp"
+                            android:text="PITCH GLOVE"
+                            android:textColor="#7FC0FF"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="14dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="top"
+                            android:orientation="horizontal">
 
                             <LinearLayout
-                                android:layout_width="match_parent"
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:orientation="horizontal">
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:paddingEnd="12dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Pitch"
+                                        android:textColor="#7FC0FF"
+                                        android:textSize="20sp"
+                                        android:textStyle="bold" />
+
+                                    <ImageButton
+                                        android:id="@+id/btnPitchInfo"
+                                        android:layout_width="32dp"
+                                        android:layout_height="32dp"
+                                        android:layout_marginStart="6dp"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:contentDescription="Pitch section info"
+                                        android:padding="4dp"
+                                        android:scaleType="fitCenter"
+                                        android:src="@android:drawable/ic_dialog_info" />
+                                </LinearLayout>
 
                                 <TextView
+                                    android:id="@+id/tvPitchLive"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="Pitch ACTIVE_DELTA_DEG: 0.00°"
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="13sp"
+                                    android:fontFamily="monospace" />
+
+                                <TextView
+                                    android:id="@+id/tvPitchMeta"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="3dp"
+                                    android:maxLines="2"
+                                    android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
+                                    android:textColor="@color/app_on_surface_variant"
+                                    android:textSize="11sp"
+                                    android:fontFamily="monospace" />
+
+                                <TextView
+                                    android:id="@+id/tvCalibTone"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Pitch"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="22sp"
+                                    android:layout_marginTop="6dp"
+                                    android:background="#1A7EA4FF"
+                                    android:paddingStart="10dp"
+                                    android:paddingTop="3dp"
+                                    android:paddingEnd="10dp"
+                                    android:paddingBottom="3dp"
+                                    android:text="Theremin"
+                                    android:textColor="#7EA4FF"
+                                    android:textSize="11sp"
                                     android:textStyle="bold" />
-
-                                <ImageButton
-                                    android:id="@+id/btnPitchInfo"
-                                    android:layout_width="32dp"
-                                    android:layout_height="32dp"
-                                    android:layout_marginStart="6dp"
-                                    android:background="?attr/selectableItemBackgroundBorderless"
-                                    android:contentDescription="Pitch section info"
-                                    android:padding="4dp"
-                                    android:scaleType="fitCenter"
-                                    android:src="@android:drawable/ic_dialog_info" />
-
                             </LinearLayout>
 
-                            <TextView
-                                android:id="@+id/tvPitchLive"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="Pitch ACTIVE_DELTA_DEG: 0.00°"
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="14sp" />
-
-                            <TextView
-                                android:id="@+id/tvPitchMeta"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="3dp"
-                                android:maxLines="2"
-                                android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvCalibTone"
+                            <LinearLayout
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="6dp"
-                                android:background="#1A7EA4FF"
-                                android:paddingStart="10dp"
-                                android:paddingTop="3dp"
-                                android:paddingEnd="10dp"
-                                android:paddingBottom="3dp"
-                                android:text="Theremin"
-                                android:textColor="#7EA4FF"
-                                android:textSize="12sp"
-                                android:textStyle="bold" />
+                                android:gravity="end"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnPitchNeutral"
+                                    android:layout_width="100dp"
+                                    android:layout_height="wrap_content"
+                                    android:minHeight="44dp"
+                                    android:text="Neutral"
+                                    android:textAllCaps="false"
+                                    android:textColor="@color/app_on_primary"
+                                    android:textStyle="bold"
+                                    app:backgroundTint="@color/app_primary"
+                                    app:cornerRadius="12dp" />
+                            </LinearLayout>
                         </LinearLayout>
 
                         <LinearLayout
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:gravity="end"
-                            android:orientation="vertical">
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
 
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnPitchNeutral"
-                                android:layout_width="104dp"
+                            <com.example.thereminglovestest2.KnobControlView
+                                android:id="@+id/knobPitchAngleMin"
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:minHeight="44dp"
-                                android:text="Neutral"
-                                android:textAllCaps="false"
-                                android:textColor="@color/app_on_primary"
-                                android:textStyle="bold"
-                                app:backgroundTint="@color/app_primary"
-                                app:cornerRadius="18dp" />
+                                android:layout_weight="1" />
 
+                            <com.example.thereminglovestest2.KnobControlView
+                                android:id="@+id/knobPitchAngleMax"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1" />
                         </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:orientation="horizontal">
+
+                            <com.example.thereminglovestest2.KnobControlView
+                                android:id="@+id/knobFreqMin"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+
+                            <com.example.thereminglovestest2.KnobControlView
+                                android:id="@+id/knobFreqMax"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvOctaveFreqInfo"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Oct +1: actual output 40 – 4000 Hz"
+                            android:textColor="#FFBC6A"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace"
+                            android:visibility="gone" />
                     </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:orientation="horizontal">
-
-                        <com.example.thereminglovestest2.KnobControlView
-                            android:id="@+id/knobPitchAngleMin"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1" />
-
-                        <com.example.thereminglovestest2.KnobControlView
-                            android:id="@+id/knobPitchAngleMax"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:orientation="horizontal">
-
-                        <com.example.thereminglovestest2.KnobControlView
-                            android:id="@+id/knobFreqMin"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1" />
-
-                        <com.example.thereminglovestest2.KnobControlView
-                            android:id="@+id/knobFreqMax"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/tvOctaveFreqInfo"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Oct +1: actual output 40 – 4000 Hz"
-                        android:textColor="#FFBC6A"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:visibility="gone" />
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Volume card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardVolume"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="24dp"
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="#221A3F"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
                 app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="18dp">
+                    android:orientation="vertical">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:gravity="top"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="8dp">
 
-                        <LinearLayout
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#FF8ED1" />
+
+                        <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:orientation="vertical"
-                            android:paddingEnd="12dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:orientation="horizontal">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Volume"
-                                    android:textColor="@color/app_on_surface"
-                                    android:textSize="22sp"
-                                    android:textStyle="bold" />
-
-                                <ImageButton
-                                    android:id="@+id/btnVolumeInfo"
-                                    android:layout_width="32dp"
-                                    android:layout_height="32dp"
-                                    android:layout_marginStart="6dp"
-                                    android:background="?attr/selectableItemBackgroundBorderless"
-                                    android:contentDescription="Volume section info"
-                                    android:padding="4dp"
-                                    android:scaleType="fitCenter"
-                                    android:src="@android:drawable/ic_dialog_info" />
-
-                            </LinearLayout>
-
-                            <TextView
-                                android:id="@+id/tvVolumeLive"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="4dp"
-                                android:text="Volume ACTIVE_DELTA_DEG: 0.00°"
-                                android:textColor="@color/app_on_surface"
-                                android:textSize="14sp" />
-
-                            <TextView
-                                android:id="@+id/tvVolumeMeta"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="3dp"
-                                android:maxLines="2"
-                                android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
-                                android:textColor="@color/app_on_surface_variant"
-                                android:textSize="12sp" />
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="end"
-                            android:orientation="vertical">
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnVolumeNeutral"
-                                android:layout_width="104dp"
-                                android:layout_height="wrap_content"
-                                android:minHeight="44dp"
-                                android:text="Neutral"
-                                android:textAllCaps="false"
-                                android:textColor="@color/app_on_primary"
-                                android:textStyle="bold"
-                                app:backgroundTint="@color/app_primary"
-                                app:cornerRadius="18dp" />
-
-                        </LinearLayout>
+                            android:layout_marginStart="8dp"
+                            android:text="VOLUME GLOVE"
+                            android:textColor="#FF8ED1"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:orientation="horizontal">
+                        android:orientation="vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="14dp">
 
-                        <com.example.thereminglovestest2.KnobControlView
-                            android:id="@+id/knobVolumeAngleMin"
-                            android:layout_width="0dp"
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1" />
+                            android:gravity="top"
+                            android:orientation="horizontal">
 
-                        <com.example.thereminglovestest2.KnobControlView
-                            android:id="@+id/knobVolumeAngleMax"
-                            android:layout_width="0dp"
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:paddingEnd="12dp">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Volume"
+                                        android:textColor="#FF8ED1"
+                                        android:textSize="20sp"
+                                        android:textStyle="bold" />
+
+                                    <ImageButton
+                                        android:id="@+id/btnVolumeInfo"
+                                        android:layout_width="32dp"
+                                        android:layout_height="32dp"
+                                        android:layout_marginStart="6dp"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:contentDescription="Volume section info"
+                                        android:padding="4dp"
+                                        android:scaleType="fitCenter"
+                                        android:src="@android:drawable/ic_dialog_info" />
+                                </LinearLayout>
+
+                                <TextView
+                                    android:id="@+id/tvVolumeLive"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="Volume ACTIVE_DELTA_DEG: 0.00°"
+                                    android:textColor="@color/app_on_surface"
+                                    android:textSize="13sp"
+                                    android:fontFamily="monospace" />
+
+                                <TextView
+                                    android:id="@+id/tvVolumeMeta"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="3dp"
+                                    android:maxLines="2"
+                                    android:text="Conn: OFF | Dir: UNKNOWN | Neutral: 0.00°"
+                                    android:textColor="@color/app_on_surface_variant"
+                                    android:textSize="11sp"
+                                    android:fontFamily="monospace" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="end"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnVolumeNeutral"
+                                    android:layout_width="100dp"
+                                    android:layout_height="wrap_content"
+                                    android:minHeight="44dp"
+                                    android:text="Neutral"
+                                    android:textAllCaps="false"
+                                    android:textColor="@color/app_on_primary"
+                                    android:textStyle="bold"
+                                    app:backgroundTint="@color/app_primary"
+                                    app:cornerRadius="12dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:layout_weight="1" />
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <com.example.thereminglovestest2.KnobControlView
+                                android:id="@+id/knobVolumeAngleMin"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+
+                            <com.example.thereminglovestest2.KnobControlView
+                                android:id="@+id/knobVolumeAngleMax"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1" />
+                        </LinearLayout>
                     </LinearLayout>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Actions card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="@color/app_surface"
-                app:cardCornerRadius="24dp"
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="#0A1A12"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
-                app:strokeColor="@color/app_outline"
                 app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="18dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Actions"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSaveAndPlay"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:minHeight="54dp"
-                        android:text="Save &amp; Play"
-                        android:textAllCaps="false"
-                        android:textColor="@color/app_on_primary"
-                        android:textStyle="bold"
-                        app:backgroundTint="@color/app_primary"
-                        app:cornerRadius="18dp" />
+                    android:orientation="vertical">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="8dp">
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnDefaults"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
+                        <View
+                            android:layout_width="3dp"
+                            android:layout_height="14dp"
+                            android:background="#00FF9D" />
+
+                        <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:minHeight="52dp"
-                            android:text="Defaults"
-                            android:textAllCaps="false"
-                            android:textColor="@color/app_secondary"
-                            app:cornerRadius="18dp"
-                            app:strokeColor="@color/app_secondary" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnReload"
-                            style="@style/Widget.Material3.Button.OutlinedButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:minHeight="52dp"
-                            android:text="Load Saved"
-                            android:textAllCaps="false"
-                            android:textColor="@color/app_secondary"
-                            app:cornerRadius="18dp"
-                            app:strokeColor="@color/app_secondary" />
+                            android:layout_marginStart="8dp"
+                            android:text="ACTIONS"
+                            android:textColor="#00FF9D"
+                            android:textSize="11sp"
+                            android:letterSpacing="0.2"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
                     </LinearLayout>
 
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="14dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnSaveAndPlay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="52dp"
+                            android:text="Save &amp; Play"
+                            android:textAllCaps="false"
+                            android:textColor="#081425"
+                            android:textStyle="bold"
+                            app:backgroundTint="#00FF9D"
+                            app:cornerRadius="12dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="horizontal">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnDefaults"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:minHeight="48dp"
+                                android:text="Defaults"
+                                android:textAllCaps="false"
+                                android:textColor="#43E5FF"
+                                app:cornerRadius="12dp"
+                                app:strokeColor="#43E5FF" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnReload"
+                                style="@style/Widget.Material3.Button.OutlinedButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:minHeight="48dp"
+                                android:text="Load Saved"
+                                android:textAllCaps="false"
+                                android:textColor="#43E5FF"
+                                app:cornerRadius="12dp"
+                                app:strokeColor="#43E5FF" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

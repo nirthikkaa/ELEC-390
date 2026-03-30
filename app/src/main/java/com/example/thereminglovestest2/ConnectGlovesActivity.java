@@ -59,6 +59,9 @@ public class ConnectGlovesActivity extends AppCompatActivity {
             refreshUi();
         }));
 
+        // Seed prev-state before the first refreshUi() call so we never fire a
+        // "glove connected" toast for gloves that were already connected on entry.
+        seedPrevConnectionState();
         refreshUi();
     }
 
@@ -69,6 +72,7 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         autoNavigatedToPlayThisVisit = false;
         consecutiveFullyConnectedPolls = 0;
         autoConnectRequestedThisVisit = false;
+        seedPrevConnectionState();
         uiPoller.start();
         withBleReady(() -> {}); // auto-trigger BT enable / permission popup on arrival
     }
@@ -77,6 +81,17 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         uiPoller.stop();
+    }
+
+    /** Initialise prevXxx fields from the live snapshot so the first poll never fires spurious toasts. */
+    private void seedPrevConnectionState() {
+        BleSnapshot seed = BleSessionManager.getSnapshot();
+        if (seed != null) {
+            prevPitchConnected   = seed.isPitchConnected();
+            prevPitchConnecting  = seed.hostReady && seed.pitchConnecting;
+            prevVolumeConnected  = seed.isVolumeConnected();
+            prevVolumeConnecting = seed.hostReady && seed.volumeConnecting;
+        }
     }
 
     private void toggleGlove(boolean isPitch) {

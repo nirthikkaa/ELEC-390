@@ -79,6 +79,8 @@ public class LibraryActivity extends AppCompatActivity
     private int currentlyPlayingPosition = -1;
     private RecordingRepository.Recording currentlyPlayingRecording;
     private boolean isPaused = false;
+    private boolean thereminMutedByUs = false;        // true only when WE muted the background service
+    private boolean thereminWasMutedBeforePlayback = false; // snapshot of mute state before we touched it
     private final Handler playerProgressHandler = new Handler(Looper.getMainLooper());
 
     // Multi-select
@@ -287,12 +289,14 @@ public class LibraryActivity extends AppCompatActivity
             try {
                 if (player.isPlaying()) {
                     player.pause(); isPaused = true;
-                    ThereminBackgroundAudioService.setThereminMuted(false);
+                    thereminMutedByUs = false;
+                    ThereminBackgroundAudioService.setThereminMuted(thereminWasMutedBeforePlayback);
                     adapter.setPlayingState(recordingIndex, false);
                     btnPlayerPlayPause.setImageResource(android.R.drawable.ic_media_play);
                     playerProgressHandler.removeCallbacks(progressRunnable);
                 } else if (isPaused) {
                     player.start(); isPaused = false;
+                    thereminMutedByUs = true;
                     ThereminBackgroundAudioService.setThereminMuted(true);
                     adapter.setPlayingState(recordingIndex, true);
                     btnPlayerPlayPause.setImageResource(android.R.drawable.ic_media_pause);
@@ -314,6 +318,8 @@ public class LibraryActivity extends AppCompatActivity
             player.setDataSource(recording.filePath);
             player.prepare();
             player.start();
+            thereminWasMutedBeforePlayback = ThereminBackgroundAudioService.isThereminMuted();
+            thereminMutedByUs = true;
             ThereminBackgroundAudioService.setThereminMuted(true);
 
             currentlyPlayingPosition  = recordingIndex;
@@ -820,17 +826,20 @@ public class LibraryActivity extends AppCompatActivity
         try {
             if (player.isPlaying()) {
                 player.pause(); isPaused = true;
-                ThereminBackgroundAudioService.setThereminMuted(false);
+                thereminMutedByUs = false;
+                ThereminBackgroundAudioService.setThereminMuted(thereminWasMutedBeforePlayback);
                 adapter.setPlayingState(currentlyPlayingPosition, false);
                 btnPlayerPlayPause.setImageResource(android.R.drawable.ic_media_play);
                 playerProgressHandler.removeCallbacks(progressRunnable);
             } else if (isPaused) {
                 player.start(); isPaused = false;
+                thereminMutedByUs = true;
                 ThereminBackgroundAudioService.setThereminMuted(true);
                 adapter.setPlayingState(currentlyPlayingPosition, true);
                 btnPlayerPlayPause.setImageResource(android.R.drawable.ic_media_pause);
                 playerProgressHandler.post(progressRunnable);
             }
+
         } catch (Exception ignored) {}
     }
 
@@ -852,7 +861,12 @@ public class LibraryActivity extends AppCompatActivity
             player.release();
             player = null;
         }
-        ThereminBackgroundAudioService.setThereminMuted(false);
+        // Only restore mute state if we were the ones who changed it, and restore
+        // exactly what it was before — so a paused theremin stays paused.
+        if (thereminMutedByUs) {
+            thereminMutedByUs = false;
+            ThereminBackgroundAudioService.setThereminMuted(thereminWasMutedBeforePlayback);
+        }
         hidePlayerBar();
         if (adapter != null) adapter.clearPlayingState();
     }

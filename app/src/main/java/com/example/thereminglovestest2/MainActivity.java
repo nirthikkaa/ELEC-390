@@ -42,9 +42,16 @@ import android.view.Gravity;
 import android.graphics.Typeface;
 import android.widget.TextView;
 
+import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioTrack;
+
+import com.example.thereminglovestest2.databinding.ActivityBeatMakerBinding;
+
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Locale;
@@ -125,6 +132,31 @@ public class MainActivity extends AppCompatActivity {
     private VelocityTracker bmVelocityTracker = null;
     private final Rect     bmVisBounds       = new Rect(); // cached bounds of cardVisualizer
     private FrameLayout bmPreview;   // full-screen overlay that slides in from the right
+    private boolean bmPanelVisible = false; // true when BeatMaker panel is the foreground page
+
+    // ── Inline Beat Maker panel state ─────────────────────────────────────────
+    private ActivityBeatMakerBinding bmBinding;
+    private volatile DrumEngine      bmPreviewEngine;
+    private AudioTrack               bmAudioTrack;
+    private Thread                   bmAudioThread;
+    private volatile boolean         bmAudioRunning = false;
+    private boolean                  bmIsPlaying    = false;
+    private int                      bmCurrentBpm   = 120;
+    private int                      bmKeyboardSynthMode = DrumEngine.PIANO_SYNTH_KEYS;
+    private int                      bmPianoModeIdx      = 0;
+    private final int[]              bmPianoSteps        = new int[StepGridView.NUM_STEPS];
+    private int                      bmSelectedPianoStep = 0;
+    private final Set<Integer>       bmActiveMelodyNotes = new HashSet<>();
+    private int                      bmSlotIndex         = 0;
+    private final Handler            bmPollHandler       = new Handler(Looper.getMainLooper());
+    private final Runnable           bmPollRunnable      = this::bmPollPlayhead;
+    private static final int         BM_SAMPLE_RATE      = 48000;
+    private static final int         BM_BUFFER_FRAMES    = 1024;
+    private static final String[]    BM_NOTE_NAMES       =
+            {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+    private static final String[]    BM_PIANO_MODE_LABELS =
+            {"NOTE","MAJOR","MINOR","PENTA","JAZZ"};
+
     private boolean lastAudioRunningState = false; // cache for updateAudioStatusText change-check
     private int lastGlovePitchColor = 0; // cache for setGloveStatus change-guard
     private int lastGloveVolColor   = 0;
@@ -208,10 +240,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        if (bmPanelVisible) {
+            bmSaveAndClose();
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         // Reset any drag translation left over if the user cancelled a swipe or returned from BeatMaker.
         binding.rootScroll.setTranslationX(0);
+        // Restart BeatMaker audio output if the panel was visible when we paused
+        if (bmPanelVisible && bmAudioTrack == null) {
+            bmStartAudioOutput();
+        }
         onVisible(); // single call here; onStart no longer duplicates it
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
         // Stage mode is never restored on launch — always start in normal view.
@@ -253,6 +298,83 @@ public class MainActivity extends AppCompatActivity {
         if (screenW == 0) return false;
         final float density = getResources().getDisplayMetrics().density;
 
+        // ── Back-swipe from Beat Maker to Play ────────────────────────────────
+        if (bmPanelVisible) {
+            switch (ev.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN: {
+                    bmDragStartX = ev.getRawX();
+                    bmDragStartY = ev.getRawY();
+                    bmDragActive = false;
+                    bmDragIgnore = false;
+                    if (bmVelocityTracker == null) bmVelocityTracker = VelocityTracker.obtain();
+                    else bmVelocityTracker.clear();
+                    bmVelocityTracker.addMovement(ev);
+                    return false; // let DOWN through so BM views receive it
+                }
+                case MotionEvent.ACTION_MOVE: {
+                    if (bmDragIgnore || Float.isNaN(bmDragStartX)) return false;
+                    if (bmVelocityTracker != null) bmVelocityTracker.addMovement(ev);
+
+                    float dx = ev.getRawX() - bmDragStartX;  // + = dragging right
+                    float dy = Math.abs(ev.getRawY() - bmDragStartY);
+                    float slop = 10f * density;
+
+                    if (!bmDragActive) {
+                        if (dx < 0 || dy > Math.abs(dx)) {
+                            if (dy > slop || dx < -slop) bmDragIgnore = true;
+                            return false;
+                        }
+                        if (dx < slop) return false;
+
+                        MotionEvent cancel = MotionEvent.obtain(ev);
+                        cancel.setAction(MotionEvent.ACTION_CANCEL);
+                        super.dispatchTouchEvent(cancel);
+                        cancel.recycle();
+                        bmDragActive = true;
+                    }
+
+                    dx = Math.min(Math.max(dx, 0f), screenW);
+                    bmPreview.setTranslationX(dx);
+                    binding.rootScroll.setTranslationX(-(screenW * 0.7f) + dx * 0.7f);
+                    return true;
+                }
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL: {
+                    if (bmDragIgnore || !bmDragActive) {
+                        resetSwipeState();
+                        return false;
+                    }
+                    float drag = Math.max(0f, ev.getRawX() - bmDragStartX);
+                    boolean fling = false;
+                    if (bmVelocityTracker != null) {
+                        bmVelocityTracker.addMovement(ev);
+                        bmVelocityTracker.computeCurrentVelocity(1000, 20000f);
+                        float velXDp = bmVelocityTracker.getXVelocity() / density;
+                        fling = velXDp > SWIPE_FLING_DPS;
+                        bmVelocityTracker.recycle();
+                        bmVelocityTracker = null;
+                    }
+                    boolean commit = ev.getActionMasked() == MotionEvent.ACTION_UP
+                            && (fling || drag > screenW * SWIPE_THRESHOLD);
+                    resetSwipeState();
+                    if (commit) {
+                        bmSaveAndClose();
+                    } else {
+                        // Snap BM back to full screen
+                        DecelerateInterpolator interp = new DecelerateInterpolator(2f);
+                        bmPreview.animate().translationX(0).setDuration(200).setInterpolator(interp).start();
+                        binding.rootScroll.animate().translationX(-screenW * 0.7f)
+                                .setDuration(200).setInterpolator(interp)
+                                .withEndAction(() -> binding.rootScroll.setTranslationX(0))
+                                .start();
+                    }
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // ── Forward-swipe from Play to Beat Maker ─────────────────────────────
         switch (ev.getActionMasked()) {
 
             case MotionEvent.ACTION_DOWN: {
@@ -339,16 +461,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * On commit: animate both panels to their final positions (preview fills screen,
-     * content slides fully off), THEN launch BeatMaker with no Activity animation.
-     * This gives a smooth "page flips into place" feel instead of a hard cut.
+     * On commit: animate both panels to their final positions.
+     * The Beat Maker panel stays visible — no Activity launch needed.
      */
     private void commitSwipeToEnd(int screenW, float currentDrag) {
-        int editSlot = 0;
-        for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
-        final int slot = editSlot;
-
-        // Duration scales with remaining distance so a nearly-complete drag is faster.
         float progress = Math.min(currentDrag / screenW, 1f);
         long dur = Math.max(60L, (long) ((1f - progress) * 180f));
 
@@ -359,12 +475,16 @@ public class MainActivity extends AppCompatActivity {
                 .setDuration(dur).setInterpolator(interp)
                 .withEndAction(() -> {
                     binding.rootScroll.setTranslationX(0);
-                    bmPreview.setVisibility(View.GONE);
-                    Intent bm = new Intent(this, BeatMakerActivity.class);
-                    bm.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
-                    bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, slot);
-                    beatMakerLauncher.launch(bm,
-                            androidx.core.app.ActivityOptionsCompat.makeCustomAnimation(this, 0, 0));
+                    bmPanelVisible = true;
+                    // Start audio output the first time the panel appears
+                    if (bmAudioTrack == null) bmStartAudioOutput();
+                    // Reload current slot's pattern in case prefs changed
+                    bmLoadPatternFromPrefs();
+                    if (bmPreviewEngine != null) {
+                        bmPreviewEngine.setBpm(bmCurrentBpm);
+                        bmPushPatternToEngine();
+                    }
+                    bmUpdateSlotHighlights();
                 })
                 .start();
     }
@@ -375,6 +495,25 @@ public class MainActivity extends AppCompatActivity {
                 .setDuration(250).setInterpolator(interp).start();
         bmPreview.animate().translationX(screenW)
                 .setDuration(250).setInterpolator(interp)
+                .withEndAction(() -> {
+                    if (!bmPanelVisible) bmPreview.setVisibility(View.GONE);
+                })
+                .start();
+    }
+
+    /** Animate Beat Maker panel back to Play screen, saving pattern first. */
+    private void bmSaveAndClose() {
+        bmStopPlayback();
+        bmSavePatternToPrefs();
+        pushMergedPattern();
+        final int screenW = binding.getRoot().getWidth();
+        bmPanelVisible = false;
+        DecelerateInterpolator interp = new DecelerateInterpolator(1.8f);
+        binding.rootScroll.setTranslationX(-screenW * 0.7f);
+        binding.rootScroll.animate().translationX(0)
+                .setDuration(220).setInterpolator(interp).start();
+        bmPreview.animate().translationX(screenW)
+                .setDuration(220).setInterpolator(interp)
                 .withEndAction(() -> bmPreview.setVisibility(View.GONE))
                 .start();
     }
@@ -407,6 +546,9 @@ public class MainActivity extends AppCompatActivity {
             appendLogSafe("onPause -> audio kept running in background");
         }
         maybeMoveAudioToBackgroundService();
+        // Stop BeatMaker preview audio when leaving — restarts on resume if panel is visible
+        bmStopPlayback();
+        bmStopAudioOutput();
     }
 
     @Override
@@ -425,6 +567,10 @@ public class MainActivity extends AppCompatActivity {
         if (recordingManager != null) recordingManager.release();
         // Sprint 3: Release local drum engine SoundPool resources.
         if (drumEngine != null) { drumEngine.release(); drumEngine = null; }
+        // Release inline BeatMaker panel resources
+        bmPollHandler.removeCallbacks(bmPollRunnable);
+        bmStopAudioOutput();
+        if (bmPreviewEngine != null) { bmPreviewEngine.release(); bmPreviewEngine = null; }
         super.onDestroy();
         uiTicker.stop();
         if (audioEngine != null && (!bgAudioEnabled || isFinishing())) audioEngine.shutdown();
@@ -1620,24 +1766,43 @@ public class MainActivity extends AppCompatActivity {
     /** Creates the Beat Maker drag-preview overlay and attaches it as a full-screen content overlay. */
     private void buildBeatMakerPreview() {
         bmPreview = new FrameLayout(this);
-        bmPreview.setBackgroundColor(0xFF0F0A1E); // matches BeatMaker dark background
         bmPreview.setVisibility(android.view.View.GONE);
 
-        // "Beat Maker" label centered in the panel
-        TextView lbl = new TextView(this);
-        lbl.setText("Beat Maker");
-        lbl.setTextSize(26f);
-        lbl.setTypeface(lbl.getTypeface(), Typeface.BOLD);
-        lbl.setTextColor(0xFF00FF9D); // BeatMaker accent green
-        lbl.setGravity(Gravity.CENTER);
-        FrameLayout.LayoutParams lblLp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
-        bmPreview.addView(lbl, lblLp);
+        // Inflate the real BeatMaker layout into the panel
+        bmBinding = ActivityBeatMakerBinding.inflate(getLayoutInflater(), bmPreview, true);
+
+        // Wire TopNavBar back button → snap back to Play
+        bmBinding.topNavBar.setTitleText("Beat Maker");
+        bmBinding.topNavBar.setBackButtonVisible(true);
+        bmBinding.topNavBar.setOverflowButtonVisible(false);
+        bmBinding.topNavBar.setOnBackClickListener(v -> bmSaveAndClose());
 
         // Overlay on top of all content
         addContentView(bmPreview, new android.view.ViewGroup.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // Initialize BeatMaker state and start preview engine in background
+        Arrays.fill(bmPianoSteps, -1);
+        bmLoadPatternFromPrefs();
+        bmWireBpmSlider();
+        bmWireTransportControls();
+        bmWireKeyboardControls();
+        bmWireSlotButtons();
+
+        // Audio output is NOT started here — it starts the first time the panel is shown.
+        new Thread(() -> {
+            DrumEngine engine = new DrumEngine(this);
+            engine.start();
+            bmPreviewEngine = engine;
+            runOnUiThread(() -> {
+                engine.setBpm(bmCurrentBpm);
+                engine.setPianoSynthMode(bmKeyboardSynthMode);
+                bmConfigurePreviewMix(engine);
+                bmApplyBeatMakerMode();
+                bmPushPatternToEngine();
+            });
+        }, "BmEngineInit").start();
     }
 
     private void launchBeatMakerFromSwipe() {
@@ -1653,6 +1818,378 @@ public class MainActivity extends AppCompatActivity {
         beatMakerLauncher.launch(bm,
                 androidx.core.app.ActivityOptionsCompat.makeCustomAnimation(this, 0, 0));
     }
+
+    // ── Inline Beat Maker panel ───────────────────────────────────────────────
+
+    private void bmStartAudioOutput() {
+        int minBuf = AudioTrack.getMinBufferSize(BM_SAMPLE_RATE,
+                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        int bufBytes = Math.max(minBuf, BM_BUFFER_FRAMES * 2);
+        AudioTrack.Builder builder = new AudioTrack.Builder()
+                .setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                .setAudioFormat(new AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(BM_SAMPLE_RATE)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                .setBufferSizeInBytes(bufBytes)
+                .setTransferMode(AudioTrack.MODE_STREAM);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
+            builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY);
+        bmAudioTrack = builder.build();
+        bmAudioTrack.play();
+        bmAudioRunning = true;
+        bmAudioThread = new Thread(() -> {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
+            short[] buf = new short[BM_BUFFER_FRAMES];
+            AudioTrack track = bmAudioTrack;
+            float hpIn = 0f, hpOut = 0f;
+            while (bmAudioRunning && track != null) {
+                Arrays.fill(buf, (short) 0);
+                DrumEngine e = bmPreviewEngine;
+                if (e != null) e.mixInto(buf, BM_BUFFER_FRAMES);
+                for (int i = 0; i < BM_BUFFER_FRAMES; i++) {
+                    float x = buf[i] / 32768f;
+                    float hp = x - hpIn + 0.995f * hpOut;
+                    hpIn = x; hpOut = hp;
+                    float m = bmSoftLimit(hp * 1.05f);
+                    buf[i] = (short)(m * Short.MAX_VALUE);
+                }
+                track.write(buf, 0, BM_BUFFER_FRAMES);
+            }
+        }, "BmAudioOut");
+        bmAudioThread.start();
+    }
+
+    private void bmStopAudioOutput() {
+        bmAudioRunning = false;
+        if (bmAudioThread != null) {
+            try { bmAudioThread.join(600); } catch (InterruptedException ignored) {}
+            bmAudioThread = null;
+        }
+        if (bmAudioTrack != null) {
+            try { bmAudioTrack.stop(); bmAudioTrack.release(); } catch (Exception ignored) {}
+            bmAudioTrack = null;
+        }
+    }
+
+    private static float bmSoftLimit(float x) {
+        float sign = Math.signum(x), abs = Math.abs(x);
+        if (abs <= 0.72f) return x;
+        return sign * Math.min(0.92f, 0.72f + (abs - 0.72f) * 0.22f);
+    }
+
+    private void bmWireTransportControls() {
+        bmBinding.btnPlayStop.setOnClickListener(v -> {
+            if (bmIsPlaying) bmStopPlayback(); else bmStartPlayback();
+        });
+        bmBinding.btnClearAll.setOnClickListener(v ->
+            new AlertDialog.Builder(this)
+                .setTitle("Clear All Steps")
+                .setMessage("Remove all active steps?")
+                .setPositiveButton("Clear", (d, w) -> { bmBinding.stepGrid.clearAll(); bmPushPatternToEngine(); })
+                .setNegativeButton("Cancel", null).show()
+        );
+        bmBinding.btnApply.setOnClickListener(v -> bmSaveAndClose());
+    }
+
+    private void bmWireKeyboardControls() {
+        SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
+        bmKeyboardSynthMode = DrumEngine.clampPianoSynthMode(
+                prefs.getInt(KEY_KEYBOARD_SYNTH_MODE, bmKeyboardSynthMode));
+        bmUpdateKeyboardSynthButton();
+        bmUpdateKeyboardModeButton();
+        bmBinding.beatMakerPianoSteps.setNotes(bmPianoSteps);
+        bmBinding.beatMakerPianoSteps.setSelectedStep(bmSelectedPianoStep);
+        bmBinding.beatMakerPianoSteps.setListener(step -> {
+            if (bmSelectedPianoStep == step && bmPianoSteps[step] >= 0) {
+                bmPianoSteps[step] = -1;
+                bmBinding.tvBeatMakerKeyNote.setText("cleared " + (step + 1));
+                bmPushPatternToEngine();
+            } else {
+                bmSelectedPianoStep = step;
+                bmBinding.tvBeatMakerKeyNote.setText("step " + (step + 1));
+            }
+            bmBinding.beatMakerPianoSteps.setNotes(bmPianoSteps);
+            bmBinding.beatMakerPianoSteps.setSelectedStep(bmSelectedPianoStep);
+        });
+        bmBinding.btnBeatMakerSynth.setOnClickListener(v -> {
+            bmKeyboardSynthMode = DrumEngine.clampPianoSynthMode(bmKeyboardSynthMode + 1);
+            bmApplyKeyboardSynthMode();
+        });
+        bmBinding.btnBeatMakerSynth.setOnLongClickListener(v -> {
+            bmKeyboardSynthMode = DrumEngine.clampPianoSynthMode(bmKeyboardSynthMode - 1);
+            bmApplyKeyboardSynthMode();
+            return true;
+        });
+        bmBinding.btnBeatMakerKeyMode.setOnClickListener(v -> {
+            bmPianoModeIdx = (bmPianoModeIdx + 1) % DrumEngine.ARPEGGIO_PATTERNS.length;
+            bmClearMelody();
+            bmApplyBeatMakerMode();
+        });
+        bmBinding.beatMakerKeyboard.setNoteListener(midiNote -> {
+            bmAuditionKeyboardInput(midiNote);
+            bmWritePianoStep(midiNote);
+        });
+        bmBinding.stepGrid.setListener(new StepGridView.Listener() {
+            @Override public void onStepChanged(int row, int step, boolean active) { bmPushPatternToEngine(); }
+            @Override public void onRowLabelTapped(int row) {
+                if (bmPreviewEngine != null)
+                    bmPreviewEngine.auditSound(BeatMakerActivity.ROW_SOUNDS[row]);
+            }
+        });
+    }
+
+    private void bmWireSlotButtons() {
+        com.google.android.material.button.MaterialButton[] btns = {
+            bmBinding.btnSlot1, bmBinding.btnSlot2, bmBinding.btnSlot3, bmBinding.btnSlot4,
+            bmBinding.btnSlot5, bmBinding.btnSlot6, bmBinding.btnSlot7, bmBinding.btnSlot8
+        };
+        for (int i = 0; i < 8; i++) {
+            final int slot = i;
+            btns[i].setOnClickListener(v -> bmSwitchToSlot(slot));
+        }
+        bmUpdateSlotHighlights();
+    }
+
+    private void bmSwitchToSlot(int newSlot) {
+        if (newSlot == bmSlotIndex) return;
+        bmSavePatternToPrefs();
+        bmSlotIndex = newSlot;
+        bmLoadPatternFromPrefs();
+        bmBinding.sbBeatMakerBpm.setProgress(bmCurrentBpm - 60);
+        bmBinding.tvBeatMakerBpm.setText(String.valueOf(bmCurrentBpm));
+        if (bmPreviewEngine != null) bmPreviewEngine.setBpm(bmCurrentBpm);
+        bmSelectedPianoStep = 0;
+        bmBinding.beatMakerPianoSteps.setSelectedStep(bmSelectedPianoStep);
+        bmPushPatternToEngine();
+        bmUpdateSlotHighlights();
+    }
+
+    private void bmUpdateSlotHighlights() {
+        com.google.android.material.button.MaterialButton[] btns = {
+            bmBinding.btnSlot1, bmBinding.btnSlot2, bmBinding.btnSlot3, bmBinding.btnSlot4,
+            bmBinding.btnSlot5, bmBinding.btnSlot6, bmBinding.btnSlot7, bmBinding.btnSlot8
+        };
+        SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
+        for (int i = 0; i < 8; i++) {
+            boolean isActive = (i == bmSlotIndex);
+            boolean isSaved  = bmIsSlotSaved(i, prefs);
+            btns[i].setText("BEAT " + (i + 1) + (isSaved ? " \u25CF" : ""));
+            if (isActive) {
+                btns[i].setTextColor(0xFF00FF9D);
+                btns[i].setStrokeColor(android.content.res.ColorStateList.valueOf(0xFF00FF9D));
+            } else if (isSaved) {
+                btns[i].setTextColor(0xFF00AA66);
+                btns[i].setStrokeColor(android.content.res.ColorStateList.valueOf(0xFF005533));
+            } else {
+                btns[i].setTextColor(0xFF555777);
+                btns[i].setStrokeColor(android.content.res.ColorStateList.valueOf(0xFF333355));
+            }
+        }
+    }
+
+    private boolean bmIsSlotSaved(int slot, SharedPreferences prefs) {
+        String key = slot == 0 ? "beat_maker_custom_active" : "beat_slot_" + slot + "_saved";
+        return prefs.getBoolean(key, false);
+    }
+
+    private void bmWireBpmSlider() {
+        bmBinding.sbBeatMakerBpm.setMax(140);
+        bmBinding.sbBeatMakerBpm.setProgress(bmCurrentBpm - 60);
+        bmBinding.tvBeatMakerBpm.setText(String.valueOf(bmCurrentBpm));
+        bmBinding.sbBeatMakerBpm.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean user) {
+                bmCurrentBpm = 60 + p;
+                bmBinding.tvBeatMakerBpm.setText(String.valueOf(bmCurrentBpm));
+                if (bmPreviewEngine != null) bmPreviewEngine.setBpm(bmCurrentBpm);
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) {}
+            @Override public void onStopTrackingTouch(SeekBar sb) {}
+        });
+        bmBinding.btnBpmMinus.setOnClickListener(v -> bmApplyBpm(bmCurrentBpm - 1));
+        bmBinding.btnBpmPlus.setOnClickListener(v -> bmApplyBpm(bmCurrentBpm + 1));
+        bmBinding.btnBpmMinus.setOnLongClickListener(v -> { bmApplyBpm(bmCurrentBpm - 5); return true; });
+        bmBinding.btnBpmPlus.setOnLongClickListener(v -> { bmApplyBpm(bmCurrentBpm + 5); return true; });
+    }
+
+    private void bmApplyBpm(int bpm) {
+        bmCurrentBpm = Math.max(60, Math.min(200, bpm));
+        bmBinding.sbBeatMakerBpm.setProgress(bmCurrentBpm - 60);
+        bmBinding.tvBeatMakerBpm.setText(String.valueOf(bmCurrentBpm));
+        if (bmPreviewEngine != null) bmPreviewEngine.setBpm(bmCurrentBpm);
+    }
+
+    private void bmStartPlayback() {
+        if (bmPreviewEngine == null) return;
+        bmIsPlaying = true;
+        bmPushPatternToEngine();
+        bmPreviewEngine.setEnabled(true);
+        bmPreviewEngine.setBassEnabled(true);
+        bmBinding.btnPlayStop.setText("STOP");
+        bmBinding.btnPlayStop.setTextColor(0xFFFF4444);
+        bmPollHandler.post(bmPollRunnable);
+    }
+
+    private void bmStopPlayback() {
+        bmIsPlaying = false;
+        if (bmPreviewEngine != null) {
+            bmPreviewEngine.setEnabled(false);
+            bmPreviewEngine.setBassEnabled(false);
+        }
+        bmClearMelody();
+        bmPollHandler.removeCallbacks(bmPollRunnable);
+        bmBinding.stepGrid.clearPlayhead();
+        bmBinding.beatMakerPianoSteps.setPlayheadStep(-1);
+        bmBinding.btnPlayStop.setText("PLAY");
+        bmBinding.btnPlayStop.setTextColor(0xFF00FF9D);
+    }
+
+    private void bmPollPlayhead() {
+        if (!bmIsPlaying || bmPreviewEngine == null) return;
+        int step = bmPreviewEngine.getCurrentStep16();
+        bmBinding.stepGrid.setPlayheadStep(step);
+        bmBinding.beatMakerPianoSteps.setPlayheadStep(step);
+        bmPollHandler.postDelayed(bmPollRunnable, 50);
+    }
+
+    private void bmPushPatternToEngine() {
+        if (bmPreviewEngine != null)
+            bmPreviewEngine.setCustomPattern(bmBinding.stepGrid.getSteps(), bmPianoSteps);
+    }
+
+    private void bmConfigurePreviewMix(DrumEngine engine) {
+        engine.setKickVolume(0.90f);
+        engine.setSnareVolume(0.82f);
+        engine.setHihatVolume(0.52f);
+        engine.setBassVolume(0.68f);
+        engine.setTrackVolume(DrumEngine.SND_CLAP,    0.58f);
+        engine.setTrackVolume(DrumEngine.SND_CRASH,   0.48f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_HI,  0.52f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0.52f);
+        engine.setTrackVolume(DrumEngine.SND_RIM,     0.50f);
+        engine.setTrackVolume(DrumEngine.SND_SHAKER,  0.45f);
+        engine.setPianoVolume(0.52f);
+    }
+
+    private void bmApplyKeyboardSynthMode() {
+        bmKeyboardSynthMode = DrumEngine.clampPianoSynthMode(bmKeyboardSynthMode);
+        if (bmPreviewEngine != null) bmPreviewEngine.setPianoSynthMode(bmKeyboardSynthMode);
+        getSharedPreferences("theremin_prefs", MODE_PRIVATE).edit()
+                .putInt(KEY_KEYBOARD_SYNTH_MODE, bmKeyboardSynthMode).apply();
+        bmUpdateKeyboardSynthButton();
+    }
+
+    private void bmUpdateKeyboardSynthButton() {
+        bmBinding.btnBeatMakerSynth.setText(DrumEngine.PIANO_SYNTH_LABELS[bmKeyboardSynthMode]);
+        int color = bmKeyboardSynthMode == DrumEngine.PIANO_SYNTH_KEYS ? 0xFF7EB8FF : 0xFF00CCFF;
+        bmBinding.btnBeatMakerSynth.setTextColor(color);
+        bmBinding.btnBeatMakerSynth.setStrokeColor(android.content.res.ColorStateList.valueOf(color));
+    }
+
+    private void bmUpdateKeyboardModeButton() {
+        bmBinding.btnBeatMakerKeyMode.setText(BM_PIANO_MODE_LABELS[bmPianoModeIdx]);
+        int color = bmPianoModeIdx == 0 ? 0xFF7EB8FF : 0xFF00CCFF;
+        bmBinding.btnBeatMakerKeyMode.setTextColor(color);
+        bmBinding.btnBeatMakerKeyMode.setStrokeColor(android.content.res.ColorStateList.valueOf(color));
+    }
+
+    private void bmApplyBeatMakerMode() {
+        bmUpdateKeyboardModeButton();
+        bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
+    }
+
+    private void bmClearMelody() {
+        bmActiveMelodyNotes.clear();
+        if (bmPreviewEngine != null) bmPreviewEngine.clearMelodyRoot();
+        bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
+    }
+
+    private void bmAuditionKeyboardInput(int midiNote) {
+        if (bmPreviewEngine == null) return;
+        if (bmPianoModeIdx == 0) {
+            bmPreviewEngine.triggerPianoKey(midiNote);
+        } else {
+            int[] arp = DrumEngine.ARPEGGIO_PATTERNS[bmPianoModeIdx];
+            if (bmActiveMelodyNotes.contains(midiNote)) {
+                bmActiveMelodyNotes.remove(midiNote);
+                bmPreviewEngine.removeMelodyRoot(midiNote);
+            } else {
+                bmActiveMelodyNotes.add(midiNote);
+                bmPreviewEngine.addMelodyRoot(midiNote, arp);
+            }
+            bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
+        }
+    }
+
+    private void bmWritePianoStep(int midiNote) {
+        int targetStep = bmIsPlaying && bmPreviewEngine != null
+                ? bmPreviewEngine.getCurrentStep16() : bmSelectedPianoStep;
+        targetStep = Math.max(0, Math.min(StepGridView.NUM_STEPS - 1, targetStep));
+        if (bmPianoSteps[targetStep] == midiNote) {
+            bmPianoSteps[targetStep] = -1;
+            bmBinding.tvBeatMakerKeyNote.setText("removed " + bmFormatMidiNote(midiNote) + " @ " + (targetStep + 1));
+        } else {
+            bmPianoSteps[targetStep] = midiNote;
+            bmBinding.tvBeatMakerKeyNote.setText(bmFormatMidiNote(midiNote) + " @ " + (targetStep + 1));
+        }
+        bmSelectedPianoStep = targetStep;
+        bmBinding.beatMakerPianoSteps.setNotes(bmPianoSteps);
+        bmBinding.beatMakerPianoSteps.setSelectedStep(bmSelectedPianoStep);
+        bmPushPatternToEngine();
+    }
+
+    private static String bmFormatMidiNote(int midi) {
+        return BM_NOTE_NAMES[Math.floorMod(midi, 12)] + ((midi / 12) - 1);
+    }
+
+    private void bmSavePatternToPrefs() {
+        SharedPreferences.Editor ed = getSharedPreferences("theremin_prefs", MODE_PRIVATE).edit();
+        boolean[][] grid = bmBinding.stepGrid.getSteps();
+        String prefix = bmSlotIndex == 0 ? "beat_maker" : "beat_slot_" + bmSlotIndex;
+        String keyActive = bmSlotIndex == 0 ? "beat_maker_custom_active" : "beat_slot_" + bmSlotIndex + "_saved";
+        for (int r = 0; r < StepGridView.NUM_ROWS; r++) {
+            String rowKey = bmSlotIndex == 0 ? "beat_maker_row_" + r : "beat_slot_" + bmSlotIndex + "_row_" + r;
+            StringBuilder sb = new StringBuilder(31);
+            for (int s = 0; s < StepGridView.NUM_STEPS; s++) {
+                if (s > 0) sb.append(',');
+                sb.append(grid[r][s] ? '1' : '0');
+            }
+            ed.putString(rowKey, sb.toString());
+        }
+        for (int step = 0; step < StepGridView.NUM_STEPS; step++)
+            ed.putInt(prefix + "_piano_" + step, bmPianoSteps[step]);
+        ed.putInt("beat_master_bpm", bmCurrentBpm);
+        ed.putBoolean(keyActive, true);
+        ed.apply();
+        bmUpdateSlotHighlights();
+    }
+
+    private void bmLoadPatternFromPrefs() {
+        SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
+        boolean[][] grid = new boolean[StepGridView.NUM_ROWS][StepGridView.NUM_STEPS];
+        for (int r = 0; r < StepGridView.NUM_ROWS; r++) {
+            String rowKey = bmSlotIndex == 0 ? "beat_maker_row_" + r : "beat_slot_" + bmSlotIndex + "_row_" + r;
+            String v = prefs.getString(rowKey, null);
+            if (v != null) {
+                String[] parts = v.split(",");
+                for (int s = 0; s < Math.min(StepGridView.NUM_STEPS, parts.length); s++)
+                    grid[r][s] = "1".equals(parts[s].trim());
+            }
+        }
+        Arrays.fill(bmPianoSteps, -1);
+        String prefix = bmSlotIndex == 0 ? "beat_maker" : "beat_slot_" + bmSlotIndex;
+        for (int step = 0; step < StepGridView.NUM_STEPS; step++)
+            bmPianoSteps[step] = prefs.getInt(prefix + "_piano_" + step, -1);
+        bmCurrentBpm = prefs.getInt("beat_master_bpm", 120);
+        if (bmBinding != null) {
+            bmBinding.stepGrid.setSteps(grid);
+            bmBinding.beatMakerPianoSteps.setNotes(bmPianoSteps);
+        }
+    }
+
+    // ── End Inline Beat Maker panel ───────────────────────────────────────────
 
     private void togglePerformanceMode() {
         performanceModeActive = !performanceModeActive;

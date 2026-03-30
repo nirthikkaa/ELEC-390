@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class DrumEngine {
 
     private static final int SAMPLE_RATE = 48000;
-    private static final int MAX_VOICES  = 16;
+    private static final int MAX_VOICES  = 32;
     private static final float DRUM_MIX_HEADROOM = 0.26f;
     private static final float PIANO_MIX_HEADROOM = 0.22f;
 

@@ -96,6 +96,8 @@ public class ThereminBackgroundAudioService extends Service {
 
     public static void setThereminMuted(boolean muted) {
         thereminMuted = muted;
+        DrumEngine d = getDrumEngine();
+        if (d != null) d.setPaused(muted);
     }
 
     /**

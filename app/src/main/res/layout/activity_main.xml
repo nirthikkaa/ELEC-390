@@ -845,12 +845,14 @@
                                 android:fontFamily="monospace" />
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnDrumBpmMinus"
-                                android:layout_width="30dp"
+                                android:layout_width="34dp"
                                 android:layout_height="28dp"
                                 android:text="−"
                                 android:textSize="14sp"
                                 android:insetTop="0dp"
                                 android:insetBottom="0dp"
+                                android:insetLeft="0dp"
+                                android:insetRight="0dp"
                                 app:cornerRadius="4dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton"
                                 app:strokeColor="#333355" />
@@ -867,12 +869,14 @@
                                 android:thumb="@drawable/slider_thumb_rect" />
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btnDrumBpmPlus"
-                                android:layout_width="30dp"
+                                android:layout_width="34dp"
                                 android:layout_height="28dp"
                                 android:text="+"
                                 android:textSize="14sp"
                                 android:insetTop="0dp"
                                 android:insetBottom="0dp"
+                                android:insetLeft="0dp"
+                                android:insetRight="0dp"
                                 android:layout_marginStart="4dp"
                                 app:cornerRadius="4dp"
                                 style="@style/Widget.Material3.Button.OutlinedButton"
@@ -1285,12 +1289,14 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPianoBpmMinus"
-                            android:layout_width="28dp"
+                            android:layout_width="34dp"
                             android:layout_height="26dp"
                             android:text="−"
                             android:textSize="13sp"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
                             app:cornerRadius="4dp"
                             app:strokeColor="#334455"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
@@ -1309,13 +1315,15 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnPianoBpmPlus"
-                            android:layout_width="28dp"
+                            android:layout_width="34dp"
                             android:layout_height="26dp"
                             android:layout_marginStart="4dp"
                             android:text="+"
                             android:textSize="13sp"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
+                            android:insetLeft="0dp"
+                            android:insetRight="0dp"
                             app:cornerRadius="4dp"
                             app:strokeColor="#334455"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
