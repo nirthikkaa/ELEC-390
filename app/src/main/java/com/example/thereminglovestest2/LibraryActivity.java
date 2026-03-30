@@ -762,13 +762,13 @@ public class LibraryActivity extends AppCompatActivity
         int bgColor, textColor;
         switch (q) {
             case AppSettings.COMPRESSION_LOSSLESS:
-                label = "LOSSLESS"; bgColor = 0xFFD4A520; textColor = 0xFF1A1200; break;
+                label = "WAV";  bgColor = 0xFF7EA4FF; textColor = 0xFF081425; break; // app_primary
             case AppSettings.COMPRESSION_HIGH:
-                label = "HIGH";     bgColor = 0xFFB0B0B8; textColor = 0xFF101010; break;
+                label = "HIGH"; bgColor = 0xFF43E5FF; textColor = 0xFF082633; break; // app_secondary
             case AppSettings.COMPRESSION_MEDIUM:
-                label = "MED";      bgColor = 0xFFB06020; textColor = 0xFF1A0A00; break;
+                label = "MED";  bgColor = 0xFFFF63C6; textColor = 0xFF371028; break; // app_tertiary
             case AppSettings.COMPRESSION_LOW:
-                label = "LOW";      bgColor = 0xFF3A3050; textColor = 0xFFB0A8C8; break;
+                label = "LOW";  bgColor = 0xFF4C4080; textColor = 0xFFF6F1FF; break; // app_outline / app_on_surface
             default:
                 tvQualityBadge.setVisibility(View.GONE); return;
         }
