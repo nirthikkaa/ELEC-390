@@ -1001,10 +1001,7 @@ public class DrumEngine {
     }
     public int getDrumPattern()  { return drumPatternIdx; }
     public int getBassPattern()  { return bassPatternIdx; }
-    public int getPatternCount() { return DRUM_PATTERNS.length; }
-    /** Legacy alias — sets drum pattern only. */
-    public void setPattern(int idx) { setDrumPattern(idx); }
-    public int getPattern()         { return drumPatternIdx; }
+
 
     /**
      * Change BPM. Takes effect on the next self-scheduled tick — no restart, no glitch.

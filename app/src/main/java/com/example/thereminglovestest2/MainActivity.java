@@ -1805,20 +1805,6 @@ public class MainActivity extends AppCompatActivity {
         }, "BmEngineInit").start();
     }
 
-    private void launchBeatMakerFromSwipe() {
-        int editSlot = 0;
-        for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
-        bmPreview.animate().cancel();
-        binding.rootScroll.animate().cancel();
-        binding.rootScroll.setTranslationX(0);
-        bmPreview.setVisibility(View.GONE);
-        Intent bm = new Intent(this, BeatMakerActivity.class);
-        bm.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
-        bm.putExtra(BeatMakerActivity.EXTRA_SLOT_INDEX, editSlot);
-        beatMakerLauncher.launch(bm,
-                androidx.core.app.ActivityOptionsCompat.makeCustomAnimation(this, 0, 0));
-    }
-
     // ── Inline Beat Maker panel ───────────────────────────────────────────────
 
     private void bmStartAudioOutput() {

@@ -72,6 +72,8 @@ public class RecordingManager implements ThereminAudioEngine.PcmListener {
 
     // Pre-allocated scratch buffer — avoids heap allocation on the audio thread
     private final byte[] pcmScratch = new byte[65536];
+    // Pre-allocated BufferInfo — avoids heap allocation in drainEncoder() on the audio thread
+    private final MediaCodec.BufferInfo drainInfo = new MediaCodec.BufferInfo();
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -318,16 +320,15 @@ public class RecordingManager implements ThereminAudioEngine.PcmListener {
     }
 
     private void drainEncoder(boolean endOfStream) {
-        MediaCodec.BufferInfo info     = new MediaCodec.BufferInfo();
-        long                  timeout  = endOfStream ? 100_000L : 0L;
+        long timeout = endOfStream ? 100_000L : 0L;
         while (true) {
-            int outIdx = encoder.dequeueOutputBuffer(info, timeout);
+            int outIdx = encoder.dequeueOutputBuffer(drainInfo, timeout);
             if      (outIdx == MediaCodec.INFO_TRY_AGAIN_LATER)      break;
             else if (outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) startMuxerIfReady();
             else if (outIdx >= 0) {
-                writeEncoderOutput(outIdx, info);
+                writeEncoderOutput(outIdx, drainInfo);
                 encoder.releaseOutputBuffer(outIdx, false);
-                if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break;
+                if ((drainInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) break;
             }
         }
     }
