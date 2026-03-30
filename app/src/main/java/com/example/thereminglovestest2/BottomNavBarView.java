@@ -42,8 +42,8 @@ public class BottomNavBarView extends LinearLayout {
         int pad = dp(4);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        setBackgroundColor(withAlpha(ContextCompat.getColor(context, R.color.app_surface), 90));
-        setElevation(dp(8));
+        setBackgroundColor(ContextCompat.getColor(context, R.color.app_surface_variant));
+        setElevation(0);
         setClipToPadding(false);
         setPadding(pad, pad, pad, pad);
         ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {

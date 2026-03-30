@@ -14,8 +14,9 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.TextView;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -55,8 +56,8 @@ public class TopNavBarView extends LinearLayout {
         setPadding(pad, pad, pad, pad);
         setMinimumHeight(dp(56));
         setClipToPadding(false);
-        setElevation(dp(6));
-        setBackgroundColor(withAlpha(ContextCompat.getColor(context, R.color.app_surface), 90));
+        setElevation(0);
+        setBackgroundColor(ContextCompat.getColor(context, R.color.app_surface_variant));
 
         ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
             Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -301,18 +302,16 @@ public class TopNavBarView extends LinearLayout {
         Activity current = activity();
         if (current == null) return;
 
-        PopupMenu popup = new PopupMenu(current, anchor);
-        for (int i = 0; i < EXTRA_MENU_TARGETS.length; i++) {
-            MenuTarget target = EXTRA_MENU_TARGETS[i];
-            if (!current.getClass().equals(target.screen)) popup.getMenu().add(0, i, i, target.title);
+        java.util.List<String> titles = new java.util.ArrayList<>();
+        java.util.List<Class<? extends Activity>> targets = new java.util.ArrayList<>();
+        for (MenuTarget t : EXTRA_MENU_TARGETS) {
+            if (!current.getClass().equals(t.screen)) { titles.add(t.title); targets.add(t.screen); }
         }
-        popup.setOnMenuItemClickListener(item -> {
-            int id = item.getItemId();
-            if (id < 0 || id >= EXTRA_MENU_TARGETS.length) return false;
-            NavigationUtils.openScreen(current, EXTRA_MENU_TARGETS[id].screen);
-            return true;
-        });
-        popup.show();
+        if (titles.isEmpty()) return;
+        CharSequence[] items = titles.toArray(new CharSequence[0]);
+        new MaterialAlertDialogBuilder(current)
+                .setItems(items, (dialog, which) -> NavigationUtils.openScreen(current, targets.get(which)))
+                .show();
     }
 
     private Activity activity() { return getContext() instanceof Activity ? (Activity) getContext() : null; }
