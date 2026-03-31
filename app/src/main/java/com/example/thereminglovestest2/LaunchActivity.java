@@ -11,13 +11,17 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class LaunchActivity extends AppCompatActivity {
+    static final String PREFS_NAME = "theremin_prefs";
+    static final String KEY_FIRST_LAUNCH_DONE = "first_launch_done";
+    static final String KEY_GRID_HINT_PENDING = "grid_hint_pending";
+
     private boolean started;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
-        if (prefs.getBoolean("first_launch_done", false)) {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (prefs.getBoolean(KEY_FIRST_LAUNCH_DONE, false)) {
             openPlay();
             return;
         }
@@ -39,9 +43,10 @@ public class LaunchActivity extends AppCompatActivity {
     private void openSetup() {
         if (started) return;
         started = true;
-        getSharedPreferences("theremin_prefs", MODE_PRIVATE)
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit()
-                .putBoolean("first_launch_done", true)
+                .putBoolean(KEY_FIRST_LAUNCH_DONE, true)
+                .putBoolean(KEY_GRID_HINT_PENDING, true)
                 .apply();
         startActivity(new Intent(this, HomeActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP

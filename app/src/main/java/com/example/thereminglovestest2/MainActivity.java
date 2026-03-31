@@ -1,9 +1,12 @@
 package com.example.thereminglovestest2;
 
 import android.Manifest;
+import android.animation.ArgbEvaluator;
 import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.content.pm.PackageManager;
 
 import androidx.activity.OnBackPressedCallback;
@@ -37,7 +40,9 @@ import com.example.thereminglovestest2.databinding.ActivityMainBinding;
 
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.view.Gravity;
 import android.graphics.Typeface;
@@ -73,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final long UI_TICK_MS = 50; // 20fps UI refresh — smooth enough, less main-thread load
     private static final long QUICK_START_CONNECT_TIMEOUT_MS = 6000L;
+    private static final long GRID_HINT_PULSE_MS = 1100L;
     private static final int LOG_MAX_LINES = 200;
     private static final long LOG_FLUSH_MIN_INTERVAL_MS = 600;
     private static final int REQUEST_RECORD_AUDIO = 4109;
@@ -80,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_KEYBOARD_SYNTH_MODE = "keyboard_synth_mode";
     private static final String KEY_PERFORMANCE_MODE_ACTIVE = "performance_mode_active";
     private static final String KEY_QUICK_START_FALLBACK_CHECKED = "quick_start_fallback_checked";
+    private static final int COLOR_GRID_HINT = 0xFF00FF9D;
 
     private static final String[] TONE_CYCLE = {
         AppSettings.TONE_THEREMIN, AppSettings.TONE_AIR_PAD,  AppSettings.TONE_CELLO,
@@ -106,6 +113,7 @@ public class MainActivity extends AppCompatActivity {
     private RecordingRepository recordingRepository;
     private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
     private final Handler quickStartHandler = new Handler(Looper.getMainLooper());
+    private final ArgbEvaluator colorEvaluator = new ArgbEvaluator();
 
     // Playback, preset, and piano state
     private int  octaveShift          = 0;
@@ -176,6 +184,7 @@ public class MainActivity extends AppCompatActivity {
     private long lastLogFlushMs;
     private long recordingStartElapsedMs;
     private ObjectAnimator recordBlinkAnimator;
+    private ValueAnimator gridHintAnimator;
     private int baseRootScrollTopPadding;
 
     private final Runnable recordingTimerRunnable = new Runnable() {
@@ -493,6 +502,7 @@ public class MainActivity extends AppCompatActivity {
                 .withEndAction(() -> {
                     binding.rootScroll.setTranslationX(0);
                     bmPanelVisible = true;
+                    dismissGridHint();
                     // Start audio output the first time the panel appears
                     if (bmAudioTrack == null) bmStartAudioOutput();
                     // Reload current slot's pattern in case prefs changed
@@ -556,6 +566,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         cancelQuickStartConnectTimeout();
+        stopGridHintPulse();
         playUiVisible = false;
         if (!bgAudioEnabled && !isChangingConfigurations() && isAudioRunning()) {
             audioEngine.stop();
@@ -584,6 +595,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
         cancelQuickStartConnectTimeout();
+        stopGridHintPulse();
         stopRecordBlink();
         if (recordingManager != null) recordingManager.release();
         // Release the foreground drum engine and the inline Beat Maker preview engine.
@@ -601,6 +613,7 @@ public class MainActivity extends AppCompatActivity {
         maybeHandleQuickStartLaunch();
         requestAudioBackFromBackgroundService();
         refreshPlayUiState();
+        maybeStartGridHintPulse();
     }
 
     private void refreshPlayUiState() {
@@ -746,6 +759,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Beat Maker — open step sequencer for the first active slot (or 0)
         binding.btnBeatMaker.setOnClickListener(v -> {
+            dismissGridHint();
             int editSlot = 0;
             for (int i = 0; i < NUM_BEAT_SLOTS; i++) { if (activeSlots[i]) { editSlot = i; break; } }
             Intent intent = new Intent(this, BeatMakerActivity.class);
@@ -1685,6 +1699,71 @@ public class MainActivity extends AppCompatActivity {
         quickStartHandler.postDelayed(quickStartTimeoutRunnable, QUICK_START_CONNECT_TIMEOUT_MS);
     }
 
+    private void maybeStartGridHintPulse() {
+        if (binding == null) return;
+        SharedPreferences prefs = getSharedPreferences(LaunchActivity.PREFS_NAME, MODE_PRIVATE);
+        boolean hintPending = !prefs.contains(LaunchActivity.KEY_GRID_HINT_PENDING)
+                || prefs.getBoolean(LaunchActivity.KEY_GRID_HINT_PENDING, false);
+        if (!hintPending) {
+            resetGridHintButton();
+            return;
+        }
+        if (gridHintAnimator != null && gridHintAnimator.isStarted()) return;
+
+        gridHintAnimator = ValueAnimator.ofFloat(0f, 1f);
+        gridHintAnimator.setDuration(GRID_HINT_PULSE_MS);
+        gridHintAnimator.setRepeatMode(ValueAnimator.REVERSE);
+        gridHintAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        gridHintAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        gridHintAnimator.addUpdateListener(animation -> applyGridHintFrame((float) animation.getAnimatedValue()));
+        gridHintAnimator.start();
+    }
+
+    private void applyGridHintFrame(float progress) {
+        float clamped = Math.max(0f, Math.min(1f, progress));
+        int fillColor = withAlpha(COLOR_GRID_HINT, 48 + Math.round(132f * clamped));
+        int strokeColor = withAlpha(COLOR_GRID_HINT, 170 + Math.round(85f * clamped));
+        int textColor = (int) colorEvaluator.evaluate(0.25f + (clamped * 0.55f), COLOR_GRID_HINT, Color.WHITE);
+
+        binding.btnBeatMaker.setBackgroundTintList(ColorStateList.valueOf(fillColor));
+        binding.btnBeatMaker.setStrokeColor(ColorStateList.valueOf(strokeColor));
+        binding.btnBeatMaker.setStrokeWidth(Math.max(dp(2), dp(2) + Math.round(dp(1) * clamped)));
+        binding.btnBeatMaker.setTextColor(textColor);
+        binding.btnBeatMaker.setAlpha(0.94f + (0.06f * clamped));
+        binding.btnBeatMaker.setScaleX(1f + (0.09f * clamped));
+        binding.btnBeatMaker.setScaleY(1f + (0.09f * clamped));
+        binding.btnBeatMaker.setElevation(dp(4) + (dp(10) * clamped));
+    }
+
+    private void dismissGridHint() {
+        SharedPreferences prefs = getSharedPreferences(LaunchActivity.PREFS_NAME, MODE_PRIVATE);
+        if (prefs.getBoolean(LaunchActivity.KEY_GRID_HINT_PENDING, false)) {
+            prefs.edit().putBoolean(LaunchActivity.KEY_GRID_HINT_PENDING, false).apply();
+        }
+        stopGridHintPulse();
+    }
+
+    private void stopGridHintPulse() {
+        if (gridHintAnimator != null) {
+            gridHintAnimator.cancel();
+            gridHintAnimator.removeAllUpdateListeners();
+            gridHintAnimator = null;
+        }
+        resetGridHintButton();
+    }
+
+    private void resetGridHintButton() {
+        if (binding == null) return;
+        binding.btnBeatMaker.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
+        binding.btnBeatMaker.setStrokeColor(ColorStateList.valueOf(COLOR_GRID_HINT));
+        binding.btnBeatMaker.setStrokeWidth(0);
+        binding.btnBeatMaker.setTextColor(COLOR_GRID_HINT);
+        binding.btnBeatMaker.setAlpha(1f);
+        binding.btnBeatMaker.setScaleX(1f);
+        binding.btnBeatMaker.setScaleY(1f);
+        binding.btnBeatMaker.setElevation(0f);
+    }
+
     private void handleQuickStartConnectTimeout() {
         quickStartFallbackArmed = false;
         if (!playUiVisible || isFinishing() || isDestroyed()) return;
@@ -2494,5 +2573,9 @@ public class MainActivity extends AppCompatActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private static int withAlpha(int color, int alpha255) {
+        return (color & 0x00FFFFFF) | (Math.max(0, Math.min(255, alpha255)) << 24);
     }
 }
