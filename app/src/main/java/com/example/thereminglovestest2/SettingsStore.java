@@ -19,7 +19,7 @@ public class SettingsStore extends SQLiteOpenHelper {
     // --- Storage keys for the single settings row and shared UI flags ---
 
     private static final String DB_NAME = "theremin_gloves.db";
-    private static final int DB_VERSION = 3;
+    private static final int DB_VERSION = 4;
 
     private static final String TABLE = "app_settings";
     private static final int ROW_ID = 1;
@@ -46,6 +46,7 @@ public class SettingsStore extends SQLiteOpenHelper {
     private static final String COL_VOL_ENABLED = "volume_enabled";
     private static final String COL_UPDATED_AT_MS = "updated_at_ms";
     private static final String COL_SENSITIVITY_LEVEL = "sensitivity_level";
+    private static final String COL_SENSITIVITY_CURVE = "sensitivity_curve";
 
     // Performance/effects columns
     private static final String COL_ACTIVE_SCALE       = "active_scale";
@@ -91,7 +92,8 @@ public class SettingsStore extends SQLiteOpenHelper {
             COL_DELAY_MIX,
             COL_DISTORTION_ENABLED,
             COL_DISTORTION_GAIN,
-            COL_SENSITIVITY_LEVEL
+            COL_SENSITIVITY_LEVEL,
+            COL_SENSITIVITY_CURVE
     };
 
     private static final String[] EXTRA_DEFS = {
@@ -111,7 +113,8 @@ public class SettingsStore extends SQLiteOpenHelper {
             "REAL NOT NULL DEFAULT 0.4",
             "INTEGER NOT NULL DEFAULT 0",
             "REAL NOT NULL DEFAULT 3.0",
-            "TEXT NOT NULL DEFAULT 'MEDIUM'"
+            "TEXT NOT NULL DEFAULT 'MEDIUM'",
+            "REAL NOT NULL DEFAULT 1.0"
     };
 
     public SettingsStore(Context context) {
@@ -167,7 +170,9 @@ public class SettingsStore extends SQLiteOpenHelper {
         v.put(COL_DELAY_MIX, s.delayMix);
         v.put(COL_DISTORTION_ENABLED, s.distortionEnabled ? 1 : 0);
         v.put(COL_DISTORTION_GAIN, s.distortionGain);
-        v.put(COL_SENSITIVITY_LEVEL, AppSettings.normalizeSensitivityLevel(s.sensitivityLevel));
+        float sensitivityCurve = AppSettings.clampSensitivityResponseCurve(s.sensitivityResponseCurve);
+        v.put(COL_SENSITIVITY_LEVEL, AppSettings.curveToLegacySensitivityLevel(sensitivityCurve));
+        v.put(COL_SENSITIVITY_CURVE, sensitivityCurve);
         return v;
     }
 
@@ -195,6 +200,9 @@ public class SettingsStore extends SQLiteOpenHelper {
         s.distortionEnabled = getInt(c, COL_DISTORTION_ENABLED, 0) != 0;
         s.distortionGain = getFloat(c, COL_DISTORTION_GAIN, 3.0f);
         s.sensitivityLevel = AppSettings.normalizeSensitivityLevel(getString(c, COL_SENSITIVITY_LEVEL, AppSettings.SENSITIVITY_MEDIUM));
+        s.sensitivityResponseCurve = AppSettings.clampSensitivityResponseCurve(
+                getFloat(c, COL_SENSITIVITY_CURVE, AppSettings.levelToResponseCurve(s.sensitivityLevel)));
+        s.sensitivityLevel = AppSettings.curveToLegacySensitivityLevel(s.sensitivityResponseCurve);
         return s;
     }
 
@@ -329,6 +337,9 @@ class AppSettings {
     public static final String SENSITIVITY_LOW    = "LOW";
     public static final String SENSITIVITY_MEDIUM = "MEDIUM";
     public static final String SENSITIVITY_HIGH   = "HIGH";
+    public static final float MIN_SENSITIVITY_RESPONSE_CURVE = 0.25f;
+    public static final float MAX_SENSITIVITY_RESPONSE_CURVE = 2.50f;
+    public static final float DEFAULT_SENSITIVITY_RESPONSE_CURVE = 1.0f;
 
     public static String normalizeSensitivityLevel(String level) {
         if (SENSITIVITY_LOW.equals(level) || SENSITIVITY_HIGH.equals(level)) return level;
@@ -341,13 +352,39 @@ class AppSettings {
         return "Medium";
     }
 
-    public static float levelToMultiplier(String level) {
-        if (SENSITIVITY_HIGH.equals(level)) return 0.5f;
-        if (SENSITIVITY_LOW.equals(level))  return 1.5f;
+    public static float clampSensitivityResponseCurve(float curve) {
+        if (Float.isNaN(curve) || Float.isInfinite(curve)) return DEFAULT_SENSITIVITY_RESPONSE_CURVE;
+        return Math.max(MIN_SENSITIVITY_RESPONSE_CURVE, Math.min(MAX_SENSITIVITY_RESPONSE_CURVE, curve));
+    }
+
+    public static String curveToLegacySensitivityLevel(float curve) {
+        float clamped = clampSensitivityResponseCurve(curve);
+        if (clamped <= 0.7f) return SENSITIVITY_HIGH;
+        if (clamped >= 1.4f) return SENSITIVITY_LOW;
+        return SENSITIVITY_MEDIUM;
+    }
+
+    public static String prettySensitivityCurve(float curve) {
+        float clamped = clampSensitivityResponseCurve(curve);
+        if (clamped <= 0.55f) return "Very Sensitive";
+        if (clamped < 0.9f) return "Sensitive";
+        if (clamped <= 1.15f) return "Balanced";
+        if (clamped < 1.8f) return "Precise";
+        return "Very Precise";
+    }
+
+    /**
+     * Response curve exponent applied after normalizing glove motion to 0..1.
+     * Lower exponents feel more sensitive; higher exponents feel more precise.
+     */
+    public static float levelToResponseCurve(String level) {
+        if (SENSITIVITY_HIGH.equals(level)) return 0.4f;
+        if (SENSITIVITY_LOW.equals(level))  return 2.0f;
         return 1.0f; // MEDIUM
     }
 
     public String sensitivityLevel = SENSITIVITY_MEDIUM;
+    public float sensitivityResponseCurve = DEFAULT_SENSITIVITY_RESPONSE_CURVE;
 
     public float pitchAngleMinDeg = DEFAULT_PITCH_ANGLE_MIN_DEG;
     public float pitchAngleMaxDeg = DEFAULT_PITCH_ANGLE_MAX_DEG;

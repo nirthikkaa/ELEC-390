@@ -8,11 +8,11 @@
     android:layout_marginEnd="10dp"
     android:layout_marginTop="4dp"
     android:layout_marginBottom="4dp"
-    app:cardBackgroundColor="@color/app_surface"
+    app:cardBackgroundColor="@color/app_box_surface"
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/app_outline"
-    app:strokeWidth="1dp">
+    app:strokeColor="#263B72"
+    app:strokeWidth="0dp">
 
     <LinearLayout
         android:id="@+id/itemRoot"

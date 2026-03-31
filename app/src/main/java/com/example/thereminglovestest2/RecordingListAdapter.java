@@ -16,8 +16,10 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.card.MaterialCardView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
@@ -34,9 +36,7 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
     private static final int TYPE_FOLDER    = 0;
     private static final int TYPE_RECORDING = 1;
 
-    private static final int SELECTION_BG     = 0x337EA4FF; // primary blue 20% alpha
-    private static final int FOLDER_DROP_BG   = 0x5500BFFF; // cyan highlight on drag-hover
-    private static final int FOLDER_DEFAULT_BG = 0xFF221B40; // app_surface_variant
+    private static final int SELECTION_BG = 0x337EA4FF; // primary blue 20% alpha
 
     public interface OnRecordingActionListener {
         void onPlayPauseClicked(int recordingIndex);
@@ -164,7 +164,7 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
 
     private void bindFolder(FolderViewHolder h, int folderIndex) {
         RecordingRepository.Folder folder = folders.get(folderIndex);
-        h.itemView.setBackgroundColor(FOLDER_DEFAULT_BG);
+        applyFolderCardState(h.cardView, false);
         h.tvFolderName.setText(folder.name);
         int n = folder.recordingCount;
         h.tvFolderMeta.setText(n + (n == 1 ? " recording" : " recordings"));
@@ -186,13 +186,13 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
                 case DragEvent.ACTION_DRAG_STARTED:
                     return event.getClipDescription().hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN);
                 case DragEvent.ACTION_DRAG_ENTERED:
-                    v.setBackgroundColor(FOLDER_DROP_BG);
+                    applyFolderCardState(h.cardView, true);
                     return true;
                 case DragEvent.ACTION_DRAG_EXITED:
-                    v.setBackgroundColor(FOLDER_DEFAULT_BG);
+                    applyFolderCardState(h.cardView, false);
                     return true;
                 case DragEvent.ACTION_DROP: {
-                    v.setBackgroundColor(FOLDER_DEFAULT_BG);
+                    applyFolderCardState(h.cardView, false);
                     String idStr = event.getClipData().getItemAt(0).getText().toString();
                     long recordingId = Long.parseLong(idStr);
                     int pos = h.getAdapterPosition();
@@ -201,7 +201,7 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
                     return true;
                 }
                 case DragEvent.ACTION_DRAG_ENDED:
-                    v.setBackgroundColor(FOLDER_DEFAULT_BG);
+                    applyFolderCardState(h.cardView, false);
                     return true;
             }
             return false;
@@ -315,13 +315,13 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
         String label; int bgColor, textColor;
         switch (quality) {
             case AppSettings.COMPRESSION_LOSSLESS:
-                label = "LOSSLESS"; bgColor = 0xFFD4A520; textColor = 0xFF1A1200; break; // gold
+                label = "LOSSLESS"; bgColor = 0xFF7EA4FF; textColor = 0xFF081425; break;
             case AppSettings.COMPRESSION_HIGH:
-                label = "HIGH"; bgColor = 0xFF43E5FF; textColor = 0xFF082633; break; // app_secondary
+                label = "HIGH"; bgColor = 0xFF43E5FF; textColor = 0xFF082633; break;
             case AppSettings.COMPRESSION_MEDIUM:
-                label = "MED";  bgColor = 0xFFFF63C6; textColor = 0xFF371028; break; // app_tertiary
+                label = "MED";  bgColor = 0xFFFF63C6; textColor = 0xFF371028; break;
             case AppSettings.COMPRESSION_LOW:
-                label = "LOW";  bgColor = 0xFF4C4080; textColor = 0xFFF6F1FF; break; // app_outline / app_on_surface
+                label = "LOW";  bgColor = 0xFF10224D; textColor = 0xFFF6F1FF; break;
             default:
                 badge.setVisibility(View.GONE); return;
         }
@@ -333,6 +333,17 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
         badge.setText(label);
         badge.setTextColor(textColor);
         badge.setVisibility(View.VISIBLE);
+    }
+
+    private static void applyFolderCardState(MaterialCardView card, boolean dragHover) {
+        if (card == null) return;
+        int bg = ContextCompat.getColor(card.getContext(),
+                dragHover ? R.color.app_box_inner_surface : R.color.app_box_surface);
+        int stroke = ContextCompat.getColor(card.getContext(),
+                dragHover ? R.color.app_secondary : R.color.app_outline);
+        card.setCardBackgroundColor(bg);
+        card.setStrokeColor(stroke);
+        card.setStrokeWidth((int) (card.getResources().getDisplayMetrics().density * (dragHover ? 1f : 0f)));
     }
 
     private static String fileSizeString(String filePath) {
@@ -347,11 +358,13 @@ public class RecordingListAdapter extends RecyclerView.Adapter<RecyclerView.View
     // ── ViewHolders ───────────────────────────────────────────────────────────
 
     static class FolderViewHolder extends RecyclerView.ViewHolder {
+        MaterialCardView cardView;
         TextView    tvFolderName, tvFolderMeta;
         ImageButton btnFolderMenu;
 
         FolderViewHolder(@NonNull View v) {
             super(v);
+            cardView      = (MaterialCardView) v;
             tvFolderName  = v.findViewById(R.id.tvFolderName);
             tvFolderMeta  = v.findViewById(R.id.tvFolderMeta);
             btnFolderMenu = v.findViewById(R.id.btnFolderMenu);

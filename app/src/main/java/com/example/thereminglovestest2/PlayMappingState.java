@@ -27,15 +27,15 @@ final class PlayMappingState {
     float audioTargetFreqHz = 880f;
     float audioTargetVolumeLinear;
     String currentToneType = AppSettings.TONE_SINE;
-    private float sensitivityMultiplier = 1.0f;
+    private float sensitivityResponseCurve = 1.0f;
     private int   octaveShift = 0;
 
     void setOctaveShift(int shift) {
         octaveShift = Math.max(-2, Math.min(2, shift));
     }
 
-    void setSensitivityMultiplier(float mult) {
-        sensitivityMultiplier = Math.max(0.1f, Math.min(3.0f, mult));
+    void setSensitivityResponseCurve(float exponent) {
+        sensitivityResponseCurve = AppSettings.clampSensitivityResponseCurve(exponent);
     }
 
     void refreshFreqRangeLimit(Context context) {
@@ -110,19 +110,14 @@ final class PlayMappingState {
 
     void recompute(BleSnapshot snapshot) {
         sanitize();
-        float pitchMid  = (pitchAngleMinDeg + pitchAngleMaxDeg) / 2f;
-        float pitchSpan = (pitchAngleMaxDeg - pitchAngleMinDeg) * sensitivityMultiplier;
-        float effPitchMin = pitchMid - pitchSpan / 2f;
-        float effPitchMax = pitchMid + pitchSpan / 2f;
+        float pitchNorm = applySensitivityCurve(
+                normalizeClamped(pitchActiveDeltaDeg, pitchAngleMinDeg, pitchAngleMaxDeg));
+        float volNorm = applySensitivityCurve(
+                normalizeClamped(volActiveDeltaDeg, volumeAngleMinDeg, volumeAngleMaxDeg));
 
-        float volMid  = (volumeAngleMinDeg + volumeAngleMaxDeg) / 2f;
-        float volSpan = (volumeAngleMaxDeg - volumeAngleMinDeg) * sensitivityMultiplier;
-        float effVolMin = volMid - volSpan / 2f;
-        float effVolMax = volMid + volSpan / 2f;
-
-        float freq = mapLinearClamped(pitchActiveDeltaDeg, effPitchMin, effPitchMax, freqMinHz, freqMaxHz);
+        float freq = lerp(freqMinHz, freqMaxHz, pitchNorm);
         if (octaveShift != 0) freq = clamp(freq * (float) Math.pow(2.0, octaveShift), 20f, 20000f);
-        float vol = mapLinearClamped(volActiveDeltaDeg, effVolMin, effVolMax, 0f, 1f);
+        float vol = lerp(0f, 1f, volNorm);
         if (!pitchHasAngle) freq = freqMinHz;
         if (!volHasAngle) vol = 0f;
         mappedFreqHz = freq;
@@ -148,10 +143,17 @@ final class PlayMappingState {
         freqMaxHz = enforceUpperBound(freqMinHz, freqMaxHz, 1f, currentFreqMaxUi);
     }
 
-    private float mapLinearClamped(float x, float inMin, float inMax, float outMin, float outMax) {
-        if (Math.abs(inMax - inMin) < 1e-6f) return outMin;
-        float t = clamp((x - inMin) / (inMax - inMin), 0f, 1f);
-        return outMin + t * (outMax - outMin);
+    private float normalizeClamped(float x, float inMin, float inMax) {
+        if (Math.abs(inMax - inMin) < 1e-6f) return 0f;
+        return clamp((x - inMin) / (inMax - inMin), 0f, 1f);
+    }
+
+    private float applySensitivityCurve(float normalized) {
+        return (float) Math.pow(clamp(normalized, 0f, 1f), sensitivityResponseCurve);
+    }
+
+    private float lerp(float start, float end, float t) {
+        return start + (end - start) * clamp(t, 0f, 1f);
     }
 
     private float enforceUpperBound(float min, float max, float step, float cap) {

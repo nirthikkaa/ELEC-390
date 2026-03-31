@@ -75,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_RECORD_AUDIO = 4109;
     private static final String KEY_BEAT_MASTER_BPM = "beat_master_bpm";
     private static final String KEY_KEYBOARD_SYNTH_MODE = "keyboard_synth_mode";
+    private static final String KEY_PERFORMANCE_MODE_ACTIVE = "performance_mode_active";
 
     private static final String[] TONE_CYCLE = {
         AppSettings.TONE_THEREMIN, AppSettings.TONE_AIR_PAD,  AppSettings.TONE_CELLO,
@@ -217,6 +218,7 @@ public class MainActivity extends AppCompatActivity {
         play.refreshFreqRangeLimit(this);
         recomputeMappedOutputs();
         wireButtons();
+        performanceModeActive = loadPerformanceModePref();
         baseRootScrollTopPadding = binding.rootScroll.getPaddingTop();
         ViewCompat.setOnApplyWindowInsetsListener(binding.rootScroll, (v, insets) -> {
             int sideInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).left;
@@ -226,6 +228,7 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
         ViewCompat.requestApplyInsets(binding.rootScroll);
+        applyPerformanceMode(performanceModeActive);
 
         appendLogSafe("Play opened");
         appendLogSafe("BG audio: " + onOff(bgAudioEnabled));
@@ -264,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
         syncPreviewTransportPauseState();
         onVisible(); // single call here; onStart no longer duplicates it
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
-        // Stage mode is never restored on launch — always start in normal view.
+        performanceModeActive = loadPerformanceModePref();
         applyPerformanceMode(performanceModeActive);
         int densityLevel = prefs.getInt("pixel_density_level", 3);
         binding.thereminVisualizerView.setPixelDensityLevel(densityLevel);
@@ -1584,9 +1587,9 @@ public class MainActivity extends AppCompatActivity {
     private void reloadMappingSettingsFromRepository() {
         AppSettings settings = store().load();
         play.load(settings);
-        float sensitivityMult = AppSettings.levelToMultiplier(settings.sensitivityLevel);
-        play.setSensitivityMultiplier(sensitivityMult);
-        ThereminBackgroundAudioService.setSensitivityMultiplier(sensitivityMult);
+        float sensitivityResponseCurve = AppSettings.clampSensitivityResponseCurve(settings.sensitivityResponseCurve);
+        play.setSensitivityResponseCurve(sensitivityResponseCurve);
+        ThereminBackgroundAudioService.setSensitivityResponseCurve(sensitivityResponseCurve);
         audioEngine.setToneType(play.currentToneType);
         updateToneButton();
         loadSpring3Settings(settings);
@@ -2273,6 +2276,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void togglePerformanceMode() {
         performanceModeActive = !performanceModeActive;
+        savePerformanceModePref(performanceModeActive);
         applyPerformanceMode(performanceModeActive);
     }
 
@@ -2304,6 +2308,10 @@ public class MainActivity extends AppCompatActivity {
         binding.cardPlayHero.setVisibility(active ? View.GONE : View.VISIBLE);
         // cardControls stays visible — it holds record, play, and tone knob.
         binding.btnExitStage.setVisibility(active ? View.VISIBLE : View.GONE);
+        binding.tvRecordLabel.setVisibility(active ? View.GONE : View.VISIBLE);
+        binding.tvPlayRemoteLabel.setVisibility(active ? View.GONE : View.VISIBLE);
+        binding.tvToneLabel.setVisibility(active ? View.GONE : View.VISIBLE);
+        binding.cardDebugLog.setVisibility(View.GONE);
 
         if (active) {
             binding.rootScroll.scrollTo(0, 0); // reset any scroll offset before expanding
@@ -2317,6 +2325,17 @@ public class MainActivity extends AppCompatActivity {
 
         applySystemUiMode(active);
         ViewCompat.requestApplyInsets(binding.rootScroll);
+    }
+
+    private boolean loadPerformanceModePref() {
+        return getSharedPreferences("theremin_prefs", MODE_PRIVATE)
+                .getBoolean(KEY_PERFORMANCE_MODE_ACTIVE, false);
+    }
+
+    private void savePerformanceModePref(boolean active) {
+        getSharedPreferences("theremin_prefs", MODE_PRIVATE).edit()
+                .putBoolean(KEY_PERFORMANCE_MODE_ACTIVE, active)
+                .apply();
     }
 
     /**

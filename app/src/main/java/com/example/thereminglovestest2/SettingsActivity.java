@@ -6,7 +6,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.slider.Slider;
 
 import java.io.File;
 import java.util.Locale;
@@ -60,16 +60,19 @@ public class SettingsActivity extends AppCompatActivity {
                 onToggle(() -> SettingsStore.setRenameDialogEnabled(this, on),
                         "Rename dialog " + (on ? "enabled" : "disabled")));
 
-        binding.radioGroupSensitivity.setOnCheckedChangeListener((group, id) -> {
-            if (quiet) return;
-            String level;
-            if (id == R.id.radioSensLow)       level = AppSettings.SENSITIVITY_LOW;
-            else if (id == R.id.radioSensHigh) level = AppSettings.SENSITIVITY_HIGH;
-            else                               level = AppSettings.SENSITIVITY_MEDIUM;
-            AppSettings s = store.load();
-            s.sensitivityLevel = level;
-            store.save(s);
-            toast("Sensitivity: " + AppSettings.prettyLevel(level));
+        binding.sliderSensitivity.addOnChangeListener((slider, value, fromUser) -> {
+            float curve = AppSettings.clampSensitivityResponseCurve(value);
+            updateSensitivityUi(curve);
+            if (!quiet && fromUser) saveSensitivityCurve(curve);
+        });
+        binding.sliderSensitivity.addOnSliderTouchListener(new Slider.OnSliderTouchListener() {
+            @Override public void onStartTrackingTouch(Slider slider) {}
+            @Override public void onStopTrackingTouch(Slider slider) {
+                if (quiet) return;
+                float curve = AppSettings.clampSensitivityResponseCurve(slider.getValue());
+                toast("Sensitivity: " + AppSettings.prettySensitivityCurve(curve)
+                        + " (" + formatSensitivityCurve(curve) + ")");
+            }
         });
 
         binding.chipGroupCompression.setOnCheckedStateChangeListener((group, checkedIds) -> {
@@ -124,10 +127,7 @@ public class SettingsActivity extends AppCompatActivity {
                 default:                               chipId = R.id.chipCompressionHigh;     break;
             }
             binding.chipGroupCompression.check(chipId);
-            String level = settings.sensitivityLevel;
-            binding.radioSensLow.setChecked(AppSettings.SENSITIVITY_LOW.equals(level));
-            binding.radioSensMedium.setChecked(AppSettings.SENSITIVITY_MEDIUM.equals(level));
-            binding.radioSensHigh.setChecked(AppSettings.SENSITIVITY_HIGH.equals(level));
+            binding.sliderSensitivity.setValue(AppSettings.clampSensitivityResponseCurve(settings.sensitivityResponseCurve));
         });
 
         binding.tvBackgroundAudioState.setText("Background audio is " + (bg ? "ON." : "OFF."));
@@ -139,6 +139,7 @@ public class SettingsActivity extends AppCompatActivity {
                 : "Calibration and Play currently use 20 Hz to 2,000 Hz.");
         binding.tvDirectionState.setText("Pitch: " + directionLabel(settings.pitchDirectionInverted)
                 + " | Volume: " + directionLabel(settings.volumeDirectionInverted));
+        updateSensitivityUi(settings.sensitivityResponseCurve);
 
         updateCompressionEstimate(compression);
         refreshStorageUi();
@@ -197,6 +198,31 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private static String directionLabel(boolean inverted) { return inverted ? "NEGATIVE" : "POSITIVE"; }
+
+    private void saveSensitivityCurve(float curve) {
+        float clamped = AppSettings.clampSensitivityResponseCurve(curve);
+        AppSettings settings = store.load();
+        if (Math.abs(settings.sensitivityResponseCurve - clamped) < 0.0001f) return;
+        settings.sensitivityResponseCurve = clamped;
+        settings.sensitivityLevel = AppSettings.curveToLegacySensitivityLevel(clamped);
+        store.save(settings);
+        ThereminBackgroundAudioService.setSensitivityResponseCurve(clamped);
+    }
+
+    private void updateSensitivityUi(float curve) {
+        float clamped = AppSettings.clampSensitivityResponseCurve(curve);
+        binding.tvSensitivityValue.setText(AppSettings.prettySensitivityCurve(clamped)
+                + " | " + formatSensitivityCurve(clamped));
+        binding.tvSensitivityDetail.setText(clamped < 1.0f
+                ? "Smaller hand motions create bigger pitch and volume changes."
+                : clamped > 1.0f
+                ? "Larger hand motions are needed, which gives you finer control."
+                : "Balanced response across the full calibrated range.");
+    }
+
+    private String formatSensitivityCurve(float curve) {
+        return String.format(Locale.getDefault(), "%.2f", AppSettings.clampSensitivityResponseCurve(curve));
+    }
 
     private void quietly(Runnable work) {
         quiet = true;

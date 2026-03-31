@@ -632,42 +632,59 @@
                             android:textColor="@color/app_on_surface_variant"
                             android:textSize="12sp" />
 
-                        <RadioGroup
-                            android:id="@+id/radioGroupSensitivity"
+                        <TextView
+                            android:id="@+id/tvSensitivityValue"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
-                            android:orientation="vertical">
+                            android:text="Balanced | 1.00"
+                            android:textColor="#FF63C6"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:fontFamily="monospace" />
 
-                            <RadioButton
-                                android:id="@+id/radioSensLow"
-                                android:layout_width="match_parent"
+                        <com.google.android.material.slider.Slider
+                            android:id="@+id/sliderSensitivity"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:stepSize="0.05"
+                            android:value="1.0"
+                            android:valueFrom="0.25"
+                            android:valueTo="2.5"
+                            app:labelBehavior="gone" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:paddingTop="4dp"
-                                android:paddingBottom="4dp"
-                                android:text="Low — large movements, more precise"
-                                android:textColor="@color/app_on_surface" />
+                                android:layout_weight="1"
+                                android:text="More sensitive"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="11sp" />
 
-                            <RadioButton
-                                android:id="@+id/radioSensMedium"
-                                android:layout_width="match_parent"
+                            <TextView
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:checked="true"
-                                android:paddingTop="4dp"
-                                android:paddingBottom="4dp"
-                                android:text="Medium — default"
-                                android:textColor="@color/app_on_surface" />
+                                android:text="More precise"
+                                android:textColor="@color/app_on_surface_variant"
+                                android:textSize="11sp" />
+                        </LinearLayout>
 
-                            <RadioButton
-                                android:id="@+id/radioSensHigh"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:paddingTop="4dp"
-                                android:paddingBottom="4dp"
-                                android:text="High — small movements, easier to play"
-                                android:textColor="@color/app_on_surface" />
-
-                        </RadioGroup>
+                        <TextView
+                            android:id="@+id/tvSensitivityDetail"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="Balanced response across the full calibrated range."
+                            android:textColor="@color/app_on_surface"
+                            android:textSize="12sp" />
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

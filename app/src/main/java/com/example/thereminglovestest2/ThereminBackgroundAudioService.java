@@ -52,7 +52,7 @@ public class ThereminBackgroundAudioService extends Service {
     private static volatile float   bgDistortionGain    = 3.0f;
     private static volatile boolean bgDrumEnabled          = false;
     private static volatile boolean bgBassEnabled          = false;
-    private static volatile float   bgSensitivityMult      = 1.0f;
+    private static volatile float   bgSensitivityResponseCurve = 1.0f;
 
     public static boolean isServiceActive()  { return serviceActive; }
     public static boolean isThereminMuted()  { return thereminMuted; }
@@ -105,8 +105,19 @@ public class ThereminBackgroundAudioService extends Service {
         octaveShift = Math.max(-2, Math.min(2, shift));
     }
 
-    public static void setSensitivityMultiplier(float mult) {
-        bgSensitivityMult = Math.max(0.1f, Math.min(3.0f, mult));
+    public static void setSensitivityResponseCurve(float exponent) {
+        float clamped = AppSettings.clampSensitivityResponseCurve(exponent);
+        bgSensitivityResponseCurve = clamped;
+        AppSettings preview = calibrationPreviewSettings;
+        if (preview != null) {
+            preview.sensitivityResponseCurve = clamped;
+            preview.sensitivityLevel = AppSettings.curveToLegacySensitivityLevel(clamped);
+        }
+        ThereminBackgroundAudioService svc = activeInstance;
+        if (svc != null && svc.cachedSettings != null) {
+            svc.cachedSettings.sensitivityResponseCurve = clamped;
+            svc.cachedSettings.sensitivityLevel = AppSettings.curveToLegacySensitivityLevel(clamped);
+        }
     }
 
     /** Returns the current octave shift value. */
@@ -246,29 +257,30 @@ public class ThereminBackgroundAudioService extends Service {
         try {
             AppSettings loaded = settingsStore.load();
             cachedSettings = loaded != null ? loaded : fallbackSettings;
+            bgSensitivityResponseCurve =
+                    AppSettings.clampSensitivityResponseCurve(cachedSettings.sensitivityResponseCurve);
         } catch (Exception ignored) {
             cachedSettings = fallbackSettings;
+            bgSensitivityResponseCurve =
+                    AppSettings.clampSensitivityResponseCurve(fallbackSettings.sensitivityResponseCurve);
         }
     }
 
     private void pushTargets(BleSnapshot s, AppSettings a) {
         AppSettings active = calibrationPreviewSettings != null ? calibrationPreviewSettings : a;
-        float sens = bgSensitivityMult;
+        float sens = bgSensitivityResponseCurve;
 
-        float pitchMid  = (active.pitchAngleMinDeg + active.pitchAngleMaxDeg) / 2f;
-        float pitchSpan = (active.pitchAngleMaxDeg - active.pitchAngleMinDeg) * sens;
-        float effPitchMin = pitchMid - pitchSpan / 2f;
-        float effPitchMax = pitchMid + pitchSpan / 2f;
+        float pitchNorm = applySensitivityCurve(
+                normalizeClamped(s != null ? s.pitchActiveDeltaDeg : 0f,
+                        active.pitchAngleMinDeg, active.pitchAngleMaxDeg),
+                sens);
+        float volNorm = applySensitivityCurve(
+                normalizeClamped(s != null ? s.volumeActiveDeltaDeg : 0f,
+                        active.volumeAngleMinDeg, active.volumeAngleMaxDeg),
+                sens);
 
-        float volMid  = (active.volumeAngleMinDeg + active.volumeAngleMaxDeg) / 2f;
-        float volSpan = (active.volumeAngleMaxDeg - active.volumeAngleMinDeg) * sens;
-        float effVolMin = volMid - volSpan / 2f;
-        float effVolMax = volMid + volSpan / 2f;
-
-        float freq = map(s != null ? s.pitchActiveDeltaDeg : 0f,
-                effPitchMin, effPitchMax, active.freqMinHz, active.freqMaxHz);
-        float volume = map(s != null ? s.volumeActiveDeltaDeg : 0f,
-                effVolMin, effVolMax, 0f, 1f);
+        float freq = lerp(active.freqMinHz, active.freqMaxHz, pitchNorm);
+        float volume = lerp(0f, 1f, volNorm);
 
         boolean pitchOk = s != null && s.isPitchConnected() && active.pitchEnabled;
         boolean volumeOk = s != null && s.isVolumeConnected() && active.volumeEnabled;
@@ -320,10 +332,20 @@ public class ThereminBackgroundAudioService extends Service {
         return copy;
     }
 
-    private static float map(float x, float inMin, float inMax, float outMin, float outMax) {
-        if (Math.abs(inMax - inMin) < 1e-6f) return outMin;
-        float t = Math.max(0f, Math.min(1f, (x - inMin) / (inMax - inMin)));
-        return outMin + t * (outMax - outMin);
+    private static float normalizeClamped(float x, float inMin, float inMax) {
+        if (Math.abs(inMax - inMin) < 1e-6f) return 0f;
+        return Math.max(0f, Math.min(1f, (x - inMin) / (inMax - inMin)));
+    }
+
+    private static float applySensitivityCurve(float normalized, float exponent) {
+        float clamped = Math.max(0f, Math.min(1f, normalized));
+        float safeExponent = AppSettings.clampSensitivityResponseCurve(exponent);
+        return (float) Math.pow(clamped, safeExponent);
+    }
+
+    private static float lerp(float start, float end, float t) {
+        float clamped = Math.max(0f, Math.min(1f, t));
+        return start + (end - start) * clamped;
     }
 
     private Notification buildNotification() {
