@@ -68,14 +68,18 @@ import java.util.Set;
 public class MainActivity extends AppCompatActivity {
     public static final String EXTRA_AUTOSTART_AUDIO =
             "com.example.thereminglovestest2.extra.AUTOSTART_AUDIO";
+    public static final String EXTRA_QUICK_START_LAUNCH =
+            "com.example.thereminglovestest2.extra.QUICK_START_LAUNCH";
 
     private static final long UI_TICK_MS = 50; // 20fps UI refresh — smooth enough, less main-thread load
+    private static final long QUICK_START_CONNECT_TIMEOUT_MS = 6000L;
     private static final int LOG_MAX_LINES = 200;
     private static final long LOG_FLUSH_MIN_INTERVAL_MS = 600;
     private static final int REQUEST_RECORD_AUDIO = 4109;
     private static final String KEY_BEAT_MASTER_BPM = "beat_master_bpm";
     private static final String KEY_KEYBOARD_SYNTH_MODE = "keyboard_synth_mode";
     private static final String KEY_PERFORMANCE_MODE_ACTIVE = "performance_mode_active";
+    private static final String KEY_QUICK_START_FALLBACK_CHECKED = "quick_start_fallback_checked";
 
     private static final String[] TONE_CYCLE = {
         AppSettings.TONE_THEREMIN, AppSettings.TONE_AIR_PAD,  AppSettings.TONE_CELLO,
@@ -101,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
     private RecordingManager recordingManager;
     private RecordingRepository recordingRepository;
     private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
+    private final Handler quickStartHandler = new Handler(Looper.getMainLooper());
 
     // Playback, preset, and piano state
     private int  octaveShift          = 0;
@@ -121,6 +126,9 @@ public class MainActivity extends AppCompatActivity {
     private boolean isRecordingUiActive;
     private boolean playUiVisible;
     private boolean pendingAutoStartAudio;
+    private boolean pendingQuickStartLaunch;
+    private boolean quickStartAutoConnectRequested;
+    private boolean quickStartFallbackArmed;
     private boolean waitingForServiceToStop;
     private boolean performanceModeActive = false;
 
@@ -179,6 +187,7 @@ public class MainActivity extends AppCompatActivity {
             recordingTimerHandler.postDelayed(this, 1000);
         }
     };
+    private final Runnable quickStartTimeoutRunnable = this::handleQuickStartConnectTimeout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -546,6 +555,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        cancelQuickStartConnectTimeout();
         playUiVisible = false;
         if (!bgAudioEnabled && !isChangingConfigurations() && isAudioRunning()) {
             audioEngine.stop();
@@ -573,6 +583,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
+        cancelQuickStartConnectTimeout();
         stopRecordBlink();
         if (recordingManager != null) recordingManager.release();
         // Release the foreground drum engine and the inline Beat Maker preview engine.
@@ -587,6 +598,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void onVisible() {
         playUiVisible = true;
+        maybeHandleQuickStartLaunch();
         requestAudioBackFromBackgroundService();
         refreshPlayUiState();
     }
@@ -1636,9 +1648,57 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void consumeIntent(Intent intent) {
-        if (intent == null || !intent.getBooleanExtra(EXTRA_AUTOSTART_AUDIO, false)) return;
-        pendingAutoStartAudio = true;
-        intent.removeExtra(EXTRA_AUTOSTART_AUDIO);
+        if (intent == null) return;
+        if (intent.getBooleanExtra(EXTRA_AUTOSTART_AUDIO, false)) {
+            pendingAutoStartAudio = true;
+            intent.removeExtra(EXTRA_AUTOSTART_AUDIO);
+        }
+        if (intent.getBooleanExtra(EXTRA_QUICK_START_LAUNCH, false)) {
+            pendingQuickStartLaunch = true;
+            quickStartAutoConnectRequested = false;
+            intent.removeExtra(EXTRA_QUICK_START_LAUNCH);
+        }
+    }
+
+    private void maybeHandleQuickStartLaunch() {
+        if (!pendingQuickStartLaunch) return;
+        pendingQuickStartLaunch = false;
+
+        BleSnapshot snapshot = getSnapshot();
+        if (snapshot != null && snapshot.areBothGlovesConnected()) {
+            cancelQuickStartConnectTimeout();
+            return;
+        }
+
+        if (!quickStartAutoConnectRequested) {
+            quickStartAutoConnectRequested = true;
+            BleSessionManager.maybeStartAutoConnect();
+            appendLogSafe("Quick start -> trying glove auto-connect");
+        }
+
+        SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
+        if (prefs.getBoolean(KEY_QUICK_START_FALLBACK_CHECKED, false)) return;
+
+        prefs.edit().putBoolean(KEY_QUICK_START_FALLBACK_CHECKED, true).apply();
+        quickStartFallbackArmed = true;
+        quickStartHandler.removeCallbacks(quickStartTimeoutRunnable);
+        quickStartHandler.postDelayed(quickStartTimeoutRunnable, QUICK_START_CONNECT_TIMEOUT_MS);
+    }
+
+    private void handleQuickStartConnectTimeout() {
+        quickStartFallbackArmed = false;
+        if (!playUiVisible || isFinishing() || isDestroyed()) return;
+
+        BleSnapshot snapshot = getSnapshot();
+        if (snapshot != null && snapshot.areBothGlovesConnected()) return;
+
+        appendLogSafe("Quick start -> opening Connect after timeout");
+        NavigationUtils.openScreen(this, ConnectGlovesActivity.class);
+    }
+
+    private void cancelQuickStartConnectTimeout() {
+        quickStartFallbackArmed = false;
+        quickStartHandler.removeCallbacks(quickStartTimeoutRunnable);
     }
 
     private void syncAudioTargetsFromSharedBleState() {
@@ -1706,6 +1766,7 @@ public class MainActivity extends AppCompatActivity {
         boolean bothConnected = snapshot != null && snapshot.areBothGlovesConnected();
         boolean oneConnected = snapshot != null && snapshot.isAnyGloveConnected();
         boolean connecting = snapshot != null && snapshot.isAnyGloveConnecting();
+        if (bothConnected) cancelQuickStartConnectTimeout();
 
         play.syncLive(snapshot);
         play.recompute(snapshot);
