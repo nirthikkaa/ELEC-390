@@ -11,10 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Sprint 2: Local recording storage. Owned by Nirthika.
+ * Local recording metadata store.
  *
- * Uses a dedicated recordings.db (separate from theremin_gloves.db) to avoid merge conflicts
- * with SettingsStore while both are being developed in parallel.
+ * Uses a dedicated recordings.db (separate from theremin_gloves.db) so recording metadata and
+ * app settings can evolve independently.
  *
  * File deletion is handled here on deleteRecording() so callers don't need to manage files
  * directly.

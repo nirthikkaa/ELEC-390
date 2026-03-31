@@ -150,11 +150,11 @@ public class SettingsActivity extends AppCompatActivity {
             case AppSettings.COMPRESSION_LOSSLESS:
                 size = "~11 MB / min"; detail = "WAV · 48 kHz · stereo · lossless (PCM)"; break;
             case AppSettings.COMPRESSION_MEDIUM:
-                size = "~0.9 MB / min"; detail = "AAC · 16 kHz · stereo · 128 kbps"; break;
+                size = "~1.4 MB / min"; detail = "AAC · 48 kHz · stereo · 192 kbps"; break;
             case AppSettings.COMPRESSION_LOW:
-                size = "~0.5 MB / min"; detail = "AAC · 8 kHz · stereo · 64 kbps"; break;
+                size = "~0.9 MB / min"; detail = "AAC · 48 kHz · stereo · 128 kbps"; break;
             default: // HIGH
-                size = "~1.4 MB / min"; detail = "AAC · 24 kHz · stereo · 192 kbps"; break;
+                size = "~2.4 MB / min"; detail = "AAC · 48 kHz · stereo · 320 kbps"; break;
         }
         binding.tvCompressionEstimate.setText(size);
         binding.tvCompressionDetail.setText(detail);

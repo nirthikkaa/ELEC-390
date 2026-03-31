@@ -150,8 +150,14 @@ public final class BleSessionManager {
     }
 
     @SuppressWarnings("deprecation")
+    @SuppressLint("MissingPermission")
     public static void requestEnableBluetoothPrompt(AppCompatActivity activity, int requestCode) {
         if (activity == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                && ActivityCompat.checkSelfPermission(activity, Manifest.permission.BLUETOOTH_CONNECT)
+                != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
         try {
             activity.startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), requestCode);
         } catch (Exception ignored) {

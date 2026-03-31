@@ -22,7 +22,7 @@
         android:paddingEnd="8dp"
         android:paddingTop="4dp"
         android:paddingBottom="4dp"
-        android:background="@color/app_surface"
+        android:background="@color/app_box_surface"
         android:visibility="gone">
 
         <EditText
@@ -51,7 +51,7 @@
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="8dp"
-        android:background="@color/app_surface_variant"
+        android:background="@color/app_box_surface"
         android:visibility="gone">
 
         <TextView
@@ -117,7 +117,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        app:cardBackgroundColor="@color/app_surface_variant"
+        app:cardBackgroundColor="@color/app_box_surface"
         app:cardCornerRadius="0dp"
         app:cardElevation="8dp"
         app:strokeWidth="0dp">
@@ -221,7 +221,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Previous track"
                     android:src="@drawable/ic_skip_previous"
-                    android:tint="@color/app_primary" />
+                    app:tint="@color/app_primary" />
 
                 <ImageButton
                     android:id="@+id/btnPlayerPlayPause"
@@ -232,7 +232,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Play or pause"
                     android:src="@android:drawable/ic_media_pause"
-                    android:tint="@color/app_primary" />
+                    app:tint="@color/app_primary" />
 
                 <ImageButton
                     android:id="@+id/btnPlayerSkip"
@@ -241,7 +241,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Next track"
                     android:src="@drawable/ic_skip_next"
-                    android:tint="@color/app_primary" />
+                    app:tint="@color/app_primary" />
 
             </LinearLayout>
 

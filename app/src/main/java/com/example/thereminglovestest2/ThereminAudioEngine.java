@@ -9,7 +9,8 @@ package com.example.thereminglovestest2;
  * visualizer. The rest of the app only tells it the latest target frequency, target volume, and
  * tone type.
  *
- * Sprint 2: Added PcmListener interface so RecordingManager can tap the raw PCM stream.
+ * RecordingManager taps the mixed mono render buffer before it is duplicated into stereo for
+ * playback.
  */
 
 import android.media.AudioFormat;
@@ -25,9 +26,10 @@ public final class ThereminAudioEngine {
     // make the theremin feel smoother, harsher, more responsive, or more stable.
 
     private static final int SAMPLE_RATE = 48000;
-    private static final int CHANNEL_MASK = AudioFormat.CHANNEL_OUT_MONO;
+    private static final int CHANNEL_MASK = AudioFormat.CHANNEL_OUT_STEREO;
+    private static final int OUTPUT_CHANNELS = 2;
     private static final int ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-    private static final int AUDIO_WRITE_SAMPLES = 1024;
+    private static final int AUDIO_WRITE_FRAMES = 1024;
     private static final int MIN_STREAM_BUFFER_BYTES = 4096;
     private static final int VISUALIZER_SAMPLE_COUNT = 180;
 
@@ -39,7 +41,7 @@ public final class ThereminAudioEngine {
     private static final float VIBRATO_RATE_HZ = 4.2f;
     private static final float MIN_VIBRATO_DEPTH = 0.0003f;
     private static final float MAX_VIBRATO_DEPTH = 0.0014f;
-    private static final float VISUALIZER_SCALE = (AUDIO_WRITE_SAMPLES - 1f) / (VISUALIZER_SAMPLE_COUNT - 1f);
+    private static final float VISUALIZER_SCALE = (AUDIO_WRITE_FRAMES - 1f) / (VISUALIZER_SAMPLE_COUNT - 1f);
 
     // The visualizer reads a copy of the latest waveform while the audio thread keeps writing new
     // samples, so this lock protects that tiny shared buffer.
@@ -54,7 +56,8 @@ public final class ThereminAudioEngine {
     private volatile float targetVolumeLinear;
     private volatile String toneType = AppSettings.TONE_SINE;
 
-    // Sprint 2: PCM tap for recording. Listener receives each filled buffer from the audio thread.
+    // Sprint 2: PCM tap for recording. Listener receives the mixed mono render buffer before it
+    // is duplicated into stereo for playback.
     // Volatile so the recording start/stop from the UI thread is immediately visible to audio thread.
     private volatile PcmListener pcmListener;
 
@@ -119,8 +122,8 @@ public final class ThereminAudioEngine {
     private float lastVolumeLinear;
 
     // --- Sprint 2: PCM tap interface ---
-    // Implemented by RecordingManager. Called from the audio thread on every buffer fill (~2048
-    // samples at 48kHz = ~43ms per call). Implementations must be fast and non-blocking.
+    // Implemented by RecordingManager. Called from the audio thread on every buffer fill
+    // (~1024 samples at 48kHz = ~21 ms per call). Implementations must be fast and non-blocking.
     public interface PcmListener {
         void onPcmSamples(short[] samples, int count);
     }
@@ -188,20 +191,25 @@ public final class ThereminAudioEngine {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
             track = createAndStartTrack();
 
-            short[] buffer = new short[AUDIO_WRITE_SAMPLES];
+            // Keep synthesis/mixing mono so the recording tap, visualizer, and DrumEngine
+            // integration can continue to operate on a single shared PCM buffer.
+            short[] monoBuffer = new short[AUDIO_WRITE_FRAMES];
+            // Interleave into stereo only at the AudioTrack boundary.
+            short[] stereoBuffer = new short[AUDIO_WRITE_FRAMES * OUTPUT_CHANNELS];
             while (running) {
-                fillBuffer(buffer);
+                fillBuffer(monoBuffer);
                 // Sprint 3: Mix drum and bass PCM into buffer before the PCM tap so
                 // recordings capture both the theremin and the drum engine output.
                 DrumEngine drum = drumEngine;
-                if (drum != null) drum.mixInto(buffer, buffer.length);
-                updateVisualizer(buffer);
+                if (drum != null) drum.mixInto(monoBuffer, monoBuffer.length);
+                updateVisualizer(monoBuffer);
                 // Sprint 2: PCM tap — capture local reference to avoid race on volatile field.
                 // The listener (RecordingManager) must be non-blocking; this runs on the audio thread.
                 PcmListener l = pcmListener;
-                if (l != null) l.onPcmSamples(buffer, buffer.length);
+                if (l != null) l.onPcmSamples(monoBuffer, monoBuffer.length);
+                copyMonoToStereo(monoBuffer, stereoBuffer);
                 int written;
-                try { written = track.write(buffer, 0, buffer.length); } catch (Exception ignored) { written = AudioTrack.ERROR; }
+                try { written = track.write(stereoBuffer, 0, stereoBuffer.length); } catch (Exception ignored) { written = AudioTrack.ERROR; }
                 if (written == AudioTrack.ERROR_DEAD_OBJECT) {
                     // AudioTrack was torn down (e.g. audio output device changed). Recreate it and
                     // resume rather than silently stopping.
@@ -218,10 +226,17 @@ public final class ThereminAudioEngine {
         running = false;
         Thread t = audioThread;
         audioThread = null;
-        // 500 ms timeout instead of 300 ms: the audio thread now creates the AudioTrack
-        // internally, which can take up to ~200 ms. We wait long enough that the thread
-        // finishes initialization and exits cleanly, so the track reference is valid below.
-        if (t != null) try { t.join(500); } catch (InterruptedException ignored) {}
+        AudioTrack trackToPause = track;
+        if (trackToPause != null) {
+            try { trackToPause.pause(); } catch (Exception ignored) {}
+            try { trackToPause.flush(); } catch (Exception ignored) {}
+        }
+        // The AudioTrack is created on the worker thread and can take ~200 ms on some devices.
+        // Pause/flush first so an in-flight write returns quickly, then wait for a clean exit.
+        if (t != null) {
+            t.interrupt();
+            try { t.join(500); } catch (InterruptedException ignored) {}
+        }
         // Read track into a local variable and null the field first to prevent double-release
         // if stop() is called again while cleanup is in progress.
         AudioTrack trackToRelease = track;
@@ -241,7 +256,8 @@ public final class ThereminAudioEngine {
 
     private AudioTrack createAndStartTrack() {
         int min = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_MASK, ENCODING);
-        int bufferBytes = Math.max(min, Math.max(MIN_STREAM_BUFFER_BYTES, AUDIO_WRITE_SAMPLES * 2));
+        // AudioTrack buffers are sized in bytes, so multiply frames by channels and 16-bit depth.
+        int bufferBytes = Math.max(min, Math.max(MIN_STREAM_BUFFER_BYTES, AUDIO_WRITE_FRAMES * OUTPUT_CHANNELS * 2));
         AudioTrack t;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             AudioTrack.Builder builder = new AudioTrack.Builder()
@@ -277,7 +293,7 @@ public final class ThereminAudioEngine {
         // otherwise stall waiting for the driver to prime itself, adding ~40–80 ms of perceived
         // latency on the very first note. Filling with silence lets the driver finish its startup
         // bookkeeping before any real audio arrives, so the first note plays without delay.
-        short[] silence = new short[AUDIO_WRITE_SAMPLES];
+        short[] silence = new short[AUDIO_WRITE_FRAMES * OUTPUT_CHANNELS];
         t.write(silence, 0, silence.length);
         t.write(silence, 0, silence.length);
 
@@ -292,9 +308,9 @@ public final class ThereminAudioEngine {
         String tone = toneType;
 
         // Capture all volatile fields into local finals before the loop.
-        // Volatile reads carry a JVM memory barrier — reading them 2048 times per buffer prevents
+        // Volatile reads carry a JVM memory barrier — reading them 1024 times per buffer prevents
         // the JIT from hoisting the checks out of the loop. Capturing once per buffer is safe:
-        // effects and scale changes only need to take effect at the next buffer boundary (~43ms).
+        // effects and scale changes only need to take effect at the next buffer boundary (~21 ms).
         final boolean doReverb     = reverbEnabled;
         final boolean doDelay      = delayEnabled;
         final boolean doDistortion = distortionEnabled;
@@ -321,6 +337,16 @@ public final class ThereminAudioEngine {
         }
     }
 
+    // Duplicate each mono frame into left/right so every instrument reaches the output bus
+    // as stereo without changing the existing synth and recording code paths.
+    private static void copyMonoToStereo(short[] monoBuffer, short[] stereoBuffer) {
+        for (int i = 0, j = 0; i < monoBuffer.length; i++, j += OUTPUT_CHANNELS) {
+            short sample = monoBuffer[i];
+            stereoBuffer[j] = sample;
+            stereoBuffer[j + 1] = sample;
+        }
+    }
+
     // Pitch smoothing plus a gentle vibrato that grows a bit with louder playing.
     private float updateFrequency() {
         smoothFreqHz += (targetFreqHz - smoothFreqHz) * FREQ_SMOOTHING; // targetFreqHz clamped in setTargets()
@@ -344,10 +370,90 @@ public final class ThereminAudioEngine {
         if (phase >= TWO_PI) phase -= TWO_PI;
     }
 
-    // Tone recipes. Each tone is designed to be perceptibly distinct from the others.
+    // Tone recipes. The non-default voices are biased toward harmonic spectra, controlled
+    // brightness, and mild symmetric saturation so they stay musical across wide pitch glides.
     // Math.sin() is cheap on modern JIT; the audio thread runs at THREAD_PRIORITY_AUDIO.
     private float sample(String tone, float phase, float volume) {
+        float motion = 0.5f + 0.5f * (float) Math.sin(vibratoPhase * 0.60f);
         switch (tone) {
+            case AppSettings.TONE_AIR_PAD:
+                // Soft detuned sine pad with a low spectral centroid. The slow beating keeps
+                // sustained notes alive without pushing them into noise.
+                return saturate(
+                        0.44f * (float) Math.sin(phase)
+                                + 0.28f * (float) Math.sin(phase * 1.002f + 0.14f * motion)
+                                + 0.24f * (float) Math.sin(phase * 0.998f - 0.14f * motion)
+                                + 0.14f * (float) Math.sin(phase * 2f)
+                                + 0.05f * (float) Math.sin(phase * 3f),
+                        0.72f + 0.08f * volume) * 0.78f;
+
+            case AppSettings.TONE_CELLO:
+                // Bowed low-string preset: emphasize the first two partials and add just enough
+                // 1:1 FM motion to suggest bow pressure while keeping the note center stable.
+                return saturate(
+                        0.84f * (float) Math.sin(phase + (0.10f + 0.06f * motion) * (float) Math.sin(phase))
+                                + 0.32f * (float) Math.sin(phase * 2f)
+                                + 0.15f * (float) Math.sin(phase * 3f)
+                                + 0.07f * (float) Math.sin(phase * 4f),
+                        0.96f + 0.06f * volume) * 0.68f;
+
+            case AppSettings.TONE_SWEET_LEAD:
+                // Harmonic 2:1 FM lead with a strong fundamental. The FM index stays modest so
+                // bends and portamento feel vocal rather than metallic.
+                return saturate(
+                        0.90f * (float) Math.sin(phase + (0.20f + 0.18f * volume) * (float) Math.sin(phase * 2f))
+                                + 0.20f * (float) Math.sin(phase * 2f)
+                                + 0.08f * (float) Math.sin(phase * 3f)
+                                + 0.04f * (float) Math.sin(phase * 4f),
+                        0.98f + 0.10f * volume) * 0.68f;
+
+            case AppSettings.TONE_CHOIR:
+                // Soft vocal pad: harmonic stack stays low-order, while shallow PM adds motion
+                // without roughness.
+                return saturate(
+                        0.92f * (float) Math.sin(phase + (0.10f + 0.06f * motion) * (float) Math.sin(phase * 2f))
+                                + 0.24f * (float) Math.sin(phase * 2f)
+                                + 0.11f * (float) Math.sin(phase * 3f)
+                                + 0.05f * (float) Math.sin(phase * 4f),
+                        0.82f) * 0.72f;
+
+            case AppSettings.TONE_VOWEL_O:
+                // Rounded "ooh" vowel: strong fundamental/second harmonic anchor keeps pitch
+                // clear while restrained PM adds expressiveness.
+                return saturate(
+                        0.96f * (float) Math.sin(phase + 0.12f * (float) Math.sin(phase * 2f))
+                                + 0.20f * (float) Math.sin(phase * 2f)
+                                + 0.07f * (float) Math.sin(phase * 3f),
+                        0.80f) * 0.80f;
+
+            case AppSettings.TONE_CLARINET:
+                // Clarinet-inspired closed-pipe spectrum: odd harmonics dominate, which keeps
+                // the tone warm and cheerful without the sandpaper edge of a raw square wave.
+                return ((float) Math.sin(phase)
+                        + 0.36f * (float) Math.sin(phase * 3f)
+                        + 0.19f * (float) Math.sin(phase * 5f)
+                        + 0.10f * (float) Math.sin(phase * 7f)
+                        + 0.05f * (float) Math.sin(phase * 9f)) * 0.62f;
+
+            case AppSettings.TONE_OBOE:
+                // Reed tone with fuller upper partials than clarinet, but keep the spectrum
+                // compact so glides still sound lyrical.
+                return saturate(
+                        0.82f * (float) Math.sin(phase)
+                                + 0.30f * (float) Math.sin(phase * 2f)
+                                + 0.16f * (float) Math.sin(phase * 3f)
+                                + 0.09f * (float) Math.sin(phase * 4f),
+                        1.05f) * 0.60f;
+
+            case AppSettings.TONE_LEAD:
+                // Use harmonic 2:1 FM for brightness, then a small additive stack to keep the
+                // pitch center obvious. This is brighter than pad/choir but less raspy.
+                return saturate(
+                        0.86f * (float) Math.sin(phase + (0.34f + 0.28f * volume) * (float) Math.sin(phase * 2f + 0.10f * motion))
+                                + 0.22f * (float) Math.sin(phase * 2f)
+                                + 0.10f * (float) Math.sin(phase * 3f),
+                        1.05f + 0.10f * volume) * 0.62f;
+
             case AppSettings.TONE_TRIANGLE:
                 // Triangle core plus boosted odd upper partials — reedier than pure triangle,
                 // clearly brighter than sine but less harsh than square or saw.
@@ -357,92 +463,111 @@ public final class ThereminAudioEngine {
                         + 0.04f * (float) Math.sin(phase * 7f)) * 0.72f;
 
             case AppSettings.TONE_SAW:
-                // Direct analog sawtooth oscillator — linear ramp +1 → −1 each cycle.
-                // Completely different waveform shape from all sine-based tones.
-                // tanh drive (1.20) warms it and tames Nyquist aliasing at high pitches.
-                return saturate(1f - phase / (float) Math.PI, 1.20f);
+                // Additive saw-style spectrum with the first six harmonics only. That preserves
+                // brightness but avoids the buzzy edge of the naive ramp waveform.
+                return saturate(
+                        0.72f * (float) Math.sin(phase)
+                                + 0.36f * (float) Math.sin(phase * 2f)
+                                + 0.23f * (float) Math.sin(phase * 3f)
+                                + 0.16f * (float) Math.sin(phase * 4f)
+                                + 0.10f * (float) Math.sin(phase * 5f)
+                                + 0.06f * (float) Math.sin(phase * 6f),
+                        0.92f + 0.08f * volume) * 0.46f;
 
             case AppSettings.TONE_SQUARE:
-                // Hard square wave — harsh and buzzy, most distinctive of all tones
+                // Odd-harmonic square approximation keeps the familiar hollow character, but
+                // without the abrasive edge of a hard-clipped switching waveform.
                 return saturate(
-                    0.65f * (Math.sin(phase) >= 0f ? 1f : -1f)
-                    + 0.22f * (float) Math.sin(phase),
-                    1.10f);
+                        0.86f * (float) Math.sin(phase)
+                                + 0.28f * (float) Math.sin(phase * 3f)
+                                + 0.15f * (float) Math.sin(phase * 5f)
+                                + 0.08f * (float) Math.sin(phase * 7f)
+                                + 0.04f * (float) Math.sin(phase * 9f),
+                        0.96f) * 0.66f;
 
             case AppSettings.TONE_PULSE:
-                // Direct 25% duty-cycle pulse — high for first quarter, low for three quarters.
-                // Zero-mean amplitudes (0.75/−0.25) match the correct Fourier DC balance.
-                // Nasal, oboe-like quality from the hard asymmetry; sine blend softens clicks.
-                return saturate((phase < (float) (Math.PI * 0.5) ? 0.75f : -0.25f)
-                        + 0.15f * (float) Math.sin(phase), 1.0f);
+                // Narrow-pulse flavor via even-harmonic emphasis, but keep it fully harmonic
+                // and lightly saturated so bends stay singable.
+                return saturate(
+                        0.80f * (float) Math.sin(phase)
+                                + 0.28f * (float) Math.sin(phase * 2f)
+                                + 0.16f * (float) Math.sin(phase * 4f)
+                                + 0.08f * (float) Math.sin(phase * 6f),
+                        0.92f) * 0.62f;
 
             case AppSettings.TONE_ORGAN:
-                // Full-wave rectified sine base — folds every cycle into a double-frequency ripple,
-                // naturally emphasising even harmonics like a Hammond drawbar organ.
-                // Hard-driven into tanh adds back odd harmonics as the characteristic "chiff".
+                // Drawbar-like harmonic recipe: strong 2nd and 3rd partials, very mild drive.
                 return saturate(
-                    (Math.abs((float) Math.sin(phase)) * 2f - 1f)
-                    + 0.45f * (float) Math.sin(phase),
-                    1.35f);
+                        0.72f * (float) Math.sin(phase)
+                                + 0.46f * (float) Math.sin(phase * 2f)
+                                + 0.22f * (float) Math.sin(phase * 3f)
+                                + 0.14f * (float) Math.sin(phase * 4f)
+                                + 0.07f * (float) Math.sin(phase * 5f),
+                        1.00f) * 0.56f;
 
             case AppSettings.TONE_STRING:
-                // FM synthesis: carrier:modulator 1:1, index 2.5 — bowed string spectrum.
-                // sin(x + 2.5·sin(x)) distributes energy into harmonics via Bessel coefficients;
-                // sounds completely unlike additive sine — complex, reedy, bowed character.
-                return (float) Math.sin(phase + 2.5f * (float) Math.sin(phase)) * 0.88f;
+                // Harmonic 1:1 FM plus low-order partials gives motion and sheen, but the
+                // fundamental stays clear enough for slow theremin melodies.
+                return saturate(
+                        0.76f * (float) Math.sin(phase + (0.95f + 0.35f * motion) * (float) Math.sin(phase))
+                                + 0.18f * (float) Math.sin(phase * 2f)
+                                + 0.10f * (float) Math.sin(phase * 3f),
+                        0.98f + 0.08f * volume) * 0.66f;
 
             case AppSettings.TONE_BELL:
-                // Chowning FM bell: carrier:modulator 1:2.756, index 3.0.
-                // Non-integer modulator ratio creates inharmonic sidebands — authentic bell ring.
-                return (float) Math.sin(phase + 3.0f * (float) Math.sin(phase * 2.756f)) * 0.88f;
+                // Keep the bell's shimmer, but anchor it with a clear fundamental so the played
+                // note still reads melodically.
+                return saturate(
+                        0.58f * (float) Math.sin(phase)
+                                + 0.36f * (float) Math.sin(phase + 1.85f * (float) Math.sin(phase * 2.756f))
+                                + 0.10f * (float) Math.sin(phase * 2f),
+                        0.92f) * 0.76f;
 
             case AppSettings.TONE_PAD:
-                // Chorus pad: sawtooth main voice + detuned triangle voice.
-                // Two fundamentally different base waveforms beating against each other
-                // create a warmer, richer chorus texture than all-sine detuning.
+                // Slow-beating harmonic pad: detuned sine stack keeps it wide and warm without
+                // the fizz of a raw saw.
                 return saturate(
-                    0.38f * (1f - phase / (float) Math.PI)
-                    + 0.38f * ((float) (2.0 / Math.PI) * (float) Math.asin(Math.sin(phase * 1.007f)))
-                    + 0.14f * (float) Math.sin(phase * 0.993f)
-                    + 0.18f * (float) Math.sin(phase * 2.014f),
-                    0.88f + 0.12f * volume);
+                        0.42f * (float) Math.sin(phase)
+                                + 0.30f * (float) Math.sin(phase * 1.003f + 0.10f * motion)
+                                + 0.24f * (float) Math.sin(phase * 0.997f - 0.10f * motion)
+                                + 0.18f * (float) Math.sin(phase * 2f)
+                                + 0.08f * (float) Math.sin(phase * 3f),
+                        0.78f + 0.10f * volume) * 0.74f;
 
             case AppSettings.TONE_VIOLIN:
-                // Bowed string: Helmholtz motion spectrum — strong 2nd and odd harmonics,
-                // driven through tanh to get the edgy "nail" quality of a bowed string.
-                // Clearly brighter and more aggressive than Theremin; different ratio from String.
+                // Violin stays bright, but move the color with shallow PM instead of heavy
+                // clipping so the tone remains lyrical.
                 return saturate(
-                    (float) Math.sin(phase)
-                    + 0.50f * (float) Math.sin(phase * 2f)
-                    + 0.35f * (float) Math.sin(phase * 3f)
-                    + 0.18f * (float) Math.sin(phase * 4f)
-                    + 0.10f * (float) Math.sin(phase * 5f),
-                    1.30f) * 0.52f;
+                        0.78f * (float) Math.sin(phase + (0.16f + 0.08f * motion) * (float) Math.sin(phase * 3f))
+                                + 0.28f * (float) Math.sin(phase * 2f)
+                                + 0.16f * (float) Math.sin(phase * 3f)
+                                + 0.08f * (float) Math.sin(phase * 4f),
+                        1.04f + 0.08f * volume) * 0.62f;
 
             case AppSettings.TONE_GUITAR:
-                // Acoustic guitar: 1:2 FM synthesis — modulator at double the carrier frequency.
-                // sin(p + M·sin(2p)) gives sideband energy at 3rd, 5th, odd partials; bright
-                // and plucky, completely different from String (1:1 FM at index 2.5).
-                return (float) Math.sin(phase + 1.20f * (float) Math.sin(phase * 2f)) * 0.88f;
+                // Harmonic 1:2 FM gives a plucked-string brightness, but keep the index modest so
+                // sustained notes do not turn metallic.
+                return saturate(
+                        0.82f * (float) Math.sin(phase + 0.52f * (float) Math.sin(phase * 2f))
+                                + 0.18f * (float) Math.sin(phase * 2f)
+                                + 0.08f * (float) Math.sin(phase * 3f),
+                        0.92f) * 0.74f;
 
             case AppSettings.TONE_FLUTE:
-                // Breathy flute: near-pure tone with very low-index PM at a near-2x ratio.
-                // index 0.15 keeps it almost sinusoidal but adds a soft shimmer that reads as
-                // "breath". 1.99 (not exactly 2) creates a slow micro-detuning for air texture.
-                return (float) Math.sin(phase + 0.15f * (float) Math.sin(phase * 1.99f)) * 0.92f;
+                // Near-pure flute with a tiny harmonic shimmer. Keep the spectral centroid low
+                // so it reads as soft and melodic.
+                return (0.92f * (float) Math.sin(phase + 0.10f * (float) Math.sin(phase * 2f + 0.08f * motion))
+                        + 0.04f * (float) Math.sin(phase * 2f)) * 0.90f;
 
             case AppSettings.TONE_TRUMPET:
-                // Bright brass: dense harmonic stack hard-driven into tanh saturation.
-                // The resulting clipped-dense waveform captures the "brassy" buzz of brass instruments.
-                // Much richer and harsher than Theremin or Organ; distinct from Square (no odd-only).
+                // Brass wants brightness, but keep it on harmonic partials and use moderate
+                // symmetric saturation so it stays singable instead of strident.
                 return saturate(
-                    (float) Math.sin(phase)
-                    + 0.75f * (float) Math.sin(phase * 2f)
-                    + 0.55f * (float) Math.sin(phase * 3f)
-                    + 0.32f * (float) Math.sin(phase * 4f)
-                    + 0.18f * (float) Math.sin(phase * 5f)
-                    + 0.08f * (float) Math.sin(phase * 6f),
-                    2.00f) * 0.40f;
+                        0.80f * (float) Math.sin(phase)
+                                + (0.40f + 0.08f * volume) * (float) Math.sin(phase * 2f)
+                                + (0.22f + 0.06f * volume) * (float) Math.sin(phase * 3f)
+                                + 0.10f * (float) Math.sin(phase * 4f),
+                        1.22f) * 0.54f;
 
             case AppSettings.TONE_THEREMIN:
                 // Authentic heterodyne theremin (RCA Theremin / Moog character):
@@ -465,11 +590,11 @@ public final class ThereminAudioEngine {
         return (float) Math.tanh(value * gain);
     }
 
-    // Downsample the latest audio block so the UI can draw a light-weight waveform preview.
+    // Downsample the mono render buffer so the UI waveform matches the pre-stereo synth signal.
     private void updateVisualizer(short[] buffer) {
         synchronized (visualizerLock) {
             for (int i = 0; i < visualizerSamples.length; i++) {
-                int source = Math.min(AUDIO_WRITE_SAMPLES - 1, Math.round(i * VISUALIZER_SCALE));
+                int source = Math.min(AUDIO_WRITE_FRAMES - 1, Math.round(i * VISUALIZER_SCALE));
                 visualizerSamples[i] = buffer[source] / (float) Short.MAX_VALUE;
             }
             lastFreqHz = smoothFreqHz;

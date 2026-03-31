@@ -4,7 +4,7 @@
     android:id="@+id/settingsScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B0B1A"
+    android:background="@color/app_background"
     android:orientation="vertical">
 
     <com.example.thereminglovestest2.TopNavBarView
@@ -32,7 +32,7 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="#0F0F22"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -102,7 +102,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#0A1A12"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -182,7 +182,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#16203B"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -272,7 +272,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#15103A"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -352,7 +352,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#1A1600"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -435,7 +435,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#0D1628"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -532,7 +532,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="10dp"
-                            android:text="~1.4 MB / min"
+                            android:text="~2.4 MB / min"
                             android:textColor="#43E5FF"
                             android:textSize="15sp"
                             android:textStyle="bold"
@@ -543,7 +543,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="AAC · 24 kHz · stereo · 192 kbps"
+                            android:text="AAC · 48 kHz · stereo · 320 kbps"
                             android:textColor="@color/app_on_surface_variant"
                             android:textSize="12sp" />
 
@@ -579,7 +579,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#1A0E28"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -677,7 +677,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#0D0D1E"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">

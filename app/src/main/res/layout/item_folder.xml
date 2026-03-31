@@ -30,7 +30,7 @@
             android:layout_height="32dp"
             android:layout_marginEnd="14dp"
             android:src="@drawable/ic_folder"
-            android:tint="@color/app_primary"
+            app:tint="@color/app_primary"
             android:contentDescription="Folder" />
 
         <LinearLayout
@@ -66,7 +66,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Folder options"
             android:src="@drawable/ic_more_vert"
-            android:tint="@color/app_on_surface_variant" />
+            app:tint="@color/app_on_surface_variant" />
 
     </LinearLayout>
 

@@ -23,6 +23,7 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -176,6 +177,22 @@ public class LibraryActivity extends AppCompatActivity
         btnPlayerPlayPause.setOnClickListener(v -> togglePlayerPlayPause());
         btnPlayerSkip.setOnClickListener(v -> playNextTrack());
         btnPlayerMode.setOnClickListener(v -> cyclePlaybackMode());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (isMultiSelectMode) {
+                    exitMultiSelectMode();
+                    return;
+                }
+                if (currentFolderId != -1) {
+                    navigateToRoot();
+                    return;
+                }
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
 
         sbPlayerProgress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             boolean wasPlaying;
@@ -208,13 +225,6 @@ public class LibraryActivity extends AppCompatActivity
         currentlyPlayingPosition = -1;
         currentlyPlayingRecording = null;
         isPaused = false;
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (isMultiSelectMode) { exitMultiSelectMode(); return; }
-        if (currentFolderId != -1) { navigateToRoot(); return; }
-        super.onBackPressed();
     }
 
     // ── Data loading ──────────────────────────────────────────────────────────
@@ -913,7 +923,7 @@ public class LibraryActivity extends AppCompatActivity
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(getColor(R.color.app_surface));
+        root.setBackgroundColor(getColor(R.color.app_box_surface));
 
         // Drag handle
         View handle = new View(this);

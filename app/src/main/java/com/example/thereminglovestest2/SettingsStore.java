@@ -47,7 +47,7 @@ public class SettingsStore extends SQLiteOpenHelper {
     private static final String COL_UPDATED_AT_MS = "updated_at_ms";
     private static final String COL_SENSITIVITY_LEVEL = "sensitivity_level";
 
-    // Sprint 3: scale lock, octave shift, effects
+    // Performance/effects columns
     private static final String COL_ACTIVE_SCALE       = "active_scale";
     private static final String COL_OCTAVE_SHIFT       = "octave_shift";
     private static final String COL_REVERB_ENABLED     = "reverb_enabled";
@@ -310,6 +310,9 @@ class AppSettings {
     public static final String TONE_STRING  = "STRING";
     public static final String TONE_BELL    = "BELL";
     public static final String TONE_PAD     = "PAD";
+    public static final String TONE_AIR_PAD   = "AIR_PAD";
+    public static final String TONE_CELLO     = "CELLO";
+    public static final String TONE_SWEET_LEAD= "SWEET_LEAD";
     public static final String TONE_LEAD      = "LEAD";
     public static final String TONE_KEYS      = "KEYS";
     public static final String TONE_VOWEL_A   = "VOWEL_A";
@@ -358,7 +361,7 @@ class AppSettings {
     public boolean pitchEnabled = true;
     public boolean volumeEnabled = true;
 
-    // Sprint 3 fields
+    // Performance/effects state
     public String  activeScale        = SCALE_CHROMATIC;
     public int     octaveShift        = 0;
     public boolean reverbEnabled      = false;
@@ -375,7 +378,8 @@ class AppSettings {
             case TONE_THEREMIN:
             case TONE_SQUARE:  case TONE_TRIANGLE: case TONE_SAW:
             case TONE_PULSE:   case TONE_ORGAN:   case TONE_STRING:
-            case TONE_BELL:    case TONE_PAD:     case TONE_LEAD:
+            case TONE_BELL:    case TONE_PAD:     case TONE_AIR_PAD:
+            case TONE_CELLO:   case TONE_SWEET_LEAD: case TONE_LEAD:
             case TONE_KEYS:     case TONE_VOWEL_A:  case TONE_VOWEL_O:
             case TONE_VOWEL_I:  case TONE_FLUTE:    case TONE_CLARINET:
             case TONE_OBOE:     case TONE_TRUMPET:  case TONE_VIOLIN:
@@ -396,6 +400,14 @@ class AppSettings {
             case TONE_STRING:   return "String";
             case TONE_BELL:     return "Bell";
             case TONE_PAD:      return "Warm Pad";
+            case TONE_AIR_PAD:  return "Air Pad";
+            case TONE_CELLO:    return "Cello";
+            case TONE_SWEET_LEAD:return "Sweet Lead";
+            case TONE_CHOIR:    return "Choir";
+            case TONE_VOWEL_O:  return "Vocal O";
+            case TONE_CLARINET: return "Clarinet";
+            case TONE_OBOE:     return "Oboe";
+            case TONE_LEAD:     return "Bright Lead";
             case TONE_VIOLIN:   return "Violin";
             case TONE_GUITAR:   return "Guitar";
             case TONE_FLUTE:    return "Flute";

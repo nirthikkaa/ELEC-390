@@ -50,14 +50,14 @@ public class TopNavBarView extends LinearLayout {
     public TopNavBarView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
 
-        int pad = dp(8), onSurface = ContextCompat.getColor(context, R.color.app_on_surface);
+        int pad = dp(8), onSurface = ContextCompat.getColor(context, R.color.app_bar_on_surface);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
         setPadding(pad, pad, pad, pad);
         setMinimumHeight(dp(56));
         setClipToPadding(false);
         setElevation(0);
-        setBackgroundColor(ContextCompat.getColor(context, R.color.app_surface_variant));
+        setBackgroundColor(ContextCompat.getColor(context, R.color.app_bar_surface));
 
         ViewCompat.setOnApplyWindowInsetsListener(this, (v, insets) -> {
             Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -196,7 +196,7 @@ public class TopNavBarView extends LinearLayout {
      * Call multiple times to add several buttons — they appear left-to-right in call order.
      */
     public void addActionButton(int iconRes, String desc, View.OnClickListener listener) {
-        int onSurface = ContextCompat.getColor(getContext(), R.color.app_on_surface);
+        int onSurface = ContextCompat.getColor(getContext(), R.color.app_bar_on_surface);
         ImageButton btn = iconButton(iconRes, desc, listener, onSurface);
         rightContainer.addView(btn, Math.max(0, rightContainer.indexOfChild(overflowButton)),
                 new LayoutParams(dp(40), dp(40)));

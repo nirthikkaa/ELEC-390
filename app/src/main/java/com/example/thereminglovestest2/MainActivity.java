@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import android.os.Bundle;
@@ -58,14 +59,11 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Play screen.
+ * Play screen coordinator.
  *
- * BLE stays in BleSessionManager.
- * Audio stays in ThereminAudioEngine / ThereminBackgroundAudioService.
- * The Play screen mostly does three things:
- * 1) read the latest BLE snapshot,
- * 2) map glove angles to frequency/volume,
- * 3) update the visible UI.
+ * This screen coordinates BLE-driven theremin control, transport/effect state,
+ * preset and Beat Maker playback, recording UI, and the handoff between
+ * foreground audio and ThereminBackgroundAudioService.
  */
 public class MainActivity extends AppCompatActivity {
     public static final String EXTRA_AUTOSTART_AUDIO =
@@ -79,11 +77,13 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_KEYBOARD_SYNTH_MODE = "keyboard_synth_mode";
 
     private static final String[] TONE_CYCLE = {
-        AppSettings.TONE_THEREMIN, AppSettings.TONE_VIOLIN,   AppSettings.TONE_GUITAR,
-        AppSettings.TONE_FLUTE,    AppSettings.TONE_TRUMPET,  AppSettings.TONE_SAW,
+        AppSettings.TONE_THEREMIN, AppSettings.TONE_AIR_PAD,  AppSettings.TONE_CELLO,
+        AppSettings.TONE_SWEET_LEAD, AppSettings.TONE_PAD,    AppSettings.TONE_CHOIR,
+        AppSettings.TONE_VOWEL_O,  AppSettings.TONE_FLUTE,    AppSettings.TONE_CLARINET,
+        AppSettings.TONE_VIOLIN,   AppSettings.TONE_GUITAR,   AppSettings.TONE_OBOE,
+        AppSettings.TONE_TRUMPET,  AppSettings.TONE_LEAD,     AppSettings.TONE_SAW,
         AppSettings.TONE_SQUARE,   AppSettings.TONE_TRIANGLE, AppSettings.TONE_PULSE,
-        AppSettings.TONE_ORGAN,    AppSettings.TONE_STRING,   AppSettings.TONE_BELL,
-        AppSettings.TONE_PAD
+        AppSettings.TONE_ORGAN,    AppSettings.TONE_STRING,   AppSettings.TONE_BELL
     };
 
     private ActivityMainBinding binding;
@@ -93,16 +93,15 @@ public class MainActivity extends AppCompatActivity {
     private final PlayMappingState play = new PlayMappingState();
 
     private ThereminAudioEngine audioEngine;
-    // Sprint 3: Local drum engine, active only when the foreground audio engine owns playback.
-    // When the background service takes over, drums are handled by the service's own DrumEngine.
+    // Foreground-owned drum engine. When playback is handed to the background service,
+    // that service uses its own DrumEngine instance.
     private DrumEngine drumEngine;
     private SettingsStore settingsRepo;
     private RecordingManager recordingManager;
     private RecordingRepository recordingRepository;
     private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
 
-
-    // Sprint 3 fields
+    // Playback, preset, and piano state
     private int  octaveShift          = 0;
     private int drumBpm = 120;
     private static final int NUM_BEAT_SLOTS = 8;
@@ -141,6 +140,7 @@ public class MainActivity extends AppCompatActivity {
     private Thread                   bmAudioThread;
     private volatile boolean         bmAudioRunning = false;
     private boolean                  bmIsPlaying    = false;
+    private boolean                  previewPausedByTransport = false;
     private int                      bmCurrentBpm   = 120;
     private int                      bmKeyboardSynthMode = DrumEngine.PIANO_SYNTH_KEYS;
     private int                      bmPianoModeIdx      = 0;
@@ -231,6 +231,18 @@ public class MainActivity extends AppCompatActivity {
         appendLogSafe("BG audio: " + onOff(bgAudioEnabled));
         updateAudioStatusText();
         updateBleButtonText();
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (bmPanelVisible) {
+                    bmSaveAndClose();
+                    return;
+                }
+                setEnabled(false);
+                getOnBackPressedDispatcher().onBackPressed();
+                setEnabled(true);
+            }
+        });
     }
 
     @Override
@@ -240,23 +252,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onBackPressed() {
-        if (bmPanelVisible) {
-            bmSaveAndClose();
-            return;
-        }
-        super.onBackPressed();
-    }
-
-    @Override
     protected void onResume() {
         super.onResume();
         // Reset any drag translation left over if the user cancelled a swipe or returned from BeatMaker.
         binding.rootScroll.setTranslationX(0);
-        // Restart BeatMaker audio output if the panel was visible when we paused
-        if (bmPanelVisible && bmAudioTrack == null) {
+        // Restart BeatMaker audio output — needed for the inline panel and the
+        // play-screen piano keyboard preview path which uses bmPreviewEngine.
+        if (bmAudioTrack == null) {
             bmStartAudioOutput();
         }
+        syncPreviewTransportPauseState();
         onVisible(); // single call here; onStart no longer duplicates it
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
         // Stage mode is never restored on launch — always start in normal view.
@@ -546,8 +551,10 @@ public class MainActivity extends AppCompatActivity {
             appendLogSafe("onPause -> audio kept running in background");
         }
         maybeMoveAudioToBackgroundService();
-        // Stop BeatMaker preview audio when leaving — restarts on resume if panel is visible
+        // Stop inline Beat Maker transport and preview audio while this screen is backgrounded.
+        // onResume() brings the preview output path back for the panel and play-screen keyboard.
         bmStopPlayback();
+        clearMelodyOnAllEngines(); // stop play-screen piano melody on pause
         bmStopAudioOutput();
     }
 
@@ -565,9 +572,8 @@ public class MainActivity extends AppCompatActivity {
         recordingTimerHandler.removeCallbacks(recordingTimerRunnable);
         stopRecordBlink();
         if (recordingManager != null) recordingManager.release();
-        // Sprint 3: Release local drum engine SoundPool resources.
+        // Release the foreground drum engine and the inline Beat Maker preview engine.
         if (drumEngine != null) { drumEngine.release(); drumEngine = null; }
-        // Release inline BeatMaker panel resources
         bmPollHandler.removeCallbacks(bmPollRunnable);
         bmStopAudioOutput();
         if (bmPreviewEngine != null) { bmPreviewEngine.release(); bmPreviewEngine = null; }
@@ -734,11 +740,24 @@ public class MainActivity extends AppCompatActivity {
 
         // Piano mode cycle button: NOTE → MAJOR → MINOR → PENTA → JAZZ → NOTE …
         binding.btnPianoMode.setOnClickListener(v -> {
+            int prevIdx = pianoModeIdx;
             pianoModeIdx = (pianoModeIdx + 1) % DrumEngine.ARPEGGIO_PATTERNS.length;
-            clearMelodyOnAllEngines(); // clear selection whenever mode changes
             updatePianoModeButton();
-            // Stop any running arpeggio when switching to NOTE mode
-            if (pianoModeIdx == 0) clearMelodyOnAllEngines();
+            if (pianoModeIdx == 0 || prevIdx == 0) {
+                // Switching to/from NOTE mode: clear all active melody notes
+                clearMelodyOnAllEngines();
+            } else {
+                // Switching between arpeggio modes: re-apply new pattern to existing roots
+                int[] newArp = DrumEngine.ARPEGGIO_PATTERNS[pianoModeIdx];
+                DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
+                DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
+                DrumEngine bm = (!bmPanelVisible) ? bmPreviewEngine : null;
+                for (int midi : activeMelodyNotes) {
+                    if (fg != null) fg.addMelodyRoot(midi, newArp);
+                    if (bg != null) bg.addMelodyRoot(midi, newArp);
+                    if (bm != null) bm.addMelodyRoot(midi, newArp);
+                }
+            }
         });
         binding.btnPianoSynth.setOnClickListener(v -> {
             pianoSynthMode = DrumEngine.clampPianoSynthMode(pianoSynthMode + 1);
@@ -888,8 +907,9 @@ public class MainActivity extends AppCompatActivity {
         binding.pianoKeyboard.setNoteListener(midiNote -> {
             DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
             DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
-            // Also route to the BeatMaker preview engine so the keyboard works even
-            // when the theremin audio engine is not started.
+            // Also route play-screen keyboard input to the Beat Maker preview engine so piano
+            // audition still works when the theremin engine is stopped. Skip that path while the
+            // inline Beat Maker panel is open because that screen owns its own keyboard handling.
             DrumEngine bm = (!bmPanelVisible) ? bmPreviewEngine : null;
             if (pianoModeIdx == 0) {
                 // NOTE mode: one-shot pluck, no persistent selection
@@ -1025,13 +1045,9 @@ public class MainActivity extends AppCompatActivity {
 
         DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
         DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
-        // Route to BeatMaker preview engine when panel is closed so presets are
-        // audible even when the theremin audio engine has not been started.
-        DrumEngine bm = (!bmPanelVisible) ? bmPreviewEngine : null;
         if (anyActive) {
             if (fg != null) { fg.setCustomPattern(merged, mergedPiano); fg.setEnabled(true); fg.setBassEnabled(true); }
             if (bg != null) { bg.setCustomPattern(merged, mergedPiano); bg.setEnabled(true); bg.setBassEnabled(true); }
-            if (bm != null) { bm.setCustomPattern(merged, mergedPiano); bm.setEnabled(true); bm.setBassEnabled(true); }
             // Cache custom pattern and BPM so the background service applies them if started later.
             ThereminBackgroundAudioService.setCustomPattern(merged, mergedPiano);
             ThereminBackgroundAudioService.setDrumEnabled(true);
@@ -1041,13 +1057,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             if (fg != null) { fg.clearCustomPattern(); fg.setEnabled(false); fg.setBassEnabled(false); }
             if (bg != null) { bg.clearCustomPattern(); bg.setEnabled(false); bg.setBassEnabled(false); }
-            if (bm != null) {
-                // Keep bmPreviewEngine enabled so melody/keyboard still works; use
-                // the all-false merged grid as custom pattern so drums stay silent.
-                bm.setCustomPattern(merged, null);
-                bm.setEnabled(true);
-                bm.setBassEnabled(false);
-            }
             ThereminBackgroundAudioService.setCustomPattern(null);
             ThereminBackgroundAudioService.setDrumEnabled(false);
             ThereminBackgroundAudioService.setBassEnabled(false);
@@ -1056,10 +1065,13 @@ public class MainActivity extends AppCompatActivity {
 
     /** Refresh all 8 preset slot buttons to reflect active/saved/empty state. */
     private void updatePresetSlotHighlights() {
-        android.content.res.ColorStateList activeBg =
+        android.content.res.ColorStateList playingBg =
                 android.content.res.ColorStateList.valueOf(0x3300FF9D);
+        android.content.res.ColorStateList armedBg =
+                android.content.res.ColorStateList.valueOf(0x33FFB300);
         android.content.res.ColorStateList clearBg =
                 android.content.res.ColorStateList.valueOf(0x00000000);
+        boolean transportRunning = isAnyAudioRunning();
         com.google.android.material.button.MaterialButton[] presetBtns = {
             binding.btnBeatPreset1, binding.btnBeatPreset2,
             binding.btnBeatPreset3, binding.btnBeatPreset4,
@@ -1073,12 +1085,35 @@ public class MainActivity extends AppCompatActivity {
                     ? prefs.getBoolean(prefix + "_custom_active", false)
                     : prefs.getBoolean(prefix + "_saved", false);
             boolean isActive = activeSlots[i];
-            presetBtns[i].setText(saved ? "● " + (i + 1) : String.valueOf(i + 1));
-            presetBtns[i].setTextColor(isActive ? 0xFF00FF9D : (saved ? 0xFF888AAA : 0xFF444466));
-            presetBtns[i].setStrokeColor(isActive
-                    ? android.content.res.ColorStateList.valueOf(0xFF00FF9D)
-                    : android.content.res.ColorStateList.valueOf(saved ? 0xFF555577 : 0xFF333355));
-            presetBtns[i].setBackgroundTintList(isActive ? activeBg : clearBg);
+            String label;
+            int textColor;
+            int strokeColor;
+            android.content.res.ColorStateList backgroundTint;
+            String stateText;
+            if (isActive && transportRunning) {
+                label = "P" + (i + 1);
+                textColor = 0xFF00FF9D;
+                strokeColor = 0xFF00FF9D;
+                backgroundTint = playingBg;
+                stateText = "playing";
+            } else if (isActive) {
+                label = "A" + (i + 1);
+                textColor = 0xFFFFB300;
+                strokeColor = 0xFFFFB300;
+                backgroundTint = armedBg;
+                stateText = "armed";
+            } else {
+                label = saved ? "● " + (i + 1) : String.valueOf(i + 1);
+                textColor = saved ? 0xFF888AAA : 0xFF444466;
+                strokeColor = saved ? 0xFF555577 : 0xFF333355;
+                backgroundTint = clearBg;
+                stateText = saved ? "saved" : "empty";
+            }
+            presetBtns[i].setText(label);
+            presetBtns[i].setTextColor(textColor);
+            presetBtns[i].setStrokeColor(android.content.res.ColorStateList.valueOf(strokeColor));
+            presetBtns[i].setBackgroundTintList(backgroundTint);
+            presetBtns[i].setContentDescription("Preset " + (i + 1) + " " + stateText);
         }
     }
 
@@ -1105,6 +1140,7 @@ public class MainActivity extends AppCompatActivity {
         if (fg != null) fg.setPianoSynthMode(pianoSynthMode);
         DrumEngine bg = ThereminBackgroundAudioService.getDrumEngine();
         if (bg != null) bg.setPianoSynthMode(pianoSynthMode);
+        if (!bmPanelVisible && bmPreviewEngine != null) bmPreviewEngine.setPianoSynthMode(pianoSynthMode);
         ThereminBackgroundAudioService.setKeyboardSynthMode(pianoSynthMode);
         getSharedPreferences("theremin_prefs", MODE_PRIVATE).edit()
                 .putInt(KEY_KEYBOARD_SYNTH_MODE, pianoSynthMode)
@@ -1436,24 +1472,29 @@ public class MainActivity extends AppCompatActivity {
                 // Avoids the 200-400ms service stop/start cycle entirely.
                 boolean nowMuted = !ThereminBackgroundAudioService.isThereminMuted();
                 ThereminBackgroundAudioService.setThereminMuted(nowMuted);
+                setPreviewTransportPaused(nowMuted);
                 appendLogSafe(nowMuted ? "theremin paused (muted)" : "theremin playing (unmuted)");
             } else {
                 // Service not running — start it. Save settings on a background thread
                 // so the main thread isn't blocked by SQLite before the service can start.
                 new Thread(this::persistSettings).start();
                 ThereminBackgroundAudioService.setThereminMuted(false); // ensure unmuted on fresh start
+                setPreviewTransportPaused(false);
                 ThereminBackgroundAudioService.startIfNeeded(this);
                 if (isAudioRunning()) audioEngine.stop();
                 appendLogSafe("Background audio started from Play");
             }
         } else if (isAudioRunning()) {
+            setPreviewTransportPaused(true);
             audioEngine.stop();
         } else if (ThereminBackgroundAudioService.isServiceActive()) {
+            setPreviewTransportPaused(true);
             waitingForServiceToStop = true;
             ThereminBackgroundAudioService.stopIfRunning(this);
             appendLogSafe("Play tapped while background service was still stopping");
         } else {
             audioEngine.start();
+            setPreviewTransportPaused(false);
         }
         updateAudioStatusText();
     }
@@ -1752,6 +1793,7 @@ public class MainActivity extends AppCompatActivity {
         binding.btnAudioStart.setIconResource(running ? R.drawable.ic_pause_theremin : R.drawable.ic_play_theremin);
         binding.btnAudioStart.setContentDescription(running ? "Pause theremin" : "Play theremin");
         binding.tvPlayRemoteLabel.setText(running ? "Pause" : "Play");
+        updatePresetSlotHighlights();
     }
 
     private void appendLogSafe(String msg) {
@@ -1818,11 +1860,10 @@ public class MainActivity extends AppCompatActivity {
                 bmConfigurePreviewMix(engine);
                 bmApplyBeatMakerMode();
                 bmPushPatternToEngine(); // sets an (initially empty) custom pattern
-                // Enable so arpeggio/melody mode works from the start; drums are
-                // silent because the custom grid is all-false until a preset is activated.
-                engine.setEnabled(true);
-                // Start audio output eagerly so the play-screen keyboard and preset
-                // buttons always have an audio path, even before the panel is opened.
+                engine.setPaused(previewPausedByTransport);
+                // The sequencer starts idle; transport start and melody-root selection enable their
+                // own playback paths later. Start the AudioTrack eagerly so play-screen keyboard
+                // preview and one-shot audits have an output route immediately.
                 if (bmAudioTrack == null) bmStartAudioOutput();
             });
         }, "BmEngineInit").start();
@@ -1832,8 +1873,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void bmStartAudioOutput() {
         int minBuf = AudioTrack.getMinBufferSize(BM_SAMPLE_RATE,
-                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
-        int bufBytes = Math.max(minBuf, BM_BUFFER_FRAMES * 2);
+                AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
+        // Buffer size is expressed in bytes: 16-bit PCM * 2 stereo channels.
+        int bufBytes = Math.max(minBuf, BM_BUFFER_FRAMES * 4);
         AudioTrack.Builder builder = new AudioTrack.Builder()
                 .setAudioAttributes(new AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -1841,7 +1883,7 @@ public class MainActivity extends AppCompatActivity {
                 .setAudioFormat(new AudioFormat.Builder()
                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                         .setSampleRate(BM_SAMPLE_RATE)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
                 .setBufferSizeInBytes(bufBytes)
                 .setTransferMode(AudioTrack.MODE_STREAM);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
@@ -1851,21 +1893,32 @@ public class MainActivity extends AppCompatActivity {
         bmAudioRunning = true;
         bmAudioThread = new Thread(() -> {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
-            short[] buf = new short[BM_BUFFER_FRAMES];
+            // The Beat Maker preview engine still renders a mono mix. Duplicate each frame into
+            // left/right here so the panel matches the app-wide stereo output path.
+            short[] monoBuf = new short[BM_BUFFER_FRAMES];
+            short[] stereoBuf = new short[BM_BUFFER_FRAMES * 2];
             AudioTrack track = bmAudioTrack;
             float hpIn = 0f, hpOut = 0f;
             while (bmAudioRunning && track != null) {
-                Arrays.fill(buf, (short) 0);
+                Arrays.fill(monoBuf, (short) 0);
                 DrumEngine e = bmPreviewEngine;
-                if (e != null) e.mixInto(buf, BM_BUFFER_FRAMES);
+                if (e != null) e.mixInto(monoBuf, BM_BUFFER_FRAMES);
                 for (int i = 0; i < BM_BUFFER_FRAMES; i++) {
-                    float x = buf[i] / 32768f;
+                    float x = monoBuf[i] / 32768f;
                     float hp = x - hpIn + 0.995f * hpOut;
                     hpIn = x; hpOut = hp;
                     float m = bmSoftLimit(hp * 1.05f);
-                    buf[i] = (short)(m * Short.MAX_VALUE);
+                    short sample = (short)(m * Short.MAX_VALUE);
+                    monoBuf[i] = sample;
+                    int stereoIndex = i * 2;
+                    stereoBuf[stereoIndex] = sample;
+                    stereoBuf[stereoIndex + 1] = sample;
                 }
-                track.write(buf, 0, BM_BUFFER_FRAMES);
+                try {
+                    track.write(stereoBuf, 0, stereoBuf.length);
+                } catch (Exception ignored) {
+                    break;
+                }
             }
         }, "BmAudioOut");
         bmAudioThread.start();
@@ -1873,12 +1926,19 @@ public class MainActivity extends AppCompatActivity {
 
     private void bmStopAudioOutput() {
         bmAudioRunning = false;
+        AudioTrack track = bmAudioTrack;
+        if (track != null) {
+            try { track.pause(); } catch (Exception ignored) {}
+            try { track.flush(); } catch (Exception ignored) {}
+            try { track.stop(); } catch (Exception ignored) {}
+        }
         if (bmAudioThread != null) {
-            try { bmAudioThread.join(600); } catch (InterruptedException ignored) {}
+            bmAudioThread.interrupt();
+            try { bmAudioThread.join(250); } catch (InterruptedException ignored) {}
             bmAudioThread = null;
         }
         if (bmAudioTrack != null) {
-            try { bmAudioTrack.stop(); bmAudioTrack.release(); } catch (Exception ignored) {}
+            try { bmAudioTrack.release(); } catch (Exception ignored) {}
             bmAudioTrack = null;
         }
     }
@@ -2080,6 +2140,17 @@ public class MainActivity extends AppCompatActivity {
         engine.setTrackVolume(DrumEngine.SND_RIM,     0.50f);
         engine.setTrackVolume(DrumEngine.SND_SHAKER,  0.45f);
         engine.setPianoVolume(0.52f);
+    }
+
+    private void setPreviewTransportPaused(boolean paused) {
+        previewPausedByTransport = paused;
+        syncPreviewTransportPauseState();
+    }
+
+    private void syncPreviewTransportPauseState() {
+        if (bmPreviewEngine != null) bmPreviewEngine.setPaused(previewPausedByTransport);
+        bmPollHandler.removeCallbacks(bmPollRunnable);
+        if (!previewPausedByTransport && bmIsPlaying) bmPollHandler.post(bmPollRunnable);
     }
 
     private void bmApplyKeyboardSynthMode() {

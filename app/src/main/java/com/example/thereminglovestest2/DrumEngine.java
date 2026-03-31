@@ -6,8 +6,12 @@ import android.content.res.Resources;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicIntegerArray;
@@ -19,14 +23,13 @@ import java.util.concurrent.atomic.AtomicLong;
  * All sounds are synthesised at construction time as float[] PCM arrays at 48 kHz.
  * The scheduler thread triggers voices by writing into a lock-free voice pool.
  * The audio thread calls mixInto() which adds active voices sample-by-sample into
- * ThereminAudioEngine's short[] buffer.
+ * a caller-provided mono short[] buffer.
  *
  * BPM scheduling uses a self-rescheduling single-shot approach: each tick() schedules
  * the next tick based on System.currentTimeMillis(), so BPM changes take effect on the
  * next tick with no restart, no step-position reset, and no audible glitch.
  *
- * Per-track volume (trackVolumes[]) is applied when mixing — separate levels for
- * kick, snare, hi-hat, cymbals, and bass.
+ * Per-sound volume (trackVolumes[]) is applied when mixing.
  */
 public class DrumEngine {
 
@@ -34,6 +37,8 @@ public class DrumEngine {
     private static final int MAX_VOICES  = 32;
     private static final float DRUM_MIX_HEADROOM = 0.26f;
     private static final float PIANO_MIX_HEADROOM = 0.22f;
+    private static final int RENDER_WORKERS =
+            Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
 
     // Sound indices
     static final int SND_KICK    = 0;
@@ -61,7 +66,8 @@ public class DrumEngine {
 
     private final float[][] sounds = new float[NUM_SOUNDS][];
 
-    // Per-track volumes [0=kick, 1=snare, 2=hihat_c, 3=hihat_o, 4=crash, 5=clap, 6-9=bass]
+    // Per-sound volumes [0=kick, 1=snare, 2=closed hat, 3=open hat, 4=crash, 5=clap,
+    // 6-9=bass notes, 10=high tom, 11=low tom, 12=rim, 13=shaker]
     // Written from UI thread, read from audio thread — volatile array elements via AtomicIntegerArray trick is overkill;
     // float reads are atomic on 32-bit JVM for aligned fields. We use a regular array and accept
     // that a transient stale value at most causes one slightly-off-volume hit.
@@ -75,15 +81,18 @@ public class DrumEngine {
     private static final int PIANO_MIDI_BASE  = 48;
     private static final int NUM_PIANO_KEYS   = 25;
     private static final int MAX_PIANO_VOICES = 8;
-    private final float[][] pianoSounds   = new float[NUM_PIANO_KEYS][];
+    private static final int NUM_PIANO_SYNTH_MODES = 3;
+    private final float[][][] pianoSounds = new float[NUM_PIANO_SYNTH_MODES][NUM_PIANO_KEYS][];
     private final AtomicIntegerArray pianoVoiceKey = new AtomicIntegerArray(MAX_PIANO_VOICES);
+    private final AtomicIntegerArray pianoVoiceMode = new AtomicIntegerArray(MAX_PIANO_VOICES);
     private final AtomicIntegerArray pianoVoicePos = new AtomicIntegerArray(MAX_PIANO_VOICES);
     private volatile float pianoVolume = 1.0f;
 
     private volatile ScheduledExecutorService scheduler;
 
-    private volatile boolean enabled          = false;
+    private volatile boolean sequencerEnabled = false;
     private volatile boolean bassEnabled      = false;
+    private volatile boolean melodyEnabled    = false;
     private volatile boolean paused           = false;
     private volatile int     bpm             = 120;
     private volatile int     drumPatternIdx  = 0;
@@ -317,7 +326,11 @@ public class DrumEngine {
 
     public DrumEngine() {
         for (int i = 0; i < MAX_VOICES; i++) voicePos.set(i, -1);
-        for (int i = 0; i < MAX_PIANO_VOICES; i++) { pianoVoicePos.set(i, -1); pianoVoiceStartAt.set(i, 0); }
+        for (int i = 0; i < MAX_PIANO_VOICES; i++) {
+            pianoVoiceMode.set(i, PIANO_SYNTH_KEYS);
+            pianoVoicePos.set(i, -1);
+            pianoVoiceStartAt.set(i, 0);
+        }
         for (int i = 0; i < MAX_MELODY_ROOTS; i++) melodyRoots.set(i, -1);
         for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = 0.72f;
         trackVolumes[SND_BASS_E2] = 0.82f;
@@ -325,42 +338,120 @@ public class DrumEngine {
         trackVolumes[SND_BASS_D3] = 0.82f;
         trackVolumes[SND_BASS_G2] = 0.82f;
         synthesizeSounds();
-        // Pre-synthesize piano hit for every chromatic key C3–C5
-        for (int k = 0; k < NUM_PIANO_KEYS; k++) {
-            float freq = (float)(440.0 * Math.pow(2.0, (PIANO_MIDI_BASE + k - 69) / 12.0));
-            pianoSounds[k] = synthesizePianoHit(freq);
-        }
+        synthesizePianoSounds();
     }
 
     // ── Sound synthesis ───────────────────────────────────────────────────────
 
     private void synthesizeSounds() {
-        sounds[SND_KICK]    = synthesizeKick();
-        sounds[SND_SNARE]   = synthesizeSnare();
-        sounds[SND_HIHAT_C] = synthesizeHihatClosed();
-        sounds[SND_HIHAT_O] = synthesizeHihatOpen();
-        sounds[SND_CRASH]   = synthesizeCrash();
-        sounds[SND_CLAP]    = synthesizeClap();
-        sounds[SND_BASS_E2] = synthesizeBass(82.41f);
-        sounds[SND_BASS_A2] = synthesizeBass(110.0f);
-        sounds[SND_BASS_D3] = synthesizeBass(146.83f);
-        sounds[SND_BASS_G2] = synthesizeBass(98.0f);
-        sounds[SND_TOM_HI]  = synthesizeTom(300f, 0.14f);
-        sounds[SND_TOM_LOW] = synthesizeTom(180f, 0.18f);
-        sounds[SND_RIM]     = synthesizeRim();
-        sounds[SND_SHAKER]  = synthesizeShaker();
+        // multicore: parallelize one-time sound-bank rendering, but keep the
+        // real-time audio thread single-threaded and predictable.
+        runRenderJobs(
+                () -> sounds[SND_KICK]    = synthesizeKick(),
+                () -> sounds[SND_SNARE]   = synthesizeSnare(),
+                () -> sounds[SND_HIHAT_C] = synthesizeHihatClosed(),
+                () -> sounds[SND_HIHAT_O] = synthesizeHihatOpen(),
+                () -> sounds[SND_CRASH]   = synthesizeCrash(),
+                () -> sounds[SND_CLAP]    = synthesizeClap(),
+                () -> sounds[SND_BASS_E2] = synthesizeBass(82.41f),
+                () -> sounds[SND_BASS_A2] = synthesizeBass(110.0f),
+                () -> sounds[SND_BASS_D3] = synthesizeBass(146.83f),
+                () -> sounds[SND_BASS_G2] = synthesizeBass(98.0f),
+                () -> sounds[SND_TOM_HI]  = synthesizeTom(300f, 0.14f),
+                () -> sounds[SND_TOM_LOW] = synthesizeTom(180f, 0.18f),
+                () -> sounds[SND_RIM]     = synthesizeRim(),
+                () -> sounds[SND_SHAKER]  = synthesizeShaker()
+        );
+    }
+
+    private void synthesizePianoSounds() {
+        Runnable[] jobs = new Runnable[NUM_PIANO_KEYS * NUM_PIANO_SYNTH_MODES];
+        int jobIdx = 0;
+        for (int mode = 0; mode < NUM_PIANO_SYNTH_MODES; mode++) {
+            final int synthMode = mode;
+            for (int k = 0; k < NUM_PIANO_KEYS; k++) {
+                final int key = k;
+                jobs[jobIdx++] = () -> {
+                    float freq = (float) (440.0 * Math.pow(2.0, (PIANO_MIDI_BASE + key - 69) / 12.0));
+                    pianoSounds[synthMode][key] = synthesizePianoHit(freq, synthMode);
+                };
+            }
+        }
+        runRenderJobs(jobs);
+    }
+
+    private void runRenderJobs(Runnable... jobs) {
+        if (jobs == null || jobs.length == 0) return;
+        int workerCount = Math.min(RENDER_WORKERS, jobs.length);
+        if (workerCount <= 1) {
+            for (Runnable job : jobs) job.run();
+            return;
+        }
+        ExecutorService pool = Executors.newFixedThreadPool(workerCount, r -> {
+            Thread t = new Thread(r, "DrumRenderWorker");
+            t.setDaemon(true);
+            return t;
+        });
+        List<Future<?>> futures = new ArrayList<>(jobs.length);
+        try {
+            for (Runnable job : jobs) futures.add(pool.submit(job));
+            for (Future<?> future : futures) future.get();
+        } catch (Exception e) {
+            throw new RuntimeException("DrumEngine render failed", e);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @FunctionalInterface
+    private interface IoJob {
+        void run() throws IOException;
+    }
+
+    private void runIoJobs(IoJob... jobs) throws IOException {
+        if (jobs == null || jobs.length == 0) return;
+        int workerCount = Math.min(RENDER_WORKERS, jobs.length);
+        if (workerCount <= 1) {
+            for (IoJob job : jobs) runIoJob(job);
+            return;
+        }
+        ExecutorService pool = Executors.newFixedThreadPool(workerCount, r -> {
+            Thread t = new Thread(r, "DrumSampleWorker");
+            t.setDaemon(true);
+            return t;
+        });
+        List<Future<?>> futures = new ArrayList<>(jobs.length);
+        try {
+            for (IoJob job : jobs) futures.add(pool.submit(() -> {
+                runIoJob(job);
+                return null;
+            }));
+            for (Future<?> future : futures) future.get();
+        } catch (Exception e) {
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            if (cause instanceof IOException) throw (IOException) cause;
+            throw new IOException("Bundled sample load failed", cause);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private static void runIoJob(IoJob job) throws IOException {
+        if (job != null) job.run();
     }
 
     private void loadBundledSamples(Resources res) throws IOException {
-        sounds[SND_KICK]    = loadWavMonoAs48k(res, R.raw.drum_kick, 0.92f);
-        sounds[SND_SNARE]   = loadWavMonoAs48k(res, R.raw.drum_snare, 0.86f);
-        sounds[SND_HIHAT_C] = loadWavMonoAs48k(res, R.raw.drum_hihat, 0.72f);
-        sounds[SND_HIHAT_O] = loadWavMonoAs48k(res, R.raw.drum_hihat_open, 0.62f);
-        sounds[SND_CLAP]    = loadWavMonoAs48k(res, R.raw.drum_clap, 0.76f);
-        sounds[SND_BASS_E2] = loadWavMonoAs48k(res, R.raw.bass_e2, 0.72f);
-        sounds[SND_BASS_A2] = loadWavMonoAs48k(res, R.raw.bass_a2, 0.72f);
-        sounds[SND_BASS_D3] = loadWavMonoAs48k(res, R.raw.bass_d3, 0.72f);
-        sounds[SND_BASS_G2] = loadWavMonoAs48k(res, R.raw.bass_g2, 0.72f);
+        runIoJobs(
+                () -> sounds[SND_KICK]    = loadWavMonoAs48k(res, R.raw.drum_kick, 0.92f),
+                () -> sounds[SND_SNARE]   = loadWavMonoAs48k(res, R.raw.drum_snare, 0.86f),
+                () -> sounds[SND_HIHAT_C] = loadWavMonoAs48k(res, R.raw.drum_hihat, 0.72f),
+                () -> sounds[SND_HIHAT_O] = loadWavMonoAs48k(res, R.raw.drum_hihat_open, 0.62f),
+                () -> sounds[SND_CLAP]    = loadWavMonoAs48k(res, R.raw.drum_clap, 0.76f),
+                () -> sounds[SND_BASS_E2] = loadWavMonoAs48k(res, R.raw.bass_e2, 0.72f),
+                () -> sounds[SND_BASS_A2] = loadWavMonoAs48k(res, R.raw.bass_a2, 0.72f),
+                () -> sounds[SND_BASS_D3] = loadWavMonoAs48k(res, R.raw.bass_d3, 0.72f),
+                () -> sounds[SND_BASS_G2] = loadWavMonoAs48k(res, R.raw.bass_g2, 0.72f)
+        );
     }
 
     private float[] loadWavMonoAs48k(Resources res, int rawId, float gain) throws IOException {
@@ -637,7 +728,19 @@ public class DrumEngine {
      * single-exponent decay (exp(-4.5t)).  At 120 BPM the note is still at ~57% when the
      * next 16th fires, so consecutive hits overlap cleanly instead of chopping.
      */
-    private float[] synthesizePianoHit(float freq) {
+    private float[] synthesizePianoHit(float freq, int mode) {
+        switch (clampPianoSynthMode(mode)) {
+            case PIANO_SYNTH_BELLS:
+                return synthesizeBellHit(freq);
+            case PIANO_SYNTH_ORGAN:
+                return synthesizeOrganHit(freq);
+            case PIANO_SYNTH_KEYS:
+            default:
+                return synthesizeKeysHit(freq);
+        }
+    }
+
+    private float[] synthesizeKeysHit(float freq) {
         int len = (int)(SAMPLE_RATE * 0.80f);           // 0.8 s total
         float[] pcm = new float[len];
         float phase = 0f;
@@ -659,6 +762,51 @@ public class DrumEngine {
         return pcm;
     }
 
+    private float[] synthesizeBellHit(float freq) {
+        int len = (int) (SAMPLE_RATE * 1.25f);
+        float[] pcm = new float[len];
+        float phase = 0f;
+        final float twoPi = (float) (2.0 * Math.PI);
+        final int attack = (int) (SAMPLE_RATE * 0.0025f);
+        for (int i = 0; i < len; i++) {
+            float t = (float) i / SAMPLE_RATE;
+            float attackEnv = (i < attack) ? (float) i / attack : 1f;
+            float env = attackEnv * ((float) Math.exp(-3.8 * t) * 0.72f
+                    + (float) Math.exp(-8.0 * t) * 0.28f);
+            float shimmer = (float) (0.56 * Math.sin(phase)
+                    + 0.24 * Math.sin(2.76f * phase)
+                    + 0.14 * Math.sin(5.43f * phase)
+                    + 0.06 * Math.sin(8.21f * phase));
+            pcm[i] = env * shimmer * 0.95f;
+            phase += twoPi * freq / SAMPLE_RATE;
+            if (phase >= twoPi) phase -= twoPi;
+        }
+        return pcm;
+    }
+
+    private float[] synthesizeOrganHit(float freq) {
+        int len = (int) (SAMPLE_RATE * 0.95f);
+        float[] pcm = new float[len];
+        float phase = 0f;
+        final float twoPi = (float) (2.0 * Math.PI);
+        final int attack = (int) (SAMPLE_RATE * 0.010f);
+        for (int i = 0; i < len; i++) {
+            float t = (float) i / SAMPLE_RATE;
+            float attackEnv = (i < attack) ? (float) i / attack : 1f;
+            float env = attackEnv * (0.82f + 0.18f * (float) Math.exp(-2.2 * t));
+            float vibrato = (float) Math.sin(twoPi * 5.2f * t) * 0.0025f;
+            float voicedPhase = phase + vibrato * twoPi;
+            float organ = (float) (0.58 * Math.sin(voicedPhase)
+                    + 0.26 * Math.sin(2.0f * voicedPhase)
+                    + 0.11 * Math.sin(3.0f * voicedPhase)
+                    + 0.05 * Math.sin(4.0f * voicedPhase));
+            pcm[i] = env * organ * 0.72f;
+            phase += twoPi * freq / SAMPLE_RATE;
+            if (phase >= twoPi) phase -= twoPi;
+        }
+        return pcm;
+    }
+
     /**
      * Trigger a one-shot piano key hit at the given MIDI note (48–72 = C3–C5).
      * Safe to call from any thread. The hit is mixed into the audio output immediately.
@@ -666,10 +814,12 @@ public class DrumEngine {
     public void triggerPianoKey(int midiNote) {
         int k = midiNote - PIANO_MIDI_BASE;
         if (k < 0 || k >= NUM_PIANO_KEYS) return;
+        int mode = pianoSynthMode;
         // Find a free voice slot
         for (int i = 0; i < MAX_PIANO_VOICES; i++) {
             if (pianoVoicePos.get(i) < 0) {
                 pianoVoiceKey.set(i, k);
+                pianoVoiceMode.set(i, mode);
                 pianoVoiceStartAt.set(i, 0);
                 pianoVoicePos.set(i, 0);
                 return;
@@ -682,6 +832,7 @@ public class DrumEngine {
             if (p > maxPos) { maxPos = p; stale = i; }
         }
         pianoVoiceKey.set(stale, k);
+        pianoVoiceMode.set(stale, mode);
         pianoVoiceStartAt.set(stale, 0);
         pianoVoicePos.set(stale, 0);
     }
@@ -737,19 +888,19 @@ public class DrumEngine {
                 // rows 6-8 are bass
                 if (snd == SND_BASS_E2 || snd == SND_BASS_A2 || snd == SND_BASS_D3) {
                     if (bassEnabled) { triggerVoice(snd); lastBassHitMs.set(System.currentTimeMillis()); }
-                } else if (enabled) {
+                } else if (sequencerEnabled) {
                     triggerVoice(snd);
                 }
             }
             // Piano steps from custom pattern
             int[] cps = customPianoSteps;
-            if (enabled && cps != null && step < cps.length && cps[step] >= 0) {
+            if (sequencerEnabled && cps != null && step < cps.length && cps[step] >= 0) {
                 triggerPianoKey(cps[step]);
             }
         } else {
             boolean[][] drumPat = DRUM_PATTERNS[Math.min(drumPatternIdx, DRUM_PATTERNS.length - 1)];
             int[]       bassPat = BASS_PATTERNS[Math.min(bassPatternIdx, BASS_PATTERNS.length - 1)];
-            if (enabled) {
+            if (sequencerEnabled) {
                 if (drumPat[0][step]) triggerVoice(SND_KICK);
                 if (drumPat[1][step]) triggerVoice(SND_SNARE);
                 if (drumPat[2][step]) triggerVoice(SND_HIHAT_C);
@@ -786,11 +937,13 @@ public class DrumEngine {
     // ── Audio thread interface ─────────────────────────────────────────────────
 
     /**
-     * Mix all active drum and bass voices into the theremin short[] buffer.
-     * Per-track volumes are applied based on the sound index.
-     * Called from ThereminAudioEngine on the audio thread — must be non-blocking and allocation-free.
+     * Mix all active drum, bass, and piano voices into the caller-provided mono short[] buffer.
+     * Per-sound volumes are applied based on the sound index.
+     * Called from the live audio and preview threads, so it must be non-blocking and allocation-free.
      */
     public void mixInto(short[] buffer, int count) {
+        if (paused) return;
+
         for (int v = 0; v < MAX_VOICES; v++) {
             int pos = voicePos.get(v);
             if (pos < 0) continue;
@@ -818,7 +971,7 @@ public class DrumEngine {
                 if (melodyRoots.get(ri) >= 0) { anyRoot = true; break; }
             }
             // Guard: arpeggio must respect the enabled flag — no sound when instrument is off
-            if (enabled && anyRoot && arp != null && arp.length > 0) {
+            if (melodyEnabled && anyRoot && arp != null && arp.length > 0) {
                 if (arpPendingStart) {
                     arpPendingStart   = false;
                     arpSampleClock    = 0L;
@@ -855,7 +1008,8 @@ public class DrumEngine {
             if (pos < 0) continue;
             int k = pianoVoiceKey.get(v);
             if (k < 0 || k >= NUM_PIANO_KEYS) { pianoVoicePos.set(v, -1); continue; }
-            float[] pcm = pianoSounds[k];
+            int mode = clampPianoSynthMode(pianoVoiceMode.get(v));
+            float[] pcm = pianoSounds[mode][k];
             if (pcm == null) { pianoVoicePos.set(v, -1); continue; }
             int startAt = pianoVoiceStartAt.get(v);
             for (int i = startAt; i < count; i++) {
@@ -877,9 +1031,11 @@ public class DrumEngine {
     private void fireArpNote(int midiNote, int bufferOffset) {
         int k = midiNote - PIANO_MIDI_BASE;
         if (k < 0 || k >= NUM_PIANO_KEYS) return;
+        int mode = pianoSynthMode;
         for (int i = 0; i < MAX_PIANO_VOICES; i++) {
             if (pianoVoicePos.get(i) < 0) {
                 pianoVoiceKey.set(i, k);
+                pianoVoiceMode.set(i, mode);
                 pianoVoiceStartAt.set(i, bufferOffset);
                 pianoVoicePos.set(i, 0);
                 return;
@@ -892,6 +1048,7 @@ public class DrumEngine {
             if (p > maxPos) { maxPos = p; stale = i; }
         }
         pianoVoiceKey.set(stale, k);
+        pianoVoiceMode.set(stale, mode);
         pianoVoiceStartAt.set(stale, bufferOffset);
         pianoVoicePos.set(stale, 0);
     }
@@ -904,7 +1061,12 @@ public class DrumEngine {
         scheduler = null;
         if (s != null) s.shutdownNow();
         step = 0;
-        for (int i = 0; i < MAX_VOICES; i++) voicePos.set(i, -1);
+        sequencerEnabled = false;
+        bassEnabled = false;
+        melodyEnabled = false;
+        paused = false;
+        clearTriggeredVoices();
+        clearMelodyRoot();
     }
 
     /** Stop and release resources. Call from onDestroy. */
@@ -913,11 +1075,31 @@ public class DrumEngine {
     // ── Getters / setters ──────────────────────────────────────────────────────
 
     public void setEnabled(boolean on) {
-        enabled = on;
-        if (!on) clearActiveVoices();
+        sequencerEnabled = on;
+        if (!on) clearDrumVoices();
     }
-    public boolean isEnabled()             { return enabled; }
-    public void setPaused(boolean on)      { paused = on; }
+    public boolean isEnabled()             { return sequencerEnabled; }
+    public void setMelodyEnabled(boolean on) {
+        melodyEnabled = on;
+        if (!on) {
+            arpSampleClock = 0L;
+            arpNextFireSample = 0L;
+            arpNoteIdx = 0;
+            arpPendingStart = false;
+            clearPianoVoices();
+        }
+    }
+    public boolean isMelodyEnabled()       { return melodyEnabled; }
+    public void setPaused(boolean on) {
+        if (paused == on) return;
+        paused = on;
+        if (!on) return;
+        clearTriggeredVoices();
+        arpSampleClock = 0L;
+        arpNextFireSample = 0L;
+        arpNoteIdx = 0;
+        arpPendingStart = melodyEnabled && hasAnyMelodyRoot();
+    }
 
     public void setBassEnabled(boolean on) {
         bassEnabled = on;
@@ -946,6 +1128,7 @@ public class DrumEngine {
     public void addMelodyRoot(int midiNote, int[] arpPattern) {
         currentArpPattern = arpPattern;
         boolean wasEmpty = !hasAnyMelodyRoot();
+        melodyEnabled = true;
         // Reuse same slot if already present, otherwise find a free one
         for (int i = 0; i < MAX_MELODY_ROOTS; i++) {
             int v = melodyRoots.get(i);
@@ -965,6 +1148,7 @@ public class DrumEngine {
         for (int i = 0; i < MAX_MELODY_ROOTS; i++) {
             if (melodyRoots.get(i) == midiNote) melodyRoots.set(i, -1);
         }
+        if (!hasAnyMelodyRoot()) setMelodyEnabled(false);
     }
 
     /**
@@ -980,6 +1164,7 @@ public class DrumEngine {
     public void clearMelodyRoot() {
         for (int i = 0; i < MAX_MELODY_ROOTS; i++) melodyRoots.set(i, -1);
         currentArpPattern = null;
+        setMelodyEnabled(false);
     }
 
     /** Returns the first active MIDI root, or -1 if none (backward-compat). */
@@ -1014,7 +1199,7 @@ public class DrumEngine {
     /** Returns the System.currentTimeMillis() of the last bass hit, or 0 if none yet. */
     public long getLastBassHitMs() { return lastBassHitMs.get(); }
 
-    // ── Per-track volume ───────────────────────────────────────────────────────
+    // ── Per-sound volume ───────────────────────────────────────────────────────
 
     /** Set the volume applied to all piano key one-shot hits. */
     public void setPianoVolume(float vol) { pianoVolume = Math.max(0f, vol); }
@@ -1034,7 +1219,7 @@ public class DrumEngine {
         trackVolumes[SND_SNARE] = Math.max(0f, Math.min(1f, vol));
     }
 
-    /** Group setter: hi-hat volume (applies to both closed and open hi-hat). */
+    /** Group setter: upper-percussion volume (closed/open hi-hat, crash, and clap). */
     public void setHihatVolume(float vol) {
         float v = Math.max(0f, Math.min(1f, vol));
         trackVolumes[SND_HIHAT_C] = v;
@@ -1057,13 +1242,19 @@ public class DrumEngine {
         return (sndIdx >= 0 && sndIdx < NUM_SOUNDS) ? trackVolumes[sndIdx] : 1f;
     }
 
-    private void clearActiveVoices() {
-        for (int i = 0; i < MAX_VOICES; i++) voicePos.set(i, -1);
-        for (int i = 0; i < MAX_PIANO_VOICES; i++) {
-            pianoVoicePos.set(i, -1);
-            pianoVoiceStartAt.set(i, 0);
+    private void clearTriggeredVoices() {
+        clearDrumVoices();
+        clearBassVoices();
+        clearPianoVoices();
+    }
+
+    private void clearDrumVoices() {
+        for (int i = 0; i < MAX_VOICES; i++) {
+            int pos = voicePos.get(i);
+            if (pos < 0) continue;
+            int snd = voiceSound.get(i);
+            if (snd >= 0 && snd < SND_BASS_E2) voicePos.set(i, -1);
         }
-        clearMelodyRoot();
     }
 
     private void clearBassVoices() {
@@ -1072,6 +1263,14 @@ public class DrumEngine {
             if (pos < 0) continue;
             int snd = voiceSound.get(i);
             if (snd >= SND_BASS_E2 && snd <= SND_BASS_G2) voicePos.set(i, -1);
+        }
+    }
+
+    private void clearPianoVoices() {
+        for (int i = 0; i < MAX_PIANO_VOICES; i++) {
+            pianoVoiceMode.set(i, PIANO_SYNTH_KEYS);
+            pianoVoicePos.set(i, -1);
+            pianoVoiceStartAt.set(i, 0);
         }
     }
 

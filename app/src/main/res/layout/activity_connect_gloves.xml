@@ -4,7 +4,7 @@
     android:id="@+id/connectScreenRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B0B1A"
+    android:background="@color/app_background"
     android:orientation="vertical">
 
     <com.example.thereminglovestest2.TopNavBarView
@@ -32,7 +32,7 @@
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="#0D1628"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">
@@ -116,7 +116,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
-                            app:cardBackgroundColor="#091420"
+                            app:cardBackgroundColor="@color/app_box_inner_surface"
                             app:cardCornerRadius="10dp"
                             app:cardElevation="0dp"
                             app:strokeWidth="0dp">
@@ -188,7 +188,7 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="#16203B"
+                    app:cardBackgroundColor="@color/app_box_surface"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp">
@@ -256,7 +256,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="9dp"
-                                app:cardBackgroundColor="#0D1828"
+                                app:cardBackgroundColor="@color/app_box_inner_surface"
                                 app:cardCornerRadius="9dp"
                                 app:cardElevation="0dp"
                                 app:strokeWidth="0dp">
@@ -337,7 +337,7 @@
                     android:layout_height="match_parent"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="#221A3F"
+                    app:cardBackgroundColor="@color/app_box_surface"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp">
@@ -405,7 +405,7 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="9dp"
-                                app:cardBackgroundColor="#1A1230"
+                                app:cardBackgroundColor="@color/app_box_inner_surface"
                                 app:cardCornerRadius="9dp"
                                 app:cardElevation="0dp"
                                 app:strokeWidth="0dp">
@@ -486,7 +486,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                app:cardBackgroundColor="#0A1A12"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp">

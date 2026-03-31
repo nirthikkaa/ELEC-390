@@ -41,7 +41,7 @@ public class ThereminBackgroundAudioService extends Service {
     private volatile long lastSettingsRefreshMs;
     private String lastPushedToneType = "";
 
-    // Sprint 3: Scale lock + effects + drum/bass — forwarded to background drumEngine every tick.
+    // Background-playback state mirrored from the UI and applied on each sync tick.
     private static volatile String  bgActiveScale       = "CHROMATIC";
     private static volatile boolean bgReverbEnabled     = false;
     private static volatile float   bgReverbMix         = 0.3f;
@@ -81,11 +81,7 @@ public class ThereminBackgroundAudioService extends Service {
         calibrationPreviewSettings = null;
     }
 
-    /**
-     * Sprint 2: Hooks a RecordingManager into the background service's audio engine PCM tap.
-     * MainActivity calls this in onPause (to hand recording off to the background engine) and
-     * again in onResume with the foreground engine. Pass null to disconnect.
-     */
+    /** Push a tone change into the live background audio engine immediately. */
     public static void setToneTypeNow(String toneType) {
         ThereminBackgroundAudioService svc = activeInstance;
         if (svc == null || svc.audioEngine == null) return;
@@ -113,7 +109,7 @@ public class ThereminBackgroundAudioService extends Service {
         bgSensitivityMult = Math.max(0.1f, Math.min(3.0f, mult));
     }
 
-    /** Sprint 3: Returns the current octave shift value. */
+    /** Returns the current octave shift value. */
     public static int getOctaveShift() { return octaveShift; }
 
     /** Sprint 3: Scale lock + effects + drum/bass — forwarded to background engines every sync tick. */

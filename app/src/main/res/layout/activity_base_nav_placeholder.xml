@@ -33,7 +33,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                app:cardBackgroundColor="@color/app_surface"
+                app:cardBackgroundColor="@color/app_box_surface"
                 app:cardCornerRadius="24dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/app_outline"

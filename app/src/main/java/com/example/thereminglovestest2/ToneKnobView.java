@@ -300,6 +300,14 @@ public class ToneKnobView extends View {
     private static String abbrev(String tone) {
         switch (AppSettings.normalizeToneType(tone)) {
             case AppSettings.TONE_THEREMIN: return "THR";
+            case AppSettings.TONE_AIR_PAD:  return "AIR";
+            case AppSettings.TONE_CELLO:    return "CEL";
+            case AppSettings.TONE_SWEET_LEAD:return "SWT";
+            case AppSettings.TONE_CHOIR:    return "CHR";
+            case AppSettings.TONE_VOWEL_O:  return "VOX";
+            case AppSettings.TONE_CLARINET: return "CLR";
+            case AppSettings.TONE_OBOE:     return "OBO";
+            case AppSettings.TONE_LEAD:     return "LED";
             case AppSettings.TONE_VIOLIN:   return "VLN";
             case AppSettings.TONE_GUITAR:   return "GTR";
             case AppSettings.TONE_FLUTE:    return "FLT";

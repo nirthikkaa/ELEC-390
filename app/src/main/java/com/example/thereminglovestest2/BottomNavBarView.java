@@ -26,8 +26,8 @@ public class BottomNavBarView extends LinearLayout {
             new NavItem("Settings", android.R.drawable.ic_menu_manage, SettingsActivity.class)
     };
 
-    private final int colorPrimary;
-    private final int colorOnSurfaceVariant;
+    private final int colorActive;
+    private final int colorOnBarVariant;
     private final int colorActiveBackground;
 
     public BottomNavBarView(Context context) { this(context, null); }
@@ -35,14 +35,14 @@ public class BottomNavBarView extends LinearLayout {
 
     public BottomNavBarView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        colorPrimary = ContextCompat.getColor(context, R.color.app_primary);
-        colorOnSurfaceVariant = ContextCompat.getColor(context, R.color.app_on_surface_variant);
-        colorActiveBackground = withAlpha(colorPrimary, 46);
+        colorActive = ContextCompat.getColor(context, R.color.app_bar_on_surface);
+        colorOnBarVariant = ContextCompat.getColor(context, R.color.app_bar_on_surface_variant);
+        colorActiveBackground = withAlpha(colorActive, 46);
 
         int pad = dp(4);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        setBackgroundColor(ContextCompat.getColor(context, R.color.app_surface_variant));
+        setBackgroundColor(ContextCompat.getColor(context, R.color.app_bar_surface));
         setElevation(0);
         setClipToPadding(false);
         setPadding(pad, pad, pad, pad);
@@ -58,7 +58,7 @@ public class BottomNavBarView extends LinearLayout {
 
     private LinearLayout buildItem(NavItem item) {
         boolean active = getContext() instanceof Activity && getContext().getClass().equals(item.target);
-        int itemColor = active ? colorPrimary : colorOnSurfaceVariant;
+        int itemColor = active ? colorActive : colorOnBarVariant;
 
         LinearLayout layout = new LinearLayout(getContext());
         layout.setOrientation(VERTICAL);

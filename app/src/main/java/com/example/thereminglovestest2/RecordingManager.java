@@ -19,12 +19,13 @@ import java.util.Locale;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Recording engine. Captures PCM samples from ThereminAudioEngine via the PcmListener tap.
+ * Recording engine. Captures the mixed mono render buffer from ThereminAudioEngine via the
+ * PcmListener tap, then duplicates it into stereo for file output.
  *
  *   LOSSLESS → raw PCM written as WAV (.wav) — no codec, always works, truly lossless
- *   HIGH     → AAC-LC 192 kbps, 24 kHz stereo (.m4a)
- *   MEDIUM   → AAC-LC 128 kbps, 16 kHz stereo (.m4a)
- *   LOW      → AAC-LC  64 kbps,  8 kHz stereo (.m4a)
+ *   HIGH     → AAC-LC 320 kbps, 48 kHz stereo (.m4a)
+ *   MEDIUM   → AAC-LC 192 kbps, 48 kHz stereo (.m4a)
+ *   LOW      → AAC-LC 128 kbps, 48 kHz stereo (.m4a)
  *
  * Thread safety: startRecording / stopRecording are called on the main thread.
  * onPcmSamples is called on the audio thread. A ReentrantLock protects the pipeline
@@ -241,7 +242,10 @@ public class RecordingManager implements ThereminAudioEngine.PcmListener {
         wavOutput.write(intLE((int) wavDataBytes));
     }
 
-    /** Called on the audio thread. Writes downsampled stereo PCM directly to the WAV file. */
+    /**
+     * Called on the audio thread. Writes PCM directly to the WAV file, duplicating the mono
+     * render buffer into left/right and honoring the configured downsample factor.
+     */
     private void writePcmToWav(short[] samples, int count) throws IOException {
         int outCount  = count / activeDownsample;
         int byteCount = outCount * activeChannels * 2;

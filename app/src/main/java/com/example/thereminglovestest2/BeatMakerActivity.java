@@ -9,10 +9,14 @@ import android.media.AudioTrack;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
 import android.widget.SeekBar;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityBeatMakerBinding;
 
@@ -27,8 +31,8 @@ import java.util.Set;
  *
  * DrumEngine only produces PCM via mixInto() — it has no AudioTrack of its own.
  * This activity runs its own audio output thread that continuously calls
- * previewEngine.mixInto() and writes to a local AudioTrack, so drum and
- * audition sounds are heard without needing ThereminAudioEngine.
+ * previewEngine.mixInto() and writes to a local stereo AudioTrack, so drum,
+ * piano, and audition sounds are heard without needing ThereminAudioEngine.
  */
 public class BeatMakerActivity extends AppCompatActivity
         implements StepGridView.Listener {
@@ -42,7 +46,7 @@ public class BeatMakerActivity extends AppCompatActivity
     private static final String[] NOTE_NAMES = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     private static final String[] PIANO_MODE_LABELS = {"NOTE", "MAJOR", "MINOR", "PENTA", "JAZZ"};
 
-    // slotIndex 0 = default slot (legacy keys), 1-3 = named slots
+    // slotIndex 0 = default slot (legacy keys), 1-7 = named slots
     private int slotIndex = 0;
 
     private String keyActive()          { return slotIndex == 0 ? "beat_maker_custom_active" : "beat_slot_" + slotIndex + "_saved"; }
@@ -101,6 +105,7 @@ public class BeatMakerActivity extends AppCompatActivity
         binding.topNavBar.setTitleText("Beat Maker");
         binding.topNavBar.setBackButtonVisible(true);
         binding.topNavBar.setOverflowButtonVisible(false);
+        applyBottomInset();
 
         // Wire UI immediately — engine arrives asynchronously on a background thread
         binding.stepGrid.setListener(this);
@@ -130,6 +135,20 @@ public class BeatMakerActivity extends AppCompatActivity
         }, "DrumEngineInit").start();
     }
 
+    private void applyBottomInset() {
+        View bottomContainer = binding.bottomApplyContainer;
+        int left = bottomContainer.getPaddingLeft();
+        int top = bottomContainer.getPaddingTop();
+        int right = bottomContainer.getPaddingRight();
+        int bottom = bottomContainer.getPaddingBottom();
+        ViewCompat.setOnApplyWindowInsetsListener(bottomContainer, (v, insets) -> {
+            Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(left, top, right, bottom + sys.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(bottomContainer);
+    }
+
     @Override
     protected void onPause() {
         super.onPause();
@@ -152,9 +171,10 @@ public class BeatMakerActivity extends AppCompatActivity
     private void startAudioOutput() {
         int minBuf = AudioTrack.getMinBufferSize(
                 SAMPLE_RATE,
-                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.CHANNEL_OUT_STEREO,
                 AudioFormat.ENCODING_PCM_16BIT);
-        int bufBytes = Math.max(minBuf, BUFFER_FRAMES * 2); // 2 bytes per short
+        // Buffer size is expressed in bytes: 16-bit PCM * 2 stereo channels.
+        int bufBytes = Math.max(minBuf, BUFFER_FRAMES * 4);
 
         AudioTrack.Builder builder = new AudioTrack.Builder()
                 .setAudioAttributes(new AudioAttributes.Builder()
@@ -164,7 +184,7 @@ public class BeatMakerActivity extends AppCompatActivity
                 .setAudioFormat(new AudioFormat.Builder()
                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                         .setSampleRate(SAMPLE_RATE)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
                         .build())
                 .setBufferSizeInBytes(bufBytes)
                 .setTransferMode(AudioTrack.MODE_STREAM);
@@ -177,24 +197,30 @@ public class BeatMakerActivity extends AppCompatActivity
         audioRunning = true;
         audioThread  = new Thread(() -> {
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
-            short[] buf = new short[BUFFER_FRAMES];
+            // Keep DrumEngine's preview mix mono and widen it only at the AudioTrack write stage.
+            short[] monoBuf = new short[BUFFER_FRAMES];
+            short[] stereoBuf = new short[BUFFER_FRAMES * 2];
             AudioTrack track = audioTrack;
             float hpPrevIn = 0f;
             float hpPrevOut = 0f;
             while (audioRunning && track != null) {
-                Arrays.fill(buf, (short) 0);
+                Arrays.fill(monoBuf, (short) 0);
                 DrumEngine e = previewEngine; // re-read volatile each iteration
-                if (e != null) e.mixInto(buf, BUFFER_FRAMES);
+                if (e != null) e.mixInto(monoBuf, BUFFER_FRAMES);
                 for (int i = 0; i < BUFFER_FRAMES; i++) {
-                    float x = buf[i] / 32768f;
+                    float x = monoBuf[i] / 32768f;
                     // Very light high-pass to remove sub/DC mud from layered bass hits.
                     float hp = x - hpPrevIn + 0.995f * hpPrevOut;
                     hpPrevIn = x;
                     hpPrevOut = hp;
                     float mastered = softLimit(hp * 1.05f);
-                    buf[i] = (short) (mastered * Short.MAX_VALUE);
+                    short sample = (short) (mastered * Short.MAX_VALUE);
+                    monoBuf[i] = sample;
+                    int stereoIndex = i * 2;
+                    stereoBuf[stereoIndex] = sample;
+                    stereoBuf[stereoIndex + 1] = sample;
                 }
-                track.write(buf, 0, BUFFER_FRAMES);
+                track.write(stereoBuf, 0, stereoBuf.length);
             }
         }, "BeatMakerAudio");
         audioThread.start();

@@ -13,13 +13,18 @@
     <color name="app_tertiary">#FF63C6</color>
     <color name="app_on_tertiary">#371028</color>
 
-    <color name="app_background">#090714</color>
+    <color name="app_background">#050C1C</color>
     <color name="app_on_background">#F4EEFF</color>
 
     <color name="app_surface">#120E25</color>
     <color name="app_surface_variant">#221B40</color>
     <color name="app_on_surface">#F6F1FF</color>
     <color name="app_on_surface_variant">#CBBEF8</color>
+    <color name="app_bar_surface">#0A1738</color>
+    <color name="app_bar_on_surface">#F5F8FF</color>
+    <color name="app_bar_on_surface_variant">#C9D6FF</color>
+    <color name="app_box_surface">#0A1738</color>
+    <color name="app_box_inner_surface">#10224D</color>
 
     <color name="app_outline">#4C4080</color>
     <color name="app_nav_active_bg">#337EA4FF</color>
@@ -29,17 +34,17 @@
     <color name="launch_primary_bright">#AFC8FF</color>
     <color name="launch_cyan">#43E5FF</color>
 
-    <color name="launch_bg_top">#090714</color>
-    <color name="launch_bg_bottom">#181132</color>
+    <color name="launch_bg_top">#050C1C</color>
+    <color name="launch_bg_bottom">#08102A</color>
 
-    <color name="launch_card">#CC17122E</color>
-    <color name="launch_floating_card">#E0221A40</color>
+    <color name="launch_card">#D90A1738</color>
+    <color name="launch_floating_card">#F010224D</color>
     <color name="launch_card_stroke">#33FFFFFF</color>
     <color name="launch_text_secondary">#D5CCFF</color>
     <color name="launch_outline">#66C8B2FF</color>
 
-    <color name="launch_stage_top">#241C4B</color>
-    <color name="launch_stage_bottom">#10142D</color>
+    <color name="launch_stage_top">#15306C</color>
+    <color name="launch_stage_bottom">#10224D</color>
     <color name="launch_pill">#24FFFFFF</color>
 
     <!-- Compatibility with earlier drawables/layouts -->

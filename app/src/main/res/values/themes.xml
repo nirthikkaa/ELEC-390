@@ -11,6 +11,7 @@
         <item name="colorOnTertiary">@color/app_on_tertiary</item>
 
         <item name="android:colorBackground">@color/app_background</item>
+        <item name="android:windowBackground">@color/app_background</item>
 
         <item name="colorSurface">@color/app_surface</item>
         <item name="colorOnSurface">@color/app_on_surface</item>
@@ -24,18 +25,15 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@color/app_surface</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
     <style name="Theme.ThereminGlovestest2" parent="Base.Theme.ThereminGlovestest2" />
 
     <!--
-        BeatMaker uses the same deep-purple window background as the swipe preview overlay
-        (0xFF0F0A1E) so the Activity window never flashes white during the slide-in transition.
-        Without this the system draws the default window color for one frame before the layout
-        inflates, causing a visible flash.
+        BeatMaker keeps the shared dark-blue window background so the Activity never flashes
+        a mismatched color during the slide-in transition before the layout inflates.
     -->
     <style name="Theme.BeatMaker" parent="Theme.ThereminGlovestest2">
-        <item name="android:windowBackground">#0F0A1E</item>
+        <item name="android:windowBackground">@color/app_background</item>
     </style>
 </resources>
