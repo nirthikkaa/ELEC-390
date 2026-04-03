@@ -90,15 +90,8 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_QUICK_START_FALLBACK_CHECKED = "quick_start_fallback_checked";
     private static final int COLOR_GRID_HINT = 0xFF00FF9D;
 
-    private static final String[] TONE_CYCLE = {
-        AppSettings.TONE_THEREMIN, AppSettings.TONE_AIR_PAD,  AppSettings.TONE_CELLO,
-        AppSettings.TONE_SWEET_LEAD, AppSettings.TONE_PAD,    AppSettings.TONE_CHOIR,
-        AppSettings.TONE_VOWEL_O,  AppSettings.TONE_FLUTE,    AppSettings.TONE_CLARINET,
-        AppSettings.TONE_VIOLIN,   AppSettings.TONE_GUITAR,   AppSettings.TONE_OBOE,
-        AppSettings.TONE_TRUMPET,  AppSettings.TONE_LEAD,     AppSettings.TONE_SAW,
-        AppSettings.TONE_SQUARE,   AppSettings.TONE_TRIANGLE, AppSettings.TONE_PULSE,
-        AppSettings.TONE_ORGAN,    AppSettings.TONE_STRING,   AppSettings.TONE_BELL
-    };
+    // Mirror the curated public tone list so the Play knob only exposes the supported subset.
+    private static final String[] TONE_CYCLE = AppSettings.USER_SELECTABLE_TONES.clone();
 
     private ActivityMainBinding binding;
     private final ArrayDeque<String> logLines = new ArrayDeque<>();
@@ -686,6 +679,15 @@ public class MainActivity extends AppCompatActivity {
             return warmed;
         }
         return store().load();
+    }
+
+    private void sanitizeUserFacingToneSelection(AppSettings settings) {
+        // Migrate older hidden tones back to the supported public subset when Play loads.
+        String normalizedTone = AppSettings.normalizeToneType(settings.toneType);
+        String userFacingTone = AppSettings.coerceUserSelectableTone(normalizedTone);
+        if (userFacingTone.equals(normalizedTone)) return;
+        settings.toneType = userFacingTone;
+        store().save(settings);
     }
 
     private boolean isAudioRunning() {
@@ -1721,6 +1723,7 @@ public class MainActivity extends AppCompatActivity {
     private void reloadMappingSettingsFromRepository() {
         // Reuse the startup-warmed settings snapshot once so Play avoids an extra SQLite read on first show.
         AppSettings settings = loadSettingsForUi();
+        sanitizeUserFacingToneSelection(settings);
         play.load(settings);
         float sensitivityResponseCurve = AppSettings.clampSensitivityResponseCurve(settings.sensitivityResponseCurve);
         play.setSensitivityResponseCurve(sensitivityResponseCurve);
@@ -1865,10 +1868,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopGridHintPulse() {
-        if (gridHintAnimator != null) {
-            gridHintAnimator.cancel();
-            gridHintAnimator.removeAllUpdateListeners();
+        ValueAnimator animator = gridHintAnimator;
+        if (animator != null) {
+            // cancel() can synchronously invoke onAnimationEnd(), so hold a local reference first.
             gridHintAnimator = null;
+            animator.cancel();
+            animator.removeAllUpdateListeners();
+            animator.removeAllListeners();
         }
         resetGridHintButton();
     }
@@ -2394,8 +2400,10 @@ public class MainActivity extends AppCompatActivity {
         bmPushPatternToEngine();
         bmPreviewEngine.setEnabled(true);
         bmPreviewEngine.setBassEnabled(true);
-        bmBinding.btnPlayStop.setText("STOP");
-        bmBinding.btnPlayStop.setTextColor(0xFFFF4444);
+        if (bmBinding != null) {
+            bmBinding.btnPlayStop.setText("STOP");
+            bmBinding.btnPlayStop.setTextColor(0xFFFF4444);
+        }
         bmPollHandler.post(bmPollRunnable);
     }
 
@@ -2407,14 +2415,17 @@ public class MainActivity extends AppCompatActivity {
         }
         bmClearMelody();
         bmPollHandler.removeCallbacks(bmPollRunnable);
-        bmBinding.stepGrid.clearPlayhead();
-        bmBinding.beatMakerPianoSteps.setPlayheadStep(-1);
-        bmBinding.btnPlayStop.setText("PLAY");
-        bmBinding.btnPlayStop.setTextColor(0xFF00FF9D);
+        // Play can tear down Beat Maker preview state even when the inline panel was never opened.
+        if (bmBinding != null) {
+            bmBinding.stepGrid.clearPlayhead();
+            bmBinding.beatMakerPianoSteps.setPlayheadStep(-1);
+            bmBinding.btnPlayStop.setText("PLAY");
+            bmBinding.btnPlayStop.setTextColor(0xFF00FF9D);
+        }
     }
 
     private void bmPollPlayhead() {
-        if (!bmIsPlaying || bmPreviewEngine == null) return;
+        if (!bmIsPlaying || bmPreviewEngine == null || bmBinding == null) return;
         int step = bmPreviewEngine.getCurrentStep16();
         bmBinding.stepGrid.setPlayheadStep(step);
         bmBinding.beatMakerPianoSteps.setPlayheadStep(step);
@@ -2427,16 +2438,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void bmConfigurePreviewMix(DrumEngine engine) {
-        engine.setKickVolume(0.90f);
-        engine.setSnareVolume(0.82f);
-        engine.setHihatVolume(0.52f);
-        engine.setBassVolume(0.68f);
+        // Keep the preview mix close to the live Play mix so the kick stays clearly audible.
+        engine.setKickVolume(1.00f);
+        engine.setSnareVolume(0.84f);
+        engine.setHihatVolume(0.44f);
+        engine.setBassVolume(0.72f);
         engine.setTrackVolume(DrumEngine.SND_CLAP,    0.58f);
         engine.setTrackVolume(DrumEngine.SND_CRASH,   0.48f);
-        engine.setTrackVolume(DrumEngine.SND_TOM_HI,  0.52f);
-        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0.52f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_HI,  0.54f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0.54f);
         engine.setTrackVolume(DrumEngine.SND_RIM,     0.50f);
-        engine.setTrackVolume(DrumEngine.SND_SHAKER,  0.45f);
+        engine.setTrackVolume(DrumEngine.SND_SHAKER,  0.42f);
         engine.setPianoVolume(0.52f);
     }
 
@@ -2475,13 +2487,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void bmApplyBeatMakerMode() {
         bmUpdateKeyboardModeButton();
-        bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
+        if (bmBinding != null) bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
     }
 
     private void bmClearMelody() {
         bmActiveMelodyNotes.clear();
         if (bmPreviewEngine != null) bmPreviewEngine.clearMelodyRoot();
-        bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
+        // Play can clear Beat Maker melody state before the inline panel has ever been inflated.
+        if (bmBinding != null) bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
     }
 
     private void bmAuditionKeyboardInput(int midiNote) {
@@ -2497,7 +2510,7 @@ public class MainActivity extends AppCompatActivity {
                 bmActiveMelodyNotes.add(midiNote);
                 bmPreviewEngine.addMelodyRoot(midiNote, arp);
             }
-            bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
+            if (bmBinding != null) bmBinding.beatMakerKeyboard.setActiveMidiNotes(bmActiveMelodyNotes);
         }
     }
 

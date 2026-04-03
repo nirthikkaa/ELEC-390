@@ -306,6 +306,8 @@ public class ToneKnobView extends View {
             case AppSettings.TONE_CHOIR:    return "CHR";
             case AppSettings.TONE_VOWEL_O:  return "VOX";
             case AppSettings.TONE_CLARINET: return "CLR";
+            case AppSettings.TONE_DRUM:     return "DRM";
+            case AppSettings.TONE_HELICOPTER:return "HEL";
             case AppSettings.TONE_OBOE:     return "OBO";
             case AppSettings.TONE_LEAD:     return "LED";
             case AppSettings.TONE_VIOLIN:   return "VLN";

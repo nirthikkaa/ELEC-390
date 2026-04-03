@@ -335,11 +335,41 @@ class AppSettings {
     public static final String TONE_VOWEL_I   = "VOWEL_I";
     public static final String TONE_FLUTE     = "FLUTE";
     public static final String TONE_CLARINET  = "CLARINET";
+    // Keep the legacy DRUM value mapped to the old rotor-like sound so existing saved settings
+    // still load the same tone after the UI rename to Helicopter.
+    public static final String TONE_HELICOPTER= "DRUM";
+    public static final String TONE_DRUM      = "DRUM_KIT";
     public static final String TONE_OBOE      = "OBOE";
     public static final String TONE_TRUMPET   = "TRUMPET";
     public static final String TONE_VIOLIN    = "VIOLIN";
     public static final String TONE_CHOIR     = "CHOIR";
     public static final String TONE_GUITAR    = "GUITAR";
+    // Keep the public tone picker focused on a smaller set of clearly distinct sounds.
+    public static final String[] USER_SELECTABLE_TONES = {
+            TONE_THEREMIN,
+            TONE_AIR_PAD,
+            TONE_CELLO,
+            TONE_PAD,
+            TONE_CHOIR,
+            TONE_FLUTE,
+            TONE_CLARINET,
+            TONE_TRIANGLE,
+            TONE_SAW,
+            TONE_HELICOPTER
+            // Future reimplementation candidates for the public selector:
+            // TONE_SWEET_LEAD,
+            // TONE_VOWEL_O,
+            // TONE_VIOLIN,
+            // TONE_GUITAR,
+            // TONE_OBOE,
+            // TONE_TRUMPET,
+            // TONE_LEAD,
+            // TONE_SQUARE,
+            // TONE_PULSE,
+            // TONE_ORGAN,
+            // TONE_STRING,
+            // TONE_BELL
+    };
 
     public static final String SENSITIVITY_LOW    = "LOW";
     public static final String SENSITIVITY_MEDIUM = "MEDIUM";
@@ -426,11 +456,26 @@ class AppSettings {
             case TONE_CELLO:   case TONE_SWEET_LEAD: case TONE_LEAD:
             case TONE_KEYS:     case TONE_VOWEL_A:  case TONE_VOWEL_O:
             case TONE_VOWEL_I:  case TONE_FLUTE:    case TONE_CLARINET:
+            case TONE_HELICOPTER:
+            case TONE_DRUM:
             case TONE_OBOE:     case TONE_TRUMPET:  case TONE_VIOLIN:
             case TONE_CHOIR:    case TONE_GUITAR:
                 return n;
             default: return TONE_THEREMIN; // "SINE" and any unknown string → THEREMIN
         }
+    }
+
+    public static boolean isUserSelectableTone(String tone) {
+        String normalized = normalizeToneType(tone);
+        for (String selectableTone : USER_SELECTABLE_TONES) {
+            if (normalized.equals(selectableTone)) return true;
+        }
+        return false;
+    }
+
+    public static String coerceUserSelectableTone(String tone) {
+        String normalized = normalizeToneType(tone);
+        return isUserSelectableTone(normalized) ? normalized : TONE_THEREMIN;
     }
 
     public static String prettyToneType(String tone) {
@@ -443,13 +488,15 @@ class AppSettings {
             case TONE_ORGAN:    return "Organ";
             case TONE_STRING:   return "String";
             case TONE_BELL:     return "Bell";
-            case TONE_PAD:      return "Warm Pad";
+            case TONE_PAD:      return "Pad";
             case TONE_AIR_PAD:  return "Air Pad";
             case TONE_CELLO:    return "Cello";
             case TONE_SWEET_LEAD:return "Sweet Lead";
             case TONE_CHOIR:    return "Choir";
             case TONE_VOWEL_O:  return "Vocal O";
             case TONE_CLARINET: return "Clarinet";
+            case TONE_DRUM:     return "Drum";
+            case TONE_HELICOPTER:return "Helicopter";
             case TONE_OBOE:     return "Oboe";
             case TONE_LEAD:     return "Bright Lead";
             case TONE_VIOLIN:   return "Violin";

@@ -3,6 +3,9 @@ agp = "9.1.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
+testCore = "1.6.1"
+testRules = "1.6.1"
+uiAutomator = "2.3.0"
 appcompat = "1.7.1"
 material = "1.13.0"
 activity = "1.12.4"
@@ -12,6 +15,9 @@ constraintlayout = "2.2.1"
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+test-core = { group = "androidx.test", name = "core", version.ref = "testCore" }
+test-rules = { group = "androidx.test", name = "rules", version.ref = "testRules" }
+test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiAutomator" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
@@ -19,4 +25,3 @@ constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayo
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-

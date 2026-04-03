@@ -38,6 +38,16 @@ public class DrumEngine {
     private static final int MAX_VOICES  = 32;
     private static final float DRUM_MIX_HEADROOM = 0.26f;
     private static final float PIANO_MIX_HEADROOM = 0.22f;
+    private static final float KICK_PITCH_RATIO = 1.20f;
+    private static final float DEFAULT_KICK_VOL = 1.00f;
+    private static final float DEFAULT_SNARE_VOL = 0.84f;
+    private static final float DEFAULT_HIHAT_VOL = 0.44f;
+    private static final float DEFAULT_CRASH_VOL = 0.48f;
+    private static final float DEFAULT_CLAP_VOL = 0.58f;
+    private static final float DEFAULT_BASS_VOL = 0.72f;
+    private static final float DEFAULT_TOM_VOL = 0.54f;
+    private static final float DEFAULT_RIM_VOL = 0.50f;
+    private static final float DEFAULT_SHAKER_VOL = 0.42f;
     private static final int RENDER_WORKERS =
             Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
     private static final int WARMUP_RENDER_WORKERS = 2;
@@ -69,11 +79,9 @@ public class DrumEngine {
     private final float[][] sounds = new float[NUM_SOUNDS][];
     private final boolean warmupConstruction;
 
-    // Per-sound volumes [0=kick, 1=snare, 2=closed hat, 3=open hat, 4=crash, 5=clap,
-    // 6-9=bass notes, 10=high tom, 11=low tom, 12=rim, 13=shaker]
-    // Written from UI thread, read from audio thread — volatile array elements via AtomicIntegerArray trick is overkill;
-    // float reads are atomic on 32-bit JVM for aligned fields. We use a regular array and accept
-    // that a transient stale value at most causes one slightly-off-volume hit.
+    // Per-sound mix profile [0=kick, 1=snare, 2=closed hat, 3=open hat, 4=crash, 5=clap,
+    // 6-9=bass notes, 10=high tom, 11=low tom, 12=rim, 13=shaker]. The global drumGain slider is
+    // applied later in mixInto() so these relative balances survive volume changes.
     private final float[] trackVolumes = new float[NUM_SOUNDS];
 
     // Lock-free voice pool — see class comment for JMM happens-before argument.
@@ -275,21 +283,13 @@ public class DrumEngine {
     /** Set the clap / snare-variant tone brightness (0.0–1.0). No-op in default synthesis. */
     public void setClapTone(float tone) { /* tone brightness reserved for future use */ }
 
-    // Stored drum gain multiplier (1.0 = default mix level). Applied relative to base volumes.
+    // Stored drum gain multiplier (1.0 = default mix level). Applied during mixInto() so the
+    // kick/snare/hat balance stays intact when the user changes the overall beat volume.
     private volatile float drumGain = 1.0f;
-    private static final float BASE_DRUM_VOL = 0.72f;
-    private static final float BASE_BASS_VOL = 0.82f;
 
     /** Set overall drum mix gain (0 = mute, 1 = default, 2 = max). Clamped to [0, 2]. */
     public void setDrumGain(float gain) {
         drumGain = Math.max(0f, Math.min(2f, gain));
-        float dv = drumGain * BASE_DRUM_VOL;
-        float bv = drumGain * BASE_BASS_VOL;
-        for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = dv;
-        trackVolumes[SND_BASS_E2] = bv;
-        trackVolumes[SND_BASS_A2] = bv;
-        trackVolumes[SND_BASS_D3] = bv;
-        trackVolumes[SND_BASS_G2] = bv;
     }
 
     /** Returns the current drum gain multiplier (default 1.0). */
@@ -352,11 +352,7 @@ public class DrumEngine {
             pianoVoiceStartAt.set(i, 0);
         }
         for (int i = 0; i < MAX_MELODY_ROOTS; i++) melodyRoots.set(i, -1);
-        for (int i = 0; i < NUM_SOUNDS; i++) trackVolumes[i] = 0.72f;
-        trackVolumes[SND_BASS_E2] = 0.82f;
-        trackVolumes[SND_BASS_A2] = 0.82f;
-        trackVolumes[SND_BASS_D3] = 0.82f;
-        trackVolumes[SND_BASS_G2] = 0.82f;
+        applyDefaultTrackMix();
         synthesizeSounds();
         synthesizePianoSounds();
     }
@@ -480,7 +476,9 @@ public class DrumEngine {
 
     private void loadBundledSamples(Resources res) throws IOException {
         runIoJobs(
-                () -> sounds[SND_KICK]    = loadWavMonoAs48k(res, R.raw.drum_kick, 0.92f),
+                // Give the kick sample a little extra level so it stays present under hats/claps.
+                () -> sounds[SND_KICK]    = pitchShiftPcm(
+                        loadWavMonoAs48k(res, R.raw.drum_kick, 1.16f), KICK_PITCH_RATIO),
                 () -> sounds[SND_SNARE]   = loadWavMonoAs48k(res, R.raw.drum_snare, 0.86f),
                 () -> sounds[SND_HIHAT_C] = loadWavMonoAs48k(res, R.raw.drum_hihat, 0.72f),
                 () -> sounds[SND_HIHAT_O] = loadWavMonoAs48k(res, R.raw.drum_hihat_open, 0.62f),
@@ -573,6 +571,24 @@ public class DrumEngine {
         return out;
     }
 
+    private float[] pitchShiftPcm(float[] input, float ratio) {
+        if (input == null || input.length == 0) return input;
+        float speed = Math.max(0.5f, Math.min(2.0f, ratio));
+        if (Math.abs(speed - 1f) < 0.0001f) return input;
+
+        // Simple resampling raises the pitch and shortens the hit, which works well for percussion.
+        int outLen = Math.max(1, Math.round(input.length / speed));
+        float[] out = new float[outLen];
+        for (int i = 0; i < outLen; i++) {
+            float srcPos = i * speed;
+            int idx = (int) srcPos;
+            int next = Math.min(input.length - 1, idx + 1);
+            float frac = srcPos - idx;
+            out[i] = input[idx] + (input[next] - input[idx]) * frac;
+        }
+        return out;
+    }
+
     /** Kick: wide pitch sweep 255→55 Hz with harmonics and slow punch envelope. */
     private float[] synthesizeKick() {
         int len = (int)(SAMPLE_RATE * 0.40f);
@@ -581,12 +597,12 @@ public class DrumEngine {
         for (int i = 0; i < len; i++) {
             float t    = (float) i / SAMPLE_RATE;
             float env  = (float) Math.exp(-t * 6.0);   // slower decay = more punch
-            float freq = 55f + 200f * (float) Math.exp(-t * 30.0); // bigger sweep
+            float freq = (55f + 200f * (float) Math.exp(-t * 30.0)) * KICK_PITCH_RATIO;
             // 3 harmonics for a fuller sub-bass body
             float s    = (float) Math.sin(phase) * 0.70f
                        + (float) Math.sin(phase * 2f)  * 0.22f
                        + (float) Math.sin(phase * 3f)  * 0.08f;
-            pcm[i] = env * s * 0.92f;
+            pcm[i] = env * s * 1.06f;
             phase += (float) (2.0 * Math.PI * freq / SAMPLE_RATE);
             if (phase >= (float)(2.0 * Math.PI)) phase -= (float)(2.0 * Math.PI);
         }
@@ -982,6 +998,7 @@ public class DrumEngine {
     public void mixInto(short[] buffer, int count) {
         if (paused) return;
 
+        float globalDrumGain = drumGain;
         for (int v = 0; v < MAX_VOICES; v++) {
             int pos = voicePos.get(v);
             if (pos < 0) continue;
@@ -994,7 +1011,7 @@ public class DrumEngine {
             for (int i = 0; i < count; i++) {
                 if (pos >= pcm.length) { pos = -1; break; }
                 float dry = buffer[i] / (float) Short.MAX_VALUE;
-                float mixed = dry + pcm[pos] * vol * DRUM_MIX_HEADROOM;
+                float mixed = dry + pcm[pos] * vol * globalDrumGain * DRUM_MIX_HEADROOM;
                 buffer[i] = (short) (clamp(mixed, -0.98f, 0.98f) * Short.MAX_VALUE);
                 pos++;
             }
@@ -1278,6 +1295,24 @@ public class DrumEngine {
     /** Get current track volume for a sound index. */
     public float getTrackVolume(int sndIdx) {
         return (sndIdx >= 0 && sndIdx < NUM_SOUNDS) ? trackVolumes[sndIdx] : 1f;
+    }
+
+    private void applyDefaultTrackMix() {
+        // Bias the default kit toward a clearer kick pocket so it does not disappear under hats.
+        trackVolumes[SND_KICK] = DEFAULT_KICK_VOL;
+        trackVolumes[SND_SNARE] = DEFAULT_SNARE_VOL;
+        trackVolumes[SND_HIHAT_C] = DEFAULT_HIHAT_VOL;
+        trackVolumes[SND_HIHAT_O] = DEFAULT_HIHAT_VOL;
+        trackVolumes[SND_CRASH] = DEFAULT_CRASH_VOL;
+        trackVolumes[SND_CLAP] = DEFAULT_CLAP_VOL;
+        trackVolumes[SND_BASS_E2] = DEFAULT_BASS_VOL;
+        trackVolumes[SND_BASS_A2] = DEFAULT_BASS_VOL;
+        trackVolumes[SND_BASS_D3] = DEFAULT_BASS_VOL;
+        trackVolumes[SND_BASS_G2] = DEFAULT_BASS_VOL;
+        trackVolumes[SND_TOM_HI] = DEFAULT_TOM_VOL;
+        trackVolumes[SND_TOM_LOW] = DEFAULT_TOM_VOL;
+        trackVolumes[SND_RIM] = DEFAULT_RIM_VOL;
+        trackVolumes[SND_SHAKER] = DEFAULT_SHAKER_VOL;
     }
 
     private void clearTriggeredVoices() {

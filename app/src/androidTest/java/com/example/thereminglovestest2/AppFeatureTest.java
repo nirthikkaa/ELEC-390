@@ -440,9 +440,30 @@ public class AppFeatureTest {
     }
 
     @Test
+    public void drumMix_defaultKickStaysAboveHihats() {
+        // Kick should lead the default beat mix so it does not get masked by the hats.
+        assertTrue("Kick mix should be louder than the closed hat by default",
+                drum.getTrackVolume(DrumEngine.SND_KICK) > drum.getTrackVolume(DrumEngine.SND_HIHAT_C));
+        assertTrue("Kick mix should be louder than the open hat by default",
+                drum.getTrackVolume(DrumEngine.SND_KICK) > drum.getTrackVolume(DrumEngine.SND_HIHAT_O));
+    }
+
+    @Test
     public void drumGain_setAndGetRoundTrip() {
         drum.setDrumGain(0.5f);
         assertEquals("getDrumGain() must return 0.5 after setDrumGain(0.5)", 0.5f, drum.getDrumGain(), 1e-4f);
+    }
+
+    @Test
+    public void drumGain_preservesPerTrackKickBalance() {
+        // Overall drum gain should not flatten the relative kick-vs-hihat balance.
+        float kickBefore = drum.getTrackVolume(DrumEngine.SND_KICK);
+        float hatBefore = drum.getTrackVolume(DrumEngine.SND_HIHAT_C);
+        drum.setDrumGain(0.35f);
+        assertEquals("Per-track kick mix must survive overall gain changes", kickBefore,
+                drum.getTrackVolume(DrumEngine.SND_KICK), 1e-4f);
+        assertEquals("Per-track hat mix must survive overall gain changes", hatBefore,
+                drum.getTrackVolume(DrumEngine.SND_HIHAT_C), 1e-4f);
     }
 
     @Test

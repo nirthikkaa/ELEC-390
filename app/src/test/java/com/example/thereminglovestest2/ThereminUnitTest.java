@@ -257,6 +257,44 @@ public class ThereminUnitTest {
     }
 
     // =========================================================================
+    // 5. Tone selector regression guards
+    // =========================================================================
+
+    @Test
+    public void drumToneIsSelectableAndPrettyPrinted() {
+        // Keep the legacy DRUM value mapped to Helicopter while the hidden drum kit stays out of the picker.
+        assertEquals(AppSettings.TONE_HELICOPTER, AppSettings.normalizeToneType("drum"));
+        assertEquals("Helicopter", AppSettings.prettyToneType("drum"));
+        assertFalse(AppSettings.isUserSelectableTone(AppSettings.TONE_DRUM));
+        assertTrue(AppSettings.isUserSelectableTone(AppSettings.TONE_TRIANGLE));
+        assertTrue(AppSettings.isUserSelectableTone(AppSettings.TONE_SAW));
+        assertTrue(AppSettings.isUserSelectableTone(AppSettings.TONE_PAD));
+        assertEquals("Pad", AppSettings.prettyToneType(AppSettings.TONE_PAD));
+
+        boolean foundTriangle = false;
+        boolean foundSaw = false;
+        boolean foundPad = false;
+        boolean foundHelicopter = false;
+        for (String tone : AppSettings.USER_SELECTABLE_TONES) {
+            if (AppSettings.TONE_TRIANGLE.equals(tone)) foundTriangle = true;
+            if (AppSettings.TONE_SAW.equals(tone)) foundSaw = true;
+            if (AppSettings.TONE_PAD.equals(tone)) foundPad = true;
+            if (AppSettings.TONE_HELICOPTER.equals(tone)) foundHelicopter = true;
+        }
+        assertTrue("Triangle must stay in the public tone cycle", foundTriangle);
+        assertTrue("Saw must stay in the public tone cycle", foundSaw);
+        assertTrue("Pad must stay in the public tone cycle", foundPad);
+        assertTrue("Helicopter must stay in the public tone cycle", foundHelicopter);
+    }
+
+    @Test
+    public void hiddenLegacyToneStillCoercesToSupportedPublicTone() {
+        // The public tone picker stays curated even if old saved settings still reference hidden tones.
+        assertEquals(AppSettings.TONE_THEREMIN, AppSettings.coerceUserSelectableTone(AppSettings.TONE_TRUMPET));
+        assertEquals(AppSettings.TONE_THEREMIN, AppSettings.coerceUserSelectableTone(AppSettings.TONE_DRUM));
+    }
+
+    // =========================================================================
     // 5. GridPatternSource — sound routing and gating
     // =========================================================================
 

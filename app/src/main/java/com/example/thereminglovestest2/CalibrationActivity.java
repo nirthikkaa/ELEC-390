@@ -201,7 +201,8 @@ public class CalibrationActivity extends AppCompatActivity {
         pitchDirectionInverted = settings.pitchDirectionInverted;
         volumeDirectionInverted = settings.volumeDirectionInverted;
         octaveShift     = settings.octaveShift;
-        currentToneType = AppSettings.normalizeToneType(settings.toneType);
+        // Keep calibration aligned with the smaller public tone set shown in Play.
+        currentToneType = AppSettings.coerceUserSelectableTone(settings.toneType);
     }
 
     private void refreshDirectionSettings() {
@@ -209,7 +210,8 @@ public class CalibrationActivity extends AppCompatActivity {
         pitchDirectionInverted = settings.pitchDirectionInverted;
         volumeDirectionInverted = settings.volumeDirectionInverted;
         octaveShift     = settings.octaveShift;
-        currentToneType = AppSettings.normalizeToneType(settings.toneType);
+        // Keep calibration aligned with the smaller public tone set shown in Play.
+        currentToneType = AppSettings.coerceUserSelectableTone(settings.toneType);
     }
 
     private void markChanged() {

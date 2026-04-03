@@ -42,6 +42,13 @@ public final class ThereminAudioEngine {
     private static final float MIN_VIBRATO_DEPTH = 0.0003f;
     private static final float MAX_VIBRATO_DEPTH = 0.0014f;
     private static final float VISUALIZER_SCALE = (AUDIO_WRITE_FRAMES - 1f) / (VISUALIZER_SAMPLE_COUNT - 1f);
+    private static final float DRUM_HIT_RATE_RATIO = 0.0125f;
+    private static final float DRUM_MIN_HIT_RATE_HZ = 0.75f;
+    private static final float DRUM_MAX_HIT_RATE_HZ = 12.0f;
+    private static final float DRUM_BODY_DECAY = 0.9991f;
+    private static final float DRUM_NOISE_DECAY = 0.9935f;
+    private static final float REAL_DRUM_BODY_DECAY = 0.9968f;
+    private static final float REAL_DRUM_NOISE_DECAY = 0.9805f;
 
     // The visualizer reads a copy of the latest waveform while the audio thread keeps writing new
     // samples, so this lock protects that tiny shared buffer.
@@ -120,6 +127,13 @@ public final class ThereminAudioEngine {
     private float smoothVolumeLinear;
     private float lastFreqHz = 880f;
     private float lastVolumeLinear;
+    // Shared pulse-tone state for the Helicopter and Drum presets. Only one tone is active at once,
+    // so both presets can safely reuse the same hit/envelope state without extra allocation.
+    private float drumHitPhase;
+    private float drumBodyPhase;
+    private float drumBodyEnv;
+    private float drumNoiseEnv;
+    private int drumNoiseState = 0x2468ACE1;
 
     // --- Sprint 2: PCM tap interface ---
     // Implemented by RecordingManager. Called from the audio thread on every buffer fill
@@ -156,7 +170,9 @@ public final class ThereminAudioEngine {
     }
 
     public void setToneType(String requestedToneType) {
-        toneType = AppSettings.normalizeToneType(requestedToneType);
+        String normalized = AppSettings.normalizeToneType(requestedToneType);
+        if (!normalized.equals(toneType)) resetPulseToneState();
+        toneType = normalized;
     }
 
     // The visualizer never reads the live audio buffer directly. Instead it gets a safe copy.
@@ -174,6 +190,7 @@ public final class ThereminAudioEngine {
         Arrays.fill(delayBuffer, 0f);
         combIdx  = 0;
         delayIdx = 0;
+        resetPulseToneState();
         // Prime smoothing state before the thread starts so the first buffer is correct.
         smoothFreqHz = clamp(targetFreqHz, 20f, 20000f);
         smoothVolumeLinear = lastVolumeLinear = 0f;
@@ -250,6 +267,7 @@ public final class ThereminAudioEngine {
             Arrays.fill(visualizerSamples, 0f);
             lastVolumeLinear = 0f;
         }
+        resetPulseToneState();
     }
 
     public void shutdown() { stop(); }
@@ -326,7 +344,7 @@ public final class ThereminAudioEngine {
             // Sprint 3: snap smoothed frequency to the nearest scale note before synthesis.
             freq = snapToScale(freq, scale);
             float volume = updateVolume();
-            float s = sample(tone, phase, volume) * volume * OUTPUT_GAIN * mg;
+            float s = sample(tone, phase, freq, volume) * volume * OUTPUT_GAIN * mg;
             // Sprint 3: run the effects chain with hoisted locals — no volatile reads in loop.
             if (doReverb)     s = applyReverb(s, rMix);
             if (doDelay)      s = applyDelay(s, dFb, dMix);
@@ -373,7 +391,7 @@ public final class ThereminAudioEngine {
     // Tone recipes. The non-default voices are biased toward harmonic spectra, controlled
     // brightness, and mild symmetric saturation so they stay musical across wide pitch glides.
     // Math.sin() is cheap on modern JIT; the audio thread runs at THREAD_PRIORITY_AUDIO.
-    private float sample(String tone, float phase, float volume) {
+    private float sample(String tone, float phase, float freqHz, float volume) {
         float motion = 0.5f + 0.5f * (float) Math.sin(vibratoPhase * 0.60f);
         switch (tone) {
             case AppSettings.TONE_AIR_PAD:
@@ -434,6 +452,15 @@ public final class ThereminAudioEngine {
                         + 0.19f * (float) Math.sin(phase * 5f)
                         + 0.10f * (float) Math.sin(phase * 7f)
                         + 0.05f * (float) Math.sin(phase * 9f)) * 0.62f;
+
+            case AppSettings.TONE_HELICOPTER:
+                // Legacy "drum" tone renamed to Helicopter: pitch still controls rotor chop rate.
+                return sampleHelicopterTone(freqHz, volume);
+
+            case AppSettings.TONE_DRUM:
+                // Real drum tone: keep the hit-rate mapping the user asked for, but give each hit
+                // a shorter envelope and a punchier transient so it reads as percussion.
+                return sampleDrumTone(freqHz, volume);
 
             case AppSettings.TONE_OBOE:
                 // Reed tone with fuller upper partials than clarinet, but keep the spectrum
@@ -588,6 +615,78 @@ public final class ThereminAudioEngine {
 
     private float saturate(float value, float gain) {
         return (float) Math.tanh(value * gain);
+    }
+
+    private float sampleHelicopterTone(float freqHz, float volume) {
+        float hitRateHz = advancePulseTone(freqHz);
+
+        // Tie the rotor body pitch loosely to the hit rate so faster notes feel tighter without
+        // losing the low-end thump that made the old "drum" tone sound like helicopter blades.
+        float bodyPitchHz = clamp(42f + hitRateHz * 6f, 42f, 110f);
+        float sweptPitchHz = bodyPitchHz * (1f + 1.6f * drumBodyEnv);
+        drumBodyPhase += (TWO_PI * sweptPitchHz) / SAMPLE_RATE;
+        if (drumBodyPhase >= TWO_PI) drumBodyPhase -= TWO_PI;
+
+        float body = ((float) Math.sin(drumBodyPhase)
+                + 0.24f * (float) Math.sin(drumBodyPhase * 2f)
+                + 0.10f * (float) Math.sin(drumBodyPhase * 3f)) * drumBodyEnv;
+        float noise = nextDrumNoise() * drumNoiseEnv * (0.20f + 0.12f * volume);
+
+        drumBodyEnv *= DRUM_BODY_DECAY;
+        drumNoiseEnv *= DRUM_NOISE_DECAY;
+
+        return saturate(body + noise, 1.35f) * 0.92f;
+    }
+
+    private float sampleDrumTone(float freqHz, float volume) {
+        float hitRateHz = advancePulseTone(freqHz);
+
+        // Keep the real drum body lower and shorter so each pulse reads as a discrete hit.
+        float bodyPitchHz = clamp(54f + hitRateHz * 3.5f, 54f, 96f);
+        float sweptPitchHz = bodyPitchHz * (0.88f + 2.4f * drumBodyEnv * drumBodyEnv);
+        drumBodyPhase += (TWO_PI * sweptPitchHz) / SAMPLE_RATE;
+        if (drumBodyPhase >= TWO_PI) drumBodyPhase -= TWO_PI;
+
+        float punchEnv = drumBodyEnv * drumBodyEnv;
+        float body = ((float) Math.sin(drumBodyPhase)
+                + 0.18f * (float) Math.sin(drumBodyPhase * 2f + 0.25f)
+                + 0.08f * (float) Math.sin(drumBodyPhase * 3f)) * punchEnv;
+        float click = nextDrumNoise() * drumNoiseEnv * (0.32f + 0.06f * volume);
+        float beater = (float) Math.sin(drumBodyPhase * 0.5f + 0.70f) * drumNoiseEnv * 0.08f;
+
+        drumBodyEnv *= REAL_DRUM_BODY_DECAY;
+        drumNoiseEnv *= REAL_DRUM_NOISE_DECAY;
+
+        return saturate(body * 1.06f + click + beater, 1.55f) * 0.90f;
+    }
+
+    private float advancePulseTone(float freqHz) {
+        float hitRateHz = clamp(freqHz * DRUM_HIT_RATE_RATIO, DRUM_MIN_HIT_RATE_HZ, DRUM_MAX_HIT_RATE_HZ);
+        if (drumBodyEnv <= 0.0001f && drumNoiseEnv <= 0.0001f && drumHitPhase == 0f) {
+            // Prime the first hit immediately when the tone starts instead of waiting a full cycle.
+            drumBodyEnv = 1f;
+            drumNoiseEnv = 1f;
+        }
+        drumHitPhase += hitRateHz / SAMPLE_RATE;
+        if (drumHitPhase >= 1f) {
+            drumHitPhase -= (float) Math.floor(drumHitPhase);
+            drumBodyEnv = 1f;
+            drumNoiseEnv = 1f;
+        }
+        return hitRateHz;
+    }
+
+    private void resetPulseToneState() {
+        drumHitPhase = 0f;
+        drumBodyPhase = 0f;
+        drumBodyEnv = 0f;
+        drumNoiseEnv = 0f;
+    }
+
+    private float nextDrumNoise() {
+        // Small deterministic PRNG for the audio thread so the drum attack can include a clicky transient.
+        drumNoiseState = drumNoiseState * 1664525 + 1013904223;
+        return (((drumNoiseState >>> 8) & 0x00FFFFFF) / 8388607.5f) - 1f;
     }
 
     // Downsample the mono render buffer so the UI waveform matches the pre-stereo synth signal.

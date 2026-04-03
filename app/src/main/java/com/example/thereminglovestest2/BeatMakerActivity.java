@@ -450,16 +450,17 @@ public class BeatMakerActivity extends AppCompatActivity
     }
 
     private void configurePreviewMix(DrumEngine engine) {
-        engine.setKickVolume(0.90f);
-        engine.setSnareVolume(0.82f);
-        engine.setHihatVolume(0.52f);
-        engine.setBassVolume(0.68f);
+        // Match the Play-screen drum balance so kick presence is consistent in the preview.
+        engine.setKickVolume(1.00f);
+        engine.setSnareVolume(0.84f);
+        engine.setHihatVolume(0.44f);
+        engine.setBassVolume(0.72f);
         engine.setTrackVolume(DrumEngine.SND_CLAP, 0.58f);
         engine.setTrackVolume(DrumEngine.SND_CRASH, 0.48f);
-        engine.setTrackVolume(DrumEngine.SND_TOM_HI, 0.52f);
-        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0.52f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_HI, 0.54f);
+        engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0.54f);
         engine.setTrackVolume(DrumEngine.SND_RIM, 0.50f);
-        engine.setTrackVolume(DrumEngine.SND_SHAKER, 0.45f);
+        engine.setTrackVolume(DrumEngine.SND_SHAKER, 0.42f);
         engine.setPianoVolume(0.52f);
     }
 
