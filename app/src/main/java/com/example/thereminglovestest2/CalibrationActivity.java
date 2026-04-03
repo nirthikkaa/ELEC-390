@@ -1,6 +1,10 @@
 package com.example.thereminglovestest2;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.GestureDetector;
@@ -12,8 +16,10 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityCalibrationBinding;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -23,16 +29,31 @@ import java.util.Locale;
 public class CalibrationActivity extends AppCompatActivity {
 
     private static final long UI_POLL_MS = 150L;
+    private static final long GUIDE_COMPLETE_HIDE_MS = 1400L;
+    private static final int GUIDE_GLOW_GREEN = 0xFF39F07A;
+
+    private enum GuideStep {
+        NONE,
+        PITCH_TAB,
+        PITCH_NEUTRAL,
+        VOLUME_TAB,
+        VOLUME_NEUTRAL,
+        COMPLETE
+    }
 
     private ActivityCalibrationBinding binding;
     private final NavigationUtils.Poller uiPoller = new NavigationUtils.Poller(UI_POLL_MS, this::refreshLiveCalibration);
     private final CalibrationDraft draft = new CalibrationDraft();
+    private final Runnable hideGuideCompletionRunnable = this::hideCompletedGuideCard;
     private SettingsStore settingsRepo;
 
     private boolean pitchDirectionInverted = AppSettings.DEFAULT_PITCH_DIRECTION_INVERTED;
     private boolean volumeDirectionInverted = AppSettings.DEFAULT_VOLUME_DIRECTION_INVERTED;
     private boolean hasUnsavedChanges, pitchNeutralCapturedThisVisit, volumeNeutralCapturedThisVisit, calibrationGuideLearned;
+    private boolean showingGuideCompletion;
     private boolean showingPitchPage = true; // which calibration page is active
+    private ObjectAnimator guidePulseAnimator;
+    private MaterialButton guideTargetButton;
     private int    octaveShift       = 0;
     private String currentToneType   = AppSettings.TONE_THEREMIN;
 
@@ -60,6 +81,7 @@ public class CalibrationActivity extends AppCompatActivity {
         calibrationGuideLearned = SettingsStore.isCalibrationGuideLearned(this);
         if (wasGuideLearned && !calibrationGuideLearned) {
             resetNeutralCaptureProgress();
+            selectCalibrationPage(true);
             setHostNote("Calibration tutorial restored. Start from step 1.");
         }
         syncAllViewsFromState();
@@ -69,6 +91,9 @@ public class CalibrationActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         ThereminBackgroundAudioService.endCalibrationPreview();
+        if (binding != null) binding.cardCalibrationStatus.removeCallbacks(hideGuideCompletionRunnable);
+        showingGuideCompletion = false;
+        clearGuideGlow();
         super.onStop();
         uiPoller.stop();
     }
@@ -120,19 +145,25 @@ public class CalibrationActivity extends AppCompatActivity {
     private void selectCalibrationPage(boolean pitch) {
         showingPitchPage = pitch;
         applyCalibrationPageVisibility();
+        updateCalibrationProgress(BleSessionManager.getSnapshot());
     }
 
     private void applyCalibrationPageVisibility() {
         binding.cardPitch.setVisibility(showingPitchPage ? View.VISIBLE : View.GONE);
         binding.cardVolume.setVisibility(showingPitchPage ? View.GONE : View.VISIBLE);
 
+        // Reset tab surfaces before applying the active-page accents so guide tint never sticks around.
+        binding.tabPitch.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
+        binding.tabVolume.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
         int activeColor   = 0xFFFFFFFF;
         int inactiveColor = 0xFF888AAA;
         binding.tabPitch.setTextColor(showingPitchPage ? activeColor : inactiveColor);
         binding.tabVolume.setTextColor(showingPitchPage ? inactiveColor : activeColor);
-        binding.tabPitch.setStrokeColor(android.content.res.ColorStateList.valueOf(
+        binding.tabPitch.setStrokeWidth(dp(1));
+        binding.tabVolume.setStrokeWidth(dp(1));
+        binding.tabPitch.setStrokeColor(ColorStateList.valueOf(
                 showingPitchPage ? 0xFF6699FF : 0xFF444466));
-        binding.tabVolume.setStrokeColor(android.content.res.ColorStateList.valueOf(
+        binding.tabVolume.setStrokeColor(ColorStateList.valueOf(
                 showingPitchPage ? 0xFF444466 : 0xFF6699FF));
     }
 
@@ -360,29 +391,50 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void updateCalibrationProgress(BleSnapshot snapshot) {
+        if (showingGuideCompletion) {
+            showCalibrationCompleteState();
+            return;
+        }
         if (calibrationGuideLearned) {
+            clearGuideGlow();
             setProgressVisible(false);
             return;
         }
+        applyCalibrationCardNormalState();
+
         int progress = 0;
         String label = "Progress 0/3 • Open Play once so the BLE host becomes available.";
         boolean hostReady = snapshot != null && snapshot.hostReady;
         boolean bothConnected = hostReady && snapshot.pitchConnected && snapshot.volumeConnected;
         if (bothConnected) {
-            int steps = 1 + (pitchNeutralCapturedThisVisit ? 1 : 0) + (volumeNeutralCapturedThisVisit ? 1 : 0);
-            if (steps >= 3) {
-                calibrationGuideLearned = true;
-                SettingsStore.setCalibrationGuideLearned(this, true);
-                setProgressVisible(false);
+            GuideStep step = resolveGuideStep();
+            if (step == GuideStep.COMPLETE) {
+                beginGuideCompletion();
                 return;
             }
-            progress = steps == 1 ? 35 : 65;
-            label = steps == 1
-                    ? "Progress 1/3 • Both gloves connected. Capture pitch neutral first."
-                    : "Progress 2/3 • One neutral captured. Capture the remaining glove.";
+            if (step == GuideStep.PITCH_TAB) {
+                progress = 20;
+                label = "Step 1/3 • Tap PITCH, then tap Neutral.";
+                startGuideGlow(binding.tabPitch, GUIDE_GLOW_GREEN, false);
+            } else if (step == GuideStep.PITCH_NEUTRAL) {
+                progress = 35;
+                label = "Step 1/3 • Tap Pitch Neutral.";
+                startGuideGlow(binding.btnPitchNeutral, GUIDE_GLOW_GREEN, true);
+            } else if (step == GuideStep.VOLUME_TAB) {
+                progress = 68;
+                label = "Step 2/3 • Tap VOLUME to open the volume glove.";
+                startGuideGlow(binding.tabVolume, GUIDE_GLOW_GREEN, false);
+            } else if (step == GuideStep.VOLUME_NEUTRAL) {
+                progress = 90;
+                label = "Step 3/3 • Tap Volume Neutral.";
+                startGuideGlow(binding.btnVolumeNeutral, GUIDE_GLOW_GREEN, true);
+            }
         } else if (hostReady) {
+            clearGuideGlow();
             progress = 10;
             label = "Progress 0/3 • Connect both gloves before calibrating.";
+        } else {
+            clearGuideGlow();
         }
         setProgressVisible(true);
         binding.progressCalibration.setProgress(progress);
@@ -390,9 +442,8 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void setProgressVisible(boolean visible) {
-        int visibility = visible ? View.VISIBLE : View.GONE;
-        binding.progressCalibration.setVisibility(visibility);
-        binding.tvCalibrationProgress.setVisibility(visibility);
+        binding.cardCalibrationStatus.setAlpha(1f);
+        binding.cardCalibrationStatus.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     private void syncAllViewsFromState() {
@@ -419,7 +470,128 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void updateSummaryText() {
+        binding.tvSavedSummaryLabel.setText(hasUnsavedChanges ? "UNSAVED DRAFT" : "SAVED CALIBRATION");
         binding.tvSavedSummary.setText(draft.summaryText(hasUnsavedChanges, octaveShift));
+    }
+
+    private GuideStep resolveGuideStep() {
+        if (!pitchNeutralCapturedThisVisit) {
+            return showingPitchPage ? GuideStep.PITCH_NEUTRAL : GuideStep.PITCH_TAB;
+        }
+        if (!volumeNeutralCapturedThisVisit) {
+            return showingPitchPage ? GuideStep.VOLUME_TAB : GuideStep.VOLUME_NEUTRAL;
+        }
+        return GuideStep.COMPLETE;
+    }
+
+    private void beginGuideCompletion() {
+        if (showingGuideCompletion) return;
+        showingGuideCompletion = true;
+        calibrationGuideLearned = true;
+        SettingsStore.setCalibrationGuideLearned(this, true);
+        clearGuideGlow();
+        setHostNote("Calibration complete. Save & Play stores these values.");
+        showCalibrationCompleteState();
+        binding.cardCalibrationStatus.removeCallbacks(hideGuideCompletionRunnable);
+        binding.cardCalibrationStatus.postDelayed(hideGuideCompletionRunnable, GUIDE_COMPLETE_HIDE_MS);
+    }
+
+    private void hideCompletedGuideCard() {
+        showingGuideCompletion = false;
+        setProgressVisible(false);
+        applyCalibrationCardNormalState();
+    }
+
+    private void applyCalibrationCardNormalState() {
+        binding.tvCalibrationProgress.setTextColor(ContextCompat.getColor(this, R.color.app_on_surface));
+        binding.tvCalibrationProgress.setTextSize(12f);
+        binding.tvCalibrationProgress.setGravity(Gravity.START);
+        binding.progressCalibration.setVisibility(View.VISIBLE);
+        binding.tvSavedSummaryLabel.setVisibility(View.VISIBLE);
+        binding.tvSavedSummary.setVisibility(View.VISIBLE);
+    }
+
+    private void showCalibrationCompleteState() {
+        setProgressVisible(true);
+        binding.tvCalibrationProgress.setText("Calibration complete");
+        binding.tvCalibrationProgress.setTextColor(ContextCompat.getColor(this, R.color.app_secondary));
+        binding.tvCalibrationProgress.setTextSize(22f);
+        binding.tvCalibrationProgress.setGravity(Gravity.CENTER_HORIZONTAL);
+        binding.progressCalibration.setVisibility(View.GONE);
+        binding.tvSavedSummaryLabel.setVisibility(View.GONE);
+        binding.tvSavedSummary.setVisibility(View.GONE);
+    }
+
+    private void startGuideGlow(MaterialButton button, int glowColor, boolean filledButton) {
+        if (guideTargetButton == button && guidePulseAnimator != null) return;
+
+        clearGuideGlow();
+        guideTargetButton = button;
+
+        // Use a stronger color/tint pulse instead of scaling so the guide stays visible without clipping.
+        button.setStrokeWidth(dp(3));
+        button.setStrokeColor(ColorStateList.valueOf(glowColor));
+
+        if (filledButton) {
+            int baseColor = ContextCompat.getColor(this, R.color.app_primary);
+            button.setBackgroundTintList(ColorStateList.valueOf(blendColor(baseColor, glowColor, 0.45f)));
+            button.setTextColor(ContextCompat.getColor(this, R.color.app_on_primary));
+        } else {
+            button.setBackgroundTintList(ColorStateList.valueOf(withAlpha(glowColor, 46)));
+            button.setTextColor(glowColor);
+        }
+
+        guidePulseAnimator = ObjectAnimator.ofFloat(button, View.ALPHA, 1f, 0.42f, 1f);
+        guidePulseAnimator.setDuration(900L);
+        guidePulseAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        guidePulseAnimator.setRepeatMode(ValueAnimator.RESTART);
+        guidePulseAnimator.start();
+    }
+
+    private void clearGuideGlow() {
+        if (guidePulseAnimator != null) {
+            guidePulseAnimator.cancel();
+            guidePulseAnimator = null;
+        }
+        if (guideTargetButton != null) {
+            guideTargetButton.setScaleX(1f);
+            guideTargetButton.setScaleY(1f);
+            guideTargetButton.setAlpha(1f);
+            guideTargetButton = null;
+        }
+        if (binding == null) return;
+        resetNeutralButtonStyle(binding.btnPitchNeutral);
+        resetNeutralButtonStyle(binding.btnVolumeNeutral);
+        resetGuideTabStyle(binding.tabPitch);
+        resetGuideTabStyle(binding.tabVolume);
+        applyCalibrationPageVisibility();
+    }
+
+    private void resetNeutralButtonStyle(MaterialButton button) {
+        button.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.app_primary)));
+        button.setTextColor(ContextCompat.getColor(this, R.color.app_on_primary));
+        button.setStrokeWidth(0);
+        button.setStrokeColor(ColorStateList.valueOf(Color.TRANSPARENT));
+    }
+
+    private void resetGuideTabStyle(MaterialButton button) {
+        // Restore the outlined tabs to their normal transparent fill before page-state colors are re-applied.
+        button.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
+        button.setStrokeWidth(dp(1));
+        button.setStrokeColor(ColorStateList.valueOf(Color.TRANSPARENT));
+    }
+
+    private int blendColor(int from, int to, float amount) {
+        float inverse = 1f - amount;
+        int alpha = Math.round(Color.alpha(from) * inverse + Color.alpha(to) * amount);
+        int red = Math.round(Color.red(from) * inverse + Color.red(to) * amount);
+        int green = Math.round(Color.green(from) * inverse + Color.green(to) * amount);
+        int blue = Math.round(Color.blue(from) * inverse + Color.blue(to) * amount);
+        return Color.argb(alpha, red, green, blue);
+    }
+
+    private int withAlpha(int color, int alpha) {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
     }
 
     private void handleNeutralCapture(boolean isPitch) {
@@ -439,8 +611,8 @@ public class CalibrationActivity extends AppCompatActivity {
         if (isPitch) pitchNeutralCapturedThisVisit = true;
         else volumeNeutralCapturedThisVisit = true;
         BleSessionManager.requestCaptureNeutral(isPitch);
-        setHostNote(isPitch ? "Pitch neutral captured. Now capture the volume glove."
-                : "Volume neutral captured. If both steps are done, SAVE & PLAY will finish calibration.");
+        setHostNote(isPitch ? "Pitch neutral captured. Open Volume next."
+                : "Volume neutral captured. Calibration is complete.");
         updateCalibrationProgress(snapshot);
     }
 
@@ -449,8 +621,11 @@ public class CalibrationActivity extends AppCompatActivity {
     }
 
     private void resetNeutralCaptureProgress() {
+        if (binding != null) binding.cardCalibrationStatus.removeCallbacks(hideGuideCompletionRunnable);
+        showingGuideCompletion = false;
         pitchNeutralCapturedThisVisit = false;
         volumeNeutralCapturedThisVisit = false;
+        clearGuideGlow();
     }
 
     private void setHostNote(String text) {

@@ -36,11 +36,18 @@ public class HomeActivity extends AppCompatActivity {
     private boolean bluetoothPromptShownThisVisit;
     private boolean autoConnectRequestedThisVisit;
     private boolean autoNavigatedToPlayThisVisit;
+    private boolean automaticPromptArmed;
     private int consecutiveFullyConnectedPolls;
+    private final Runnable automaticSetupPromptRunnable = () -> {
+        automaticPromptArmed = true;
+        kickAutomaticSetupFlow();
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Warm Play dependencies while the user is still on Setup.
+        AppLaunchWarmup.begin(getApplicationContext());
         BleSessionManager.initialize(getApplicationContext());
         binding = ActivityHomeBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -63,13 +70,23 @@ public class HomeActivity extends AppCompatActivity {
         permissionPromptShownThisVisit = false;
         bluetoothPromptShownThisVisit = false;
         autoConnectRequestedThisVisit = false;
+        automaticPromptArmed = false;
         uiPoller.start();
-        kickAutomaticSetupFlow();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Wait until Setup is visibly on screen before launching the system BLE dialogs.
+        binding.getRoot().removeCallbacks(automaticSetupPromptRunnable);
+        binding.getRoot().postDelayed(automaticSetupPromptRunnable, 32L);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        automaticPromptArmed = false;
+        binding.getRoot().removeCallbacks(automaticSetupPromptRunnable);
         uiPoller.stop();
     }
 
@@ -131,14 +148,10 @@ public class HomeActivity extends AppCompatActivity {
         BleSnapshot snapshot = BleSessionManager.getSnapshot();
         renderPitchAndVolume(snapshot);
 
-        if (snapshot == null || !snapshot.hostReady) {
-            setWaitingState("Starting connection", "Getting Bluetooth ready...", "Please Wait", false, null, false);
-            return;
-        }
-
         boolean permissionsOk = BleSessionManager.hasRequiredPermissions(this);
-        boolean bluetoothOn = snapshot.isBluetoothOn() && BleSessionManager.isBluetoothEnabled(this);
+        boolean bluetoothOn = BleSessionManager.isBluetoothEnabled(this);
 
+        // Surface permission and Bluetooth blockers immediately instead of waiting for the BLE host snapshot.
         if (!permissionsOk) {
             setWaitingState("Bluetooth permissions needed",
                     "Allow Bluetooth permissions so the app can find and connect your gloves.",
@@ -150,7 +163,11 @@ public class HomeActivity extends AppCompatActivity {
                     "Turn Bluetooth on and the app will start looking for your gloves automatically.",
                     "Turn On Bluetooth", true, null, false);
             // Show the system BT enable dialog automatically if we haven't yet this visit.
-            if (!bluetoothPromptShownThisVisit) kickAutomaticSetupFlow();
+            if (automaticPromptArmed && !bluetoothPromptShownThisVisit) kickAutomaticSetupFlow();
+            return;
+        }
+        if (snapshot == null || !snapshot.hostReady) {
+            setWaitingState("Starting connection", "Getting Bluetooth ready...", "Please Wait", false, null, false);
             return;
         }
         // BT is on — reset the flag so the popup can appear again if BT is turned off later.

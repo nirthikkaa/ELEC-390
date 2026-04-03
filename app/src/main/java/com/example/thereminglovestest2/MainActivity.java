@@ -82,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int LOG_MAX_LINES = 200;
     private static final long LOG_FLUSH_MIN_INTERVAL_MS = 600;
     private static final int REQUEST_RECORD_AUDIO = 4109;
+    private static final int REQUEST_BLE_PERMISSIONS = 4110;
+    private static final int REQUEST_ENABLE_BLUETOOTH = 4111;
     private static final String KEY_BEAT_MASTER_BPM = "beat_master_bpm";
     private static final String KEY_KEYBOARD_SYNTH_MODE = "keyboard_synth_mode";
     private static final String KEY_PERFORMANCE_MODE_ACTIVE = "performance_mode_active";
@@ -111,6 +113,7 @@ public class MainActivity extends AppCompatActivity {
     private SettingsStore settingsRepo;
     private RecordingManager recordingManager;
     private RecordingRepository recordingRepository;
+    private volatile AppSettings preloadedPlaySettings;
     private final Handler recordingTimerHandler = new Handler(Looper.getMainLooper());
     private final Handler quickStartHandler = new Handler(Looper.getMainLooper());
     private final ArgbEvaluator colorEvaluator = new ArgbEvaluator();
@@ -138,7 +141,18 @@ public class MainActivity extends AppCompatActivity {
     private boolean quickStartAutoConnectRequested;
     private boolean quickStartFallbackArmed;
     private boolean waitingForServiceToStop;
+    // Tracks whether a service stop should hand audible playback back to the local engine.
+    private boolean resumeForegroundAudioAfterServiceStop;
     private boolean performanceModeActive = false;
+    private boolean bluetoothPromptShownThisVisit;
+    private boolean blePermissionPromptShownThisVisit;
+    private boolean beatMakerPreviewBuildScheduled;
+    private boolean automaticBlePromptArmed;
+    private final Runnable automaticBlePromptRunnable = () -> {
+        automaticBlePromptArmed = true;
+        maybePromptForBleReady();
+        maybeHandleQuickStartLaunch();
+    };
 
     // Beat Maker drag-to-open state
     private float          bmDragStartX      = Float.NaN;
@@ -156,6 +170,9 @@ public class MainActivity extends AppCompatActivity {
     private AudioTrack               bmAudioTrack;
     private Thread                   bmAudioThread;
     private volatile boolean         bmAudioRunning = false;
+    private final Object             bmAudioOutputLock = new Object();
+    private volatile boolean         bmAudioInitInFlight = false;
+    private volatile boolean         bmAudioOutputWanted = false;
     private boolean                  bmIsPlaying    = false;
     private boolean                  previewPausedByTransport = false;
     private int                      bmCurrentBpm   = 120;
@@ -201,22 +218,31 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Claim any app-launch warmup results before falling back to cold construction.
+        AppLaunchWarmup.begin(getApplicationContext());
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         binding.topNavBar.setBackButtonVisible(false);
         binding.topNavBar.setOverflowButtonVisible(false);
         binding.topNavBar.setTitleText("Play");
+        // Keep Stage View entry in the top-left corner so the live metrics card can stay compact.
+        binding.topNavBar.setLeftActionText("Stage View", v -> togglePerformanceMode());
 
         BleSessionManager.initialize(getApplicationContext());
         audioEngine = new ThereminAudioEngine();
-        drumEngine = new DrumEngine(this);
+        settingsRepo = AppLaunchWarmup.takeSettingsStore();
+        preloadedPlaySettings = AppLaunchWarmup.takeSettingsSnapshot();
+        recordingRepository = AppLaunchWarmup.takeRecordingRepository();
+        drumEngine = AppLaunchWarmup.takeDrumEngine();
+        if (drumEngine == null) {
+            // Fall back safely when Play opens before the background warmup finishes.
+            drumEngine = new DrumEngine(this);
+        }
         drumEngine.start();
         audioEngine.setDrumEngine(drumEngine);
         recordingManager = new RecordingManager(this);
-        recordingRepository = new RecordingRepository(this);
         recordingManager.setAudioEngine(audioEngine);
         setupRecordingCallbacks();
-        ensureRecordAudioPermission();
 
         beatMakerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
@@ -252,6 +278,8 @@ public class MainActivity extends AppCompatActivity {
         appendLogSafe("BG audio: " + onOff(bgAudioEnabled));
         updateAudioStatusText();
         updateBleButtonText();
+        // Warm the non-critical pieces after the first frame so Play becomes interactive sooner.
+        scheduleStartupWarmups();
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -269,6 +297,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        // Reset arrival prompts each time this screen becomes foreground-visible again.
+        bluetoothPromptShownThisVisit = false;
+        blePermissionPromptShownThisVisit = false;
+        automaticBlePromptArmed = false;
         uiTicker.start();
     }
 
@@ -277,13 +309,11 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // Reset any drag translation left over if the user cancelled a swipe or returned from BeatMaker.
         binding.rootScroll.setTranslationX(0);
-        // Restart BeatMaker audio output — needed for the inline panel and the
-        // play-screen piano keyboard preview path which uses bmPreviewEngine.
-        if (bmAudioTrack == null) {
-            bmStartAudioOutput();
-        }
         syncPreviewTransportPauseState();
         onVisible(); // single call here; onStart no longer duplicates it
+        // Let Play render first, then show any system BLE prompt on top of the visible screen.
+        binding.getRoot().removeCallbacks(automaticBlePromptRunnable);
+        binding.getRoot().postDelayed(automaticBlePromptRunnable, 32L);
         android.content.SharedPreferences prefs = getSharedPreferences("theremin_prefs", MODE_PRIVATE);
         performanceModeActive = loadPerformanceModePref();
         applyPerformanceMode(performanceModeActive);
@@ -503,8 +533,8 @@ public class MainActivity extends AppCompatActivity {
                     binding.rootScroll.setTranslationX(0);
                     bmPanelVisible = true;
                     dismissGridHint();
-                    // Start audio output the first time the panel appears
-                    if (bmAudioTrack == null) bmStartAudioOutput();
+                    // Keep preview output warm without blocking the swipe animation's final frame.
+                    ensureBmAudioOutputAsync();
                     // Reload current slot's pattern in case prefs changed
                     bmLoadPatternFromPrefs();
                     if (bmPreviewEngine != null) {
@@ -567,6 +597,8 @@ public class MainActivity extends AppCompatActivity {
         super.onPause();
         cancelQuickStartConnectTimeout();
         stopGridHintPulse();
+        automaticBlePromptArmed = false;
+        binding.getRoot().removeCallbacks(automaticBlePromptRunnable);
         playUiVisible = false;
         if (!bgAudioEnabled && !isChangingConfigurations() && isAudioRunning()) {
             audioEngine.stop();
@@ -610,7 +642,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void onVisible() {
         playUiVisible = true;
-        maybeHandleQuickStartLaunch();
+        // Reload the latest toggle value before deciding whether service audio should be reclaimed.
+        loadBgAudioPref();
         requestAudioBackFromBackgroundService();
         refreshPlayUiState();
         maybeStartGridHintPulse();
@@ -625,9 +658,34 @@ public class MainActivity extends AppCompatActivity {
         updateBleButtonText();
     }
 
+    private void scheduleStartupWarmups() {
+        if (beatMakerPreviewBuildScheduled) return;
+        beatMakerPreviewBuildScheduled = true;
+
+        // Keep the global launch warmup active for cases where Play is opened from a non-launch path.
+        AppLaunchWarmup.begin(getApplicationContext());
+        // Defer the hidden Beat Maker overlay a little longer so Play itself reaches idle first.
+        binding.getRoot().postDelayed(this::buildBeatMakerPreview, 220L);
+    }
+
     private SettingsStore store() {
-        if (settingsRepo == null) settingsRepo = new SettingsStore(this);
+        if (settingsRepo == null) settingsRepo = new SettingsStore(getApplicationContext());
         return settingsRepo;
+    }
+
+    private synchronized RecordingRepository recordingRepository() {
+        if (recordingRepository == null) recordingRepository = new RecordingRepository(getApplicationContext());
+        return recordingRepository;
+    }
+
+    private AppSettings loadSettingsForUi() {
+        // Consume the background-warmed snapshot first, then fall back to the live store.
+        AppSettings warmed = preloadedPlaySettings;
+        if (warmed != null) {
+            preloadedPlaySettings = null;
+            return warmed;
+        }
+        return store().load();
     }
 
     private boolean isAudioRunning() {
@@ -647,6 +705,22 @@ public class MainActivity extends AppCompatActivity {
         bgAudioEnabled = SettingsStore.isBgAudioEnabled(this);
     }
 
+    private void maybePromptForBleReady() {
+        if (!BleSessionManager.hasRequiredPermissions(this)) {
+            if (!blePermissionPromptShownThisVisit) {
+                blePermissionPromptShownThisVisit = true;
+                // Ask for BLE permissions before any quick-start reconnect work begins.
+                BleSessionManager.requestRequiredPermissions(this, REQUEST_BLE_PERMISSIONS);
+            }
+            return;
+        }
+        if (!BleSessionManager.isBluetoothEnabled(this) && !bluetoothPromptShownThisVisit) {
+            bluetoothPromptShownThisVisit = true;
+            // Show the system Bluetooth enable dialog as soon as Play becomes visible.
+            BleSessionManager.requestEnableBluetoothPrompt(this, REQUEST_ENABLE_BLUETOOTH);
+        }
+    }
+
     private void saveBgAudioPref() {
         SettingsStore.setBgAudioEnabled(this, bgAudioEnabled);
     }
@@ -660,6 +734,8 @@ public class MainActivity extends AppCompatActivity {
         if (!isAudioRunning()) return;
         try {
             pushAudioTargetsToEngine();
+            // Clear any stale paused state before handing audible playback to the service.
+            ThereminBackgroundAudioService.setThereminMuted(false);
             ThereminBackgroundAudioService.startIfNeeded(this);
             ThereminBackgroundAudioService.setRecordingManager(recordingManager);
             audioEngine.stop();
@@ -673,8 +749,11 @@ public class MainActivity extends AppCompatActivity {
     private void requestAudioBackFromBackgroundService() {
         if (bgAudioEnabled || !ThereminBackgroundAudioService.isServiceActive()) {
             waitingForServiceToStop = false;
+            resumeForegroundAudioAfterServiceStop = false;
             return;
         }
+        // Only resume local audio if the background service was actually audible before takeover.
+        resumeForegroundAudioAfterServiceStop = !ThereminBackgroundAudioService.isThereminMuted();
         waitingForServiceToStop = true;
         ThereminBackgroundAudioService.stopIfRunning(this);
         appendLogSafe("Play visible -> reclaiming audio from background service");
@@ -683,11 +762,20 @@ public class MainActivity extends AppCompatActivity {
     private void finishAudioTakebackIfReady() {
         if (!waitingForServiceToStop || ThereminBackgroundAudioService.isServiceActive()) return;
         waitingForServiceToStop = false;
-        if (isAudioRunning()) return;
+        if (isAudioRunning()) {
+            resumeForegroundAudioAfterServiceStop = false;
+            return;
+        }
         ThereminBackgroundAudioService.setRecordingManager(null);
         recordingManager.setAudioEngine(audioEngine);
+        if (!resumeForegroundAudioAfterServiceStop) {
+            resumeForegroundAudioAfterServiceStop = false;
+            appendLogSafe("Play visible -> service stopped while audio stayed paused");
+            return;
+        }
         pushAudioTargetsToEngine();
         audioEngine.start();
+        resumeForegroundAudioAfterServiceStop = false;
         appendLogSafe("Play visible -> audio returned from background service");
     }
 
@@ -696,16 +784,10 @@ public class MainActivity extends AppCompatActivity {
 
         binding.btnAudioStart.setOnClickListener(v -> toggleAudio());
         binding.btnRecord.setOnClickListener(v -> onRecordButtonPressed());
-        binding.btnPerformanceMode.setOnClickListener(v -> togglePerformanceMode());
         binding.btnExitStage.setOnClickListener(v -> togglePerformanceMode());
 
         binding.toneKnob.setToneSequence(TONE_CYCLE);
         binding.toneKnob.setOnToneStepListener(this::cycleTone);
-
-        // Swipe left on the visualizer → drag-synchronized open of Beat Maker.
-        // Touch handling is in dispatchTouchEvent() to keep tracking even when
-        // the finger moves off the visualizer card during the drag.
-        buildBeatMakerPreview();
 
         wireSpring3Controls();
     }
@@ -1461,7 +1543,8 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             appendLogSafe("Recording export failed: " + e.getClass().getSimpleName());
         }
-        recordingRepository.saveRecording(filePath, name, durationMs, quality, exportedPath);
+        // Create the recordings database lazily so opening Play is not blocked by storage setup.
+        recordingRepository().saveRecording(filePath, name, durationMs, quality, exportedPath);
         toastSafe(exportedPath != null
                 ? "Recording saved to Music/" + RecordingExportManager.EXPORT_FOLDER
                 : getString(R.string.recording_saved));
@@ -1479,19 +1562,38 @@ public class MainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_RECORD_AUDIO) return;
+        if (requestCode == REQUEST_RECORD_AUDIO) {
+            boolean granted = grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (!granted) {
+                toastSafe(getString(R.string.recording_unavailable));
+                appendLogSafe("RECORD_AUDIO denied");
+            }
+            return;
+        }
+        if (requestCode == REQUEST_BLE_PERMISSIONS && BleSessionManager.wereAllPermissionsGranted(grantResults)) {
+            // Chain directly into the Bluetooth prompt once BLE permissions are granted.
+            bluetoothPromptShownThisVisit = false;
+            maybePromptForBleReady();
+            refreshPlayUiState();
+        }
+    }
 
-        boolean granted = grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if (!granted) {
-            toastSafe(getString(R.string.recording_unavailable));
-            appendLogSafe("RECORD_AUDIO denied");
+    @SuppressWarnings("deprecation")
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_ENABLE_BLUETOOTH) {
+            // Refresh immediately so the Play screen reflects the new adapter state without waiting.
+            refreshPlayUiState();
         }
     }
 
     private void toggleAudio() {
         BleSnapshot snapshot = getSnapshot();
         if (snapshot != null && !snapshot.isBluetoothOn()) {
+            // Re-open the system Bluetooth dialog instead of leaving the user on a dead-end toast.
+            maybePromptForBleReady();
             toastSafe("Bluetooth is OFF");
             return;
         }
@@ -1518,6 +1620,8 @@ public class MainActivity extends AppCompatActivity {
             audioEngine.stop();
         } else if (ThereminBackgroundAudioService.isServiceActive()) {
             setPreviewTransportPaused(true);
+            // A manual tap on Play while the service is still active means "stop", not "resume locally".
+            resumeForegroundAudioAfterServiceStop = false;
             waitingForServiceToStop = true;
             ThereminBackgroundAudioService.stopIfRunning(this);
             appendLogSafe("Play tapped while background service was still stopping");
@@ -1537,6 +1641,8 @@ public class MainActivity extends AppCompatActivity {
         if (bgAudioEnabled) {
             if (isAudioRunning()) {
                 persistSettings();
+                // Re-enabling background ownership should bring the service back as an audible owner.
+                ThereminBackgroundAudioService.setThereminMuted(false);
                 ThereminBackgroundAudioService.startIfNeeded(this);
                 audioEngine.stop();
                 appendLogSafe("Play audio moved to background owner");
@@ -1577,6 +1683,8 @@ public class MainActivity extends AppCompatActivity {
     private void onBleTogglePressed() {
         BleSnapshot snapshot = getSnapshot();
         if (snapshot == null || !snapshot.isBluetoothOn()) {
+            // Keep the connect CTA actionable by surfacing the Bluetooth prompt immediately.
+            maybePromptForBleReady();
             toastSafe("Bluetooth is OFF");
             return;
         }
@@ -1611,7 +1719,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void reloadMappingSettingsFromRepository() {
-        AppSettings settings = store().load();
+        // Reuse the startup-warmed settings snapshot once so Play avoids an extra SQLite read on first show.
+        AppSettings settings = loadSettingsForUi();
         play.load(settings);
         float sensitivityResponseCurve = AppSettings.clampSensitivityResponseCurve(settings.sensitivityResponseCurve);
         play.setSensitivityResponseCurve(sensitivityResponseCurve);
@@ -1676,6 +1785,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void maybeHandleQuickStartLaunch() {
         if (!pendingQuickStartLaunch) return;
+        // Wait until BLE prerequisites are resolved so quick-start does not race the system prompt.
+        if (!automaticBlePromptArmed) return;
+        if (!BleSessionManager.hasRequiredPermissions(this) || !BleSessionManager.isBluetoothEnabled(this)) return;
         pendingQuickStartLaunch = false;
 
         BleSnapshot snapshot = getSnapshot();
@@ -1710,12 +1822,21 @@ public class MainActivity extends AppCompatActivity {
         }
         if (gridHintAnimator != null && gridHintAnimator.isStarted()) return;
 
+        // Consume the intro hint immediately so it stays a one-time pulse on the very first Play visit.
+        prefs.edit().putBoolean(LaunchActivity.KEY_GRID_HINT_PENDING, false).apply();
         gridHintAnimator = ValueAnimator.ofFloat(0f, 1f);
-        gridHintAnimator.setDuration(GRID_HINT_PULSE_MS);
+        gridHintAnimator.setDuration(Math.max(520L, GRID_HINT_PULSE_MS / 2));
         gridHintAnimator.setRepeatMode(ValueAnimator.REVERSE);
-        gridHintAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        gridHintAnimator.setRepeatCount(1);
         gridHintAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
         gridHintAnimator.addUpdateListener(animation -> applyGridHintFrame((float) animation.getAnimatedValue()));
+        gridHintAnimator.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(android.animation.Animator animation) {
+                if (gridHintAnimator == animation) gridHintAnimator = null;
+                resetGridHintButton();
+            }
+        });
         gridHintAnimator.start();
     }
 
@@ -1754,9 +1875,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void resetGridHintButton() {
         if (binding == null) return;
-        binding.btnBeatMaker.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
+        binding.btnBeatMaker.setBackgroundTintList(ColorStateList.valueOf(withAlpha(COLOR_GRID_HINT, 18)));
         binding.btnBeatMaker.setStrokeColor(ColorStateList.valueOf(COLOR_GRID_HINT));
-        binding.btnBeatMaker.setStrokeWidth(0);
+        binding.btnBeatMaker.setStrokeWidth(Math.max(1, dp(1)));
         binding.btnBeatMaker.setTextColor(COLOR_GRID_HINT);
         binding.btnBeatMaker.setAlpha(1f);
         binding.btnBeatMaker.setScaleX(1f);
@@ -1826,6 +1947,8 @@ public class MainActivity extends AppCompatActivity {
         if (bgAudioEnabled) {
             if (!ThereminBackgroundAudioService.isServiceActive()) {
                 persistSettings();
+                // Auto-start should resume audible playback, not inherit a previous paused service state.
+                ThereminBackgroundAudioService.setThereminMuted(false);
                 ThereminBackgroundAudioService.startIfNeeded(this);
                 appendLogSafe("Calibration returned to Play -> background audio kept alive");
             }
@@ -1968,6 +2091,8 @@ public class MainActivity extends AppCompatActivity {
 
     /** Creates the Beat Maker drag-preview overlay and attaches it as a full-screen content overlay. */
     private void buildBeatMakerPreview() {
+        // The overlay is swipe-only, so build it once after Play has already drawn its first frame.
+        if (bmPreview != null) return;
         bmPreview = new FrameLayout(this);
         bmPreview.setVisibility(android.view.View.GONE);
 
@@ -2004,17 +2129,49 @@ public class MainActivity extends AppCompatActivity {
                 bmApplyBeatMakerMode();
                 bmPushPatternToEngine(); // sets an (initially empty) custom pattern
                 engine.setPaused(previewPausedByTransport);
-                // The sequencer starts idle; transport start and melody-root selection enable their
-                // own playback paths later. Start the AudioTrack eagerly so play-screen keyboard
-                // preview and one-shot audits have an output route immediately.
-                if (bmAudioTrack == null) bmStartAudioOutput();
             });
         }, "BmEngineInit").start();
     }
 
     // ── Inline Beat Maker panel ───────────────────────────────────────────────
 
-    private void bmStartAudioOutput() {
+    private void ensureBmAudioOutputAsync() {
+        bmAudioOutputWanted = true;
+        synchronized (bmAudioOutputLock) {
+            if (bmAudioTrack != null || bmAudioInitInFlight) return;
+            bmAudioInitInFlight = true;
+        }
+
+        // Build the preview AudioTrack off the UI thread so Play launch and panel opens stay smooth.
+        new Thread(() -> {
+            AudioTrack preparedTrack = null;
+            try {
+                preparedTrack = buildBmAudioTrack();
+                preparedTrack.play();
+            } catch (Exception ignored) {
+                if (preparedTrack != null) {
+                    try { preparedTrack.release(); } catch (Exception alsoIgnored) {}
+                }
+            }
+
+            synchronized (bmAudioOutputLock) {
+                bmAudioInitInFlight = false;
+                if (preparedTrack == null) return;
+                if (!bmAudioOutputWanted || isFinishing() || isDestroyed()) {
+                    try { preparedTrack.release(); } catch (Exception ignored) {}
+                    return;
+                }
+
+                bmAudioTrack = preparedTrack;
+                bmAudioRunning = true;
+                final AudioTrack startedTrack = preparedTrack;
+                bmAudioThread = new Thread(() -> runBmAudioOutput(startedTrack), "BmAudioOut");
+                bmAudioThread.start();
+            }
+        }, "BmAudioWarmup").start();
+    }
+
+    private AudioTrack buildBmAudioTrack() {
         int minBuf = AudioTrack.getMinBufferSize(BM_SAMPLE_RATE,
                 AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT);
         // Buffer size is expressed in bytes: 16-bit PCM * 2 stereo channels.
@@ -2031,43 +2188,41 @@ public class MainActivity extends AppCompatActivity {
                 .setTransferMode(AudioTrack.MODE_STREAM);
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
             builder.setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY);
-        bmAudioTrack = builder.build();
-        bmAudioTrack.play();
-        bmAudioRunning = true;
-        bmAudioThread = new Thread(() -> {
-            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
-            // The Beat Maker preview engine still renders a mono mix. Duplicate each frame into
-            // left/right here so the panel matches the app-wide stereo output path.
-            short[] monoBuf = new short[BM_BUFFER_FRAMES];
-            short[] stereoBuf = new short[BM_BUFFER_FRAMES * 2];
-            AudioTrack track = bmAudioTrack;
-            float hpIn = 0f, hpOut = 0f;
-            while (bmAudioRunning && track != null) {
-                Arrays.fill(monoBuf, (short) 0);
-                DrumEngine e = bmPreviewEngine;
-                if (e != null) e.mixInto(monoBuf, BM_BUFFER_FRAMES);
-                for (int i = 0; i < BM_BUFFER_FRAMES; i++) {
-                    float x = monoBuf[i] / 32768f;
-                    float hp = x - hpIn + 0.995f * hpOut;
-                    hpIn = x; hpOut = hp;
-                    float m = bmSoftLimit(hp * 1.05f);
-                    short sample = (short)(m * Short.MAX_VALUE);
-                    monoBuf[i] = sample;
-                    int stereoIndex = i * 2;
-                    stereoBuf[stereoIndex] = sample;
-                    stereoBuf[stereoIndex + 1] = sample;
-                }
-                try {
-                    track.write(stereoBuf, 0, stereoBuf.length);
-                } catch (Exception ignored) {
-                    break;
-                }
+        return builder.build();
+    }
+
+    private void runBmAudioOutput(AudioTrack track) {
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
+        // The Beat Maker preview engine still renders a mono mix. Duplicate each frame into
+        // left/right here so the panel matches the app-wide stereo output path.
+        short[] monoBuf = new short[BM_BUFFER_FRAMES];
+        short[] stereoBuf = new short[BM_BUFFER_FRAMES * 2];
+        float hpIn = 0f, hpOut = 0f;
+        while (bmAudioRunning && track != null) {
+            Arrays.fill(monoBuf, (short) 0);
+            DrumEngine e = bmPreviewEngine;
+            if (e != null) e.mixInto(monoBuf, BM_BUFFER_FRAMES);
+            for (int i = 0; i < BM_BUFFER_FRAMES; i++) {
+                float x = monoBuf[i] / 32768f;
+                float hp = x - hpIn + 0.995f * hpOut;
+                hpIn = x; hpOut = hp;
+                float m = bmSoftLimit(hp * 1.05f);
+                short sample = (short)(m * Short.MAX_VALUE);
+                monoBuf[i] = sample;
+                int stereoIndex = i * 2;
+                stereoBuf[stereoIndex] = sample;
+                stereoBuf[stereoIndex + 1] = sample;
             }
-        }, "BmAudioOut");
-        bmAudioThread.start();
+            try {
+                track.write(stereoBuf, 0, stereoBuf.length);
+            } catch (Exception ignored) {
+                break;
+            }
+        }
     }
 
     private void bmStopAudioOutput() {
+        bmAudioOutputWanted = false;
         bmAudioRunning = false;
         AudioTrack track = bmAudioTrack;
         if (track != null) {

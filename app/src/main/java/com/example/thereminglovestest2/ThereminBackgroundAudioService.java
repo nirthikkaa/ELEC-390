@@ -68,6 +68,13 @@ public class ThereminBackgroundAudioService extends Service {
     }
 
     public static void stopIfRunning(Context context) {
+        ThereminBackgroundAudioService svc = activeInstance;
+        // Force silence first so "off" actions do not wait on async service teardown.
+        thereminMuted = true;
+        if (svc != null) {
+            if (svc.audioEngine != null) svc.audioEngine.setTargets(440f, 0f);
+            if (svc.drumEngine != null) svc.drumEngine.setPaused(true);
+        }
         if (context != null) context.stopService(new Intent(context, ThereminBackgroundAudioService.class));
     }
 

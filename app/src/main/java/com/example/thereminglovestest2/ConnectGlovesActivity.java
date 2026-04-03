@@ -24,6 +24,8 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private static final long UI_POLL_MS = 150L;
     private static final int REQ_PERMS = 4101;
     private static final int REQ_ENABLE_BT = 4102;
+    static final String EXTRA_SUPPRESS_AUTO_PLAY_REDIRECT =
+            "com.example.thereminglovestest2.extra.SUPPRESS_AUTO_PLAY_REDIRECT";
 
     private ActivityConnectGlovesBinding binding;
     private final NavigationUtils.Poller uiPoller = new NavigationUtils.Poller(UI_POLL_MS, this::refreshUi);
@@ -38,6 +40,8 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private int     consecutiveFullyConnectedPolls = 0;
     private boolean autoNavigatedToPlayThisVisit   = false;
     private boolean autoConnectRequestedThisVisit  = false;
+    private boolean suppressAutoPlayRedirectThisVisit = false;
+    private final Runnable automaticBlePromptRunnable = () -> withBleReady(() -> {});
     // Set to true after the first startup auto-navigate to Play.
     // Prevents re-firing when the user navigates back to Connect from the Play screen.
     private static boolean startupAutoNavUsed = false;
@@ -45,7 +49,10 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Warm Play dependencies while the user is on the manual connection screen.
+        AppLaunchWarmup.begin(getApplicationContext());
         BleSessionManager.initialize(getApplicationContext());
+        consumeLaunchIntent(getIntent());
         binding = ActivityConnectGlovesBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
@@ -74,13 +81,30 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         autoConnectRequestedThisVisit = false;
         seedPrevConnectionState();
         uiPoller.start();
-        withBleReady(() -> {}); // auto-trigger BT enable / permission popup on arrival
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Show system BLE dialogs only after the Connect screen is already visible.
+        binding.getRoot().removeCallbacks(automaticBlePromptRunnable);
+        binding.getRoot().postDelayed(automaticBlePromptRunnable, 32L);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
+        binding.getRoot().removeCallbacks(automaticBlePromptRunnable);
         uiPoller.stop();
+        // Manual "stay on Connect" applies only to the current visit, not future auto-open flows.
+        suppressAutoPlayRedirectThisVisit = false;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        consumeLaunchIntent(intent);
     }
 
     /** Initialise prevXxx fields from the live snapshot so the first poll never fires spurious toasts. */
@@ -120,13 +144,28 @@ public class ConnectGlovesActivity extends AppCompatActivity {
 
     private void refreshUi() {
         BleSnapshot snapshot = BleSessionManager.getSnapshot();
+        boolean permissionsOk = BleSessionManager.hasRequiredPermissions(this);
+        boolean bluetoothOn = BleSessionManager.isBluetoothEnabled(this);
+
+        // Show permission/Bluetooth blockers immediately, even if the BLE host snapshot has not caught up yet.
+        if (!permissionsOk || !bluetoothOn) {
+            if (snapshot == null || !snapshot.hostReady) {
+                snapshot = BleSessionManager.getSnapshot();
+            }
+        }
         if (snapshot == null || !snapshot.hostReady) {
-            showPreparingState();
+            if (!permissionsOk) {
+                showPreparingState();
+                setReady("Bluetooth permissions needed",
+                        "Allow Bluetooth permissions so the app can scan and connect your gloves.");
+            } else if (!bluetoothOn) {
+                showPreparingState();
+                setReady("Bluetooth is off", "Turn Bluetooth on, then connect whichever glove you want.");
+            } else {
+                showPreparingState();
+            }
             return;
         }
-
-        boolean permissionsOk = BleSessionManager.hasRequiredPermissions(this);
-        boolean bluetoothOn = snapshot.isBluetoothOn() && BleSessionManager.isBluetoothEnabled(this);
 
         binding.tvBigStatus.setText(BleSnapshot.stripStatusPrefix(snapshot.statusText));
         binding.tvPairSummary.setText(snapshot.pairSummary());
@@ -150,10 +189,18 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         // Auto-navigate to Play when both gloves are connected.
         if (snapshot.areBothGlovesConnected()) {
             consecutiveFullyConnectedPolls++;
-            if (consecutiveFullyConnectedPolls >= 1) openPlay();
+            if (!suppressAutoPlayRedirectThisVisit && consecutiveFullyConnectedPolls >= 1) openPlay();
         } else {
             consecutiveFullyConnectedPolls = 0;
         }
+    }
+
+    private void consumeLaunchIntent(Intent intent) {
+        if (intent == null) return;
+        // Bottom-nav Connect should stay on Connect even if startup auto-connect already succeeded.
+        suppressAutoPlayRedirectThisVisit =
+                intent.getBooleanExtra(EXTRA_SUPPRESS_AUTO_PLAY_REDIRECT, false);
+        intent.removeExtra(EXTRA_SUPPRESS_AUTO_PLAY_REDIRECT);
     }
 
     private void notifyReconnectTransitions(BleSnapshot snapshot) {

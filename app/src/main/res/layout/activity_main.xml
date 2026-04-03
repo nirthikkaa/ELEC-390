@@ -49,53 +49,9 @@
                     android:paddingBottom="5dp">
 
                     <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/tvStatus"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="LIVE OUTPUT"
-                            android:textAllCaps="true"
-                            android:textColor="#7D95D6"
-                            android:textSize="10sp"
-                            android:textStyle="bold"
-                            android:visibility="gone" />
-
-                        <TextView
-                            android:id="@+id/tvAudio"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Pitch + dynamics"
-                            android:textColor="#A9B8E7"
-                            android:textSize="11sp"
-                            android:visibility="gone" />
-
-                        <View
-                            android:layout_width="0dp"
-                            android:layout_height="1dp"
-                            android:layout_weight="1" />
-
-                        <Button
-                            android:id="@+id/btnPerformanceMode"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:minWidth="0dp"
-                            android:paddingStart="8dp"
-                            android:paddingEnd="8dp"
-                            android:text="Stage View"
-                            android:textSize="9sp"
-                            style="?attr/borderlessButtonStyle" />
-                    </LinearLayout>
-
-                    <LinearLayout
                         android:id="@+id/rowFreqVol"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
                         android:baselineAligned="false"
                         android:orientation="horizontal">
 
@@ -103,7 +59,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:background="@color/app_box_inner_surface"
+                            android:background="@drawable/bg_play_metric_box"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:paddingStart="12dp"
@@ -141,7 +97,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:background="@color/app_box_inner_surface"
+                            android:background="@drawable/bg_play_metric_box"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:paddingStart="12dp"
@@ -192,8 +148,8 @@
 
                     <com.example.thereminglovestest2.ThereminVisualizerView
                         android:id="@+id/thereminVisualizerView"
-                        android:layout_width="386dp"
-                        android:layout_height="307dp" />
+                        android:layout_width="match_parent"
+                        android:layout_height="360dp" />
 
                     <!-- Floating exit button — only visible in stage mode -->
                     <Button
@@ -497,22 +453,24 @@
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnBeatMaker"
                             android:layout_width="wrap_content"
-                            android:layout_height="28dp"
+                            android:layout_height="32dp"
                             android:layout_marginStart="8dp"
                             android:layout_marginEnd="8dp"
-                            android:text="GRID"
-                            android:textSize="9sp"
+                            android:minWidth="84dp"
+                            android:text="BEATS"
+                            android:textSize="10sp"
                             android:textColor="#00FF9D"
                             android:fontFamily="monospace"
-                            android:letterSpacing="0.1"
-                            android:contentDescription="Open Beat Maker"
+                            android:letterSpacing="0.16"
+                            android:contentDescription="Open Beats"
                             android:insetTop="0dp"
                             android:insetBottom="0dp"
-                            android:paddingStart="8dp"
-                            android:paddingEnd="8dp"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
+                            app:backgroundTint="#1200FF9D"
                             app:strokeColor="#00FF9D"
-                            app:strokeWidth="0dp"
-                            app:cornerRadius="4dp"
+                            app:strokeWidth="1dp"
+                            app:cornerRadius="16dp"
                             style="@style/Widget.Material3.Button.OutlinedButton" />
 
                     </LinearLayout>

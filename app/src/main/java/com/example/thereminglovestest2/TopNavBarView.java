@@ -35,6 +35,7 @@ public class TopNavBarView extends LinearLayout {
     private final LinearLayout leftContainer;
     private final LinearLayout rightContainer;
     private final View        backButton;
+    private final TextView    leftActionButton;
     private       ImageButton overflowButton;
     private       ImageButton volHandBtn;    // left hand  — volume glove
     private       ImageButton pitchHandBtn;  // right hand — pitch glove
@@ -73,6 +74,11 @@ public class TopNavBarView extends LinearLayout {
         backButton = iconButton(androidx.appcompat.R.drawable.abc_ic_ab_back_material, "Back", v -> handleBackPressed(), onSurface);
         leftContainer.addView(backButton, new LayoutParams(dp(40), dp(40)));
 
+        leftActionButton = chipTextButton(context, onSurface);
+        LayoutParams leftActionLp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        leftActionLp.leftMargin = dp(4);
+        leftContainer.addView(leftActionButton, leftActionLp);
+
         titleView = new TextView(context);
         titleView.setTextSize(18f);
         titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
@@ -103,6 +109,8 @@ public class TopNavBarView extends LinearLayout {
 
         overflowButton = iconButton(androidx.appcompat.R.drawable.abc_ic_menu_overflow_material, "More options", this::showMenu, onSurface);
         rightContainer.addView(overflowButton, new LayoutParams(dp(40), dp(40)));
+        // Only Library uses the overflow menu now, so keep it hidden everywhere else by default.
+        overflowButton.setVisibility(context instanceof LibraryActivity ? VISIBLE : GONE);
 
         // Stage mode: VOL card on left, HZ card on right — same aesthetic as play screen pills
         stageVolCard  = stageMiniCard(context, "VOL", 0xFF221A3F, 0xFFFF8ED1);
@@ -129,6 +137,7 @@ public class TopNavBarView extends LinearLayout {
     private boolean inStageMode = false;
     private int     lastPitchColor = 0xFFFF4444; // default red = disconnected
     private int     lastVolColor   = 0xFFFF4444;
+    private boolean leftActionVisibleWhenIdle = false;
 
     public void setStageMode(boolean on) {
         inStageMode = on;
@@ -136,6 +145,8 @@ public class TopNavBarView extends LinearLayout {
         titleView.setVisibility(on ? INVISIBLE : VISIBLE);
         if (stageVolCard  != null) stageVolCard.setVisibility(on ? VISIBLE : GONE);
         if (stageFreqCard != null) stageFreqCard.setVisibility(on ? VISIBLE : GONE);
+        // The optional left pill is only part of the regular nav chrome, not the fullscreen stage layout.
+        leftActionButton.setVisibility(on || !leftActionVisibleWhenIdle ? GONE : VISIBLE);
         if (on) {
             // Hide glove icons — VOL/HZ cards occupy the nav bar in their place.
             volHandBtn.setVisibility(GONE);
@@ -163,6 +174,14 @@ public class TopNavBarView extends LinearLayout {
     /** Override the back button's click listener. Pass null to restore the default behaviour. */
     public void setOnBackClickListener(View.OnClickListener listener) {
         backButton.setOnClickListener(listener != null ? listener : v -> handleBackPressed());
+    }
+
+    /** Configure the optional top-left text action used on Play for Stage View. */
+    public void setLeftActionText(CharSequence text, View.OnClickListener listener) {
+        leftActionVisibleWhenIdle = text != null && text.length() > 0;
+        leftActionButton.setText(text);
+        leftActionButton.setOnClickListener(listener);
+        leftActionButton.setVisibility(!inStageMode && leftActionVisibleWhenIdle ? VISIBLE : GONE);
     }
 
     /** Show or hide the 3-dot overflow menu button. */
@@ -233,6 +252,26 @@ public class TopNavBarView extends LinearLayout {
         btn.setColorFilter(0xFFFF4444, PorterDuff.Mode.SRC_IN); // default red
         btn.setVisibility(GONE); // hidden until setGloveStatus() is called
         btn.setContentDescription(isRight ? "Pitch glove" : "Volume glove");
+        return btn;
+    }
+
+    /** Rounded text chip that can sit at the far-left edge without pulling focus from the title. */
+    private TextView chipTextButton(Context ctx, int textColor) {
+        TextView btn = new TextView(ctx);
+        btn.setTextSize(10f);
+        btn.setTypeface(btn.getTypeface(), Typeface.BOLD);
+        btn.setTextColor(textColor);
+        btn.setAllCaps(true);
+        btn.setGravity(Gravity.CENTER);
+        btn.setPadding(dp(12), dp(7), dp(12), dp(7));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(ContextCompat.getColor(ctx, R.color.app_box_inner_surface));
+        bg.setCornerRadius(dp(14));
+        bg.setStroke(dp(1), withAlpha(ContextCompat.getColor(ctx, R.color.app_bar_on_surface_variant), 90));
+        btn.setBackground(bg);
+        btn.setClickable(true);
+        btn.setFocusable(true);
+        btn.setVisibility(GONE);
         return btn;
     }
 

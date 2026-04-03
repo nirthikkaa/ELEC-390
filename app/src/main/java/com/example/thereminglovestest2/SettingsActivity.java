@@ -38,7 +38,13 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void bindActions() {
         binding.switchBackgroundAudio.setOnCheckedChangeListener((v, on) ->
-                onToggle(() -> SettingsStore.setBgAudioEnabled(this, on), "Background audio " + (on ? "enabled" : "disabled")));
+                onToggle(() -> {
+                    SettingsStore.setBgAudioEnabled(this, on);
+                    if (!on) {
+                        // Stop any active background owner immediately so the toggle takes effect now.
+                        ThereminBackgroundAudioService.stopIfRunning(this);
+                    }
+                }, "Background audio " + (on ? "enabled" : "disabled")));
 
         binding.switchExtendedFrequencyRange.setOnCheckedChangeListener((v, on) -> onToggle(() -> {
             SettingsStore.setExtendedFreqRangeEnabled(this, on);

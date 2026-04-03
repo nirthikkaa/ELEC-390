@@ -1,5 +1,6 @@
 package com.example.thereminglovestest2;
 
+import android.app.DatePickerDialog;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
@@ -34,9 +35,11 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.IOException;
+import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -106,12 +109,19 @@ public class LibraryActivity extends AppCompatActivity
     private LinearLayout searchBarLayout;
     private EditText etSearch;
     private String searchQuery = "";
+    private MaterialButton btnDurationFilter;
+    private MaterialButton btnDateFilter;
 
     // Filters
-    private enum DurationFilter { ALL, SHORT, MEDIUM, LONG }
-    private enum DateFilter     { ALL, TODAY, THIS_WEEK, THIS_MONTH }
+    private enum DurationFilter { ALL, SHORT, MEDIUM, LONG, CUSTOM }
+    private enum DateFilter     { ALL, TODAY, THIS_WEEK, THIS_MONTH, RANGE }
     private DurationFilter durationFilter = DurationFilter.ALL;
     private DateFilter     dateFilter     = DateFilter.ALL;
+    // Custom filters stay separate from the preset enums so the UI can show either quick presets or explicit ranges.
+    private long customDurationMinMs = -1L;
+    private long customDurationMaxMs = -1L;
+    private long customDateStartMs   = -1L;
+    private long customDateEndMs     = -1L;
 
     private final Runnable progressRunnable = new Runnable() {
         @Override
@@ -140,6 +150,8 @@ public class LibraryActivity extends AppCompatActivity
 
         searchBarLayout = findViewById(R.id.searchBarLayout);
         etSearch        = findViewById(R.id.etSearch);
+        btnDurationFilter = findViewById(R.id.btnDurationFilter);
+        btnDateFilter     = findViewById(R.id.btnDateFilter);
         etSearch.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
             @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
@@ -148,6 +160,10 @@ public class LibraryActivity extends AppCompatActivity
                 refreshDisplayedList();
             }
         });
+        // Surface the two most-used filters directly on the screen instead of hiding them in the sheet.
+        btnDurationFilter.setOnClickListener(v -> showDurationFilterDialog());
+        btnDateFilter.setOnClickListener(v -> showDateFilterDialog());
+        updateFilterButtons();
 
         rvRecordings      = findViewById(R.id.rvRecordings);
         tvEmptyState      = findViewById(R.id.tvEmptyState);
@@ -250,6 +266,7 @@ public class LibraryActivity extends AppCompatActivity
         }
         applySort();
         adapter.updateFolders(currentFolderId == -1 ? folders : new ArrayList<>());
+        updateFilterButtons();
         updateEmptyState();
     }
 
@@ -264,12 +281,23 @@ public class LibraryActivity extends AppCompatActivity
             case SHORT:  return r.durationMs < 30_000;
             case MEDIUM: return r.durationMs >= 30_000 && r.durationMs <= 120_000;
             case LONG:   return r.durationMs > 120_000;
+            case CUSTOM: {
+                boolean afterMin = customDurationMinMs < 0 || r.durationMs >= customDurationMinMs;
+                boolean beforeMax = customDurationMaxMs < 0 || r.durationMs <= customDurationMaxMs;
+                return afterMin && beforeMax;
+            }
             default:     return true;
         }
     }
 
     private boolean matchesDateFilter(RecordingRepository.Recording r) {
         if (dateFilter == DateFilter.ALL) return true;
+        if (dateFilter == DateFilter.RANGE) {
+            return customDateStartMs >= 0
+                    && customDateEndMs > customDateStartMs
+                    && r.createdAtMs >= customDateStartMs
+                    && r.createdAtMs < customDateEndMs;
+        }
         Calendar cal = Calendar.getInstance();
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
@@ -1016,6 +1044,263 @@ public class LibraryActivity extends AppCompatActivity
         sheet.show();
     }
 
+    private void showDurationFilterDialog() {
+        String[] labels = {"All", "Short (< 30 s)", "Medium (30 s-2 min)", "Long (> 2 min)", "Custom range..."};
+        DurationFilter[] presetValues = {
+                DurationFilter.ALL, DurationFilter.SHORT, DurationFilter.MEDIUM, DurationFilter.LONG
+        };
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Duration")
+                .setSingleChoiceItems(labels, indexOfDurationFilter(durationFilter), (dialog, which) -> {
+                    if (which == labels.length - 1) {
+                        dialog.dismiss();
+                        showCustomDurationRangeDialog();
+                        return;
+                    }
+                    // Preset choices should clear any custom bounds so the chip text stays honest.
+                    applyPresetDurationFilter(presetValues[which]);
+                    dialog.dismiss();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showCustomDurationRangeDialog() {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20), dp(8), dp(20), 0);
+
+        TextView hint = new TextView(this);
+        hint.setText("Enter seconds. Leave one side blank for an open-ended range.");
+        hint.setTextColor(getColor(R.color.app_on_surface_variant));
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        content.addView(hint);
+
+        EditText minInput = buildNumberInput("Min seconds");
+        EditText maxInput = buildNumberInput("Max seconds");
+        if (durationFilter == DurationFilter.CUSTOM) {
+            if (customDurationMinMs >= 0) minInput.setText(String.valueOf(customDurationMinMs / 1000L));
+            if (customDurationMaxMs >= 0) maxInput.setText(String.valueOf(customDurationMaxMs / 1000L));
+        }
+        content.addView(minInput);
+        content.addView(maxInput);
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setTitle("Custom duration range")
+                .setView(content)
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Clear", (d, which) -> applyPresetDurationFilter(DurationFilter.ALL))
+                .setPositiveButton("Apply", null)
+                .show();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            // Blank bounds mean open-ended; invalid or reversed bounds stay in the dialog.
+            Long minSeconds = parseOptionalWholeNumber(minInput);
+            Long maxSeconds = parseOptionalWholeNumber(maxInput);
+            if (minSeconds == null || maxSeconds == null) return;
+            if (minSeconds != null && maxSeconds != null && maxSeconds < minSeconds) {
+                maxInput.setError("Max must be greater than or equal to min");
+                return;
+            }
+            customDurationMinMs = minSeconds == null ? -1L : minSeconds * 1000L;
+            customDurationMaxMs = maxSeconds == null ? -1L : maxSeconds * 1000L;
+            durationFilter = (customDurationMinMs < 0 && customDurationMaxMs < 0)
+                    ? DurationFilter.ALL : DurationFilter.CUSTOM;
+            refreshDisplayedList();
+            dialog.dismiss();
+        });
+    }
+
+    private void showDateFilterDialog() {
+        String[] labels = {"All time", "Today", "This week", "This month", "Pick date range..."};
+        DateFilter[] presetValues = {
+                DateFilter.ALL, DateFilter.TODAY, DateFilter.THIS_WEEK, DateFilter.THIS_MONTH
+        };
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Date added")
+                .setSingleChoiceItems(labels, indexOfDateFilter(dateFilter), (dialog, which) -> {
+                    if (which == labels.length - 1) {
+                        dialog.dismiss();
+                        showCustomDateDialog();
+                        return;
+                    }
+                    // Preset date choices clear the custom range state to avoid mixed filter rules.
+                    applyPresetDateFilter(presetValues[which]);
+                    dialog.dismiss();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showCustomDateDialog() {
+        Calendar startCal = Calendar.getInstance();
+        if (dateFilter == DateFilter.RANGE && customDateStartMs >= 0) {
+            startCal.setTimeInMillis(customDateStartMs);
+        }
+        DatePickerDialog startPicker = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+            // First choose the range start, then immediately collect the end date.
+            Calendar chosenStart = startOfDay(year, month, dayOfMonth);
+            showCustomDateRangeEndDialog(chosenStart);
+        }, startCal.get(Calendar.YEAR), startCal.get(Calendar.MONTH), startCal.get(Calendar.DAY_OF_MONTH));
+        startPicker.setTitle("Start date");
+        startPicker.show();
+    }
+
+    private void showCustomDateRangeEndDialog(Calendar chosenStart) {
+        Calendar endCal = Calendar.getInstance();
+        if (dateFilter == DateFilter.RANGE && customDateEndMs > customDateStartMs) {
+            // customDateEndMs is stored exclusive, so step back one day for the visible picker value.
+            endCal.setTimeInMillis(customDateEndMs - 1L);
+        } else {
+            endCal.setTimeInMillis(chosenStart.getTimeInMillis());
+        }
+        DatePickerDialog endPicker = new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+            // Clamp the range so an end date picked before the start simply flips into a valid ascending range.
+            long startMs = chosenStart.getTimeInMillis();
+            long endMs = startOfDay(year, month, dayOfMonth).getTimeInMillis();
+            long rangeStartMs = Math.min(startMs, endMs);
+            long rangeEndMs = Math.max(startMs, endMs);
+            customDateStartMs = rangeStartMs;
+            Calendar exclusiveEnd = Calendar.getInstance();
+            exclusiveEnd.setTimeInMillis(rangeEndMs);
+            exclusiveEnd.add(Calendar.DAY_OF_MONTH, 1);
+            customDateEndMs = exclusiveEnd.getTimeInMillis();
+            dateFilter = DateFilter.RANGE;
+            refreshDisplayedList();
+        }, endCal.get(Calendar.YEAR), endCal.get(Calendar.MONTH), endCal.get(Calendar.DAY_OF_MONTH));
+        endPicker.setTitle("End date");
+        endPicker.show();
+    }
+
+    private void applyPresetDurationFilter(DurationFilter filter) {
+        durationFilter = filter;
+        customDurationMinMs = -1L;
+        customDurationMaxMs = -1L;
+        refreshDisplayedList();
+    }
+
+    private void applyPresetDateFilter(DateFilter filter) {
+        dateFilter = filter;
+        customDateStartMs = -1L;
+        customDateEndMs = -1L;
+        refreshDisplayedList();
+    }
+
+    private void updateFilterButtons() {
+        if (btnDurationFilter == null || btnDateFilter == null) return;
+        styleFilterButton(btnDurationFilter, "Duration", durationLabel(durationFilter),
+                durationFilter != DurationFilter.ALL);
+        styleFilterButton(btnDateFilter, "Date added", dateLabel(dateFilter),
+                dateFilter != DateFilter.ALL);
+    }
+
+    private void styleFilterButton(MaterialButton button, String title, String value, boolean active) {
+        button.setText(title + ": " + value);
+        button.setStrokeWidth(dp(1));
+        if (active) {
+            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0x337EA4FF));
+            button.setStrokeColor(android.content.res.ColorStateList.valueOf(getColor(R.color.app_primary)));
+            button.setTextColor(getColor(R.color.app_primary));
+        } else {
+            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(getColor(R.color.app_box_inner_surface)));
+            button.setStrokeColor(android.content.res.ColorStateList.valueOf(0x663B4D7A));
+            button.setTextColor(getColor(R.color.app_on_surface_variant));
+        }
+    }
+
+    private int indexOfDurationFilter(DurationFilter filter) {
+        switch (filter) {
+            case SHORT: return 1;
+            case MEDIUM: return 2;
+            case LONG: return 3;
+            case CUSTOM: return 4;
+            default: return 0;
+        }
+    }
+
+    private int indexOfDateFilter(DateFilter filter) {
+        switch (filter) {
+            case TODAY: return 1;
+            case THIS_WEEK: return 2;
+            case THIS_MONTH: return 3;
+            case RANGE: return 4;
+            default: return 0;
+        }
+    }
+
+    private String durationLabel(DurationFilter filter) {
+        switch (filter) {
+            case SHORT: return "Short";
+            case MEDIUM: return "Medium";
+            case LONG: return "Long";
+            case CUSTOM: return customDurationLabel();
+            default: return "All";
+        }
+    }
+
+    private String dateLabel(DateFilter filter) {
+        switch (filter) {
+            case TODAY: return "Today";
+            case THIS_WEEK: return "This week";
+            case THIS_MONTH: return "This month";
+            case RANGE: return customDateRangeLabel();
+            default: return "All time";
+        }
+    }
+
+    private String customDurationLabel() {
+        String min = customDurationMinMs >= 0 ? shortDurationLabel(customDurationMinMs) : null;
+        String max = customDurationMaxMs >= 0 ? shortDurationLabel(customDurationMaxMs) : null;
+        if (min != null && max != null) return min + "-" + max;
+        if (min != null) return ">= " + min;
+        if (max != null) return "<= " + max;
+        return "Custom";
+    }
+
+    private String shortDurationLabel(long durationMs) {
+        if (durationMs >= 60_000 && durationMs % 60_000 == 0) return (durationMs / 60_000L) + "m";
+        if (durationMs >= 60_000) {
+            return String.format(Locale.getDefault(), "%.1fm", durationMs / 60_000f);
+        }
+        return (durationMs / 1000L) + "s";
+    }
+
+    private String formatDateLabel(long timestampMs) {
+        DateFormat fmt = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault());
+        return fmt.format(new Date(timestampMs));
+    }
+
+    private String customDateRangeLabel() {
+        if (customDateStartMs < 0 || customDateEndMs <= customDateStartMs) return "Custom range";
+        long inclusiveEndMs = customDateEndMs - 1L;
+        String start = formatDateLabel(customDateStartMs);
+        String end = formatDateLabel(inclusiveEndMs);
+        return start.equals(end) ? start : start + " - " + end;
+    }
+
+    private Calendar startOfDay(int year, int month, int dayOfMonth) {
+        Calendar cal = Calendar.getInstance();
+        cal.set(year, month, dayOfMonth, 0, 0, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+        return cal;
+    }
+
+    private Long parseOptionalWholeNumber(EditText input) {
+        String raw = input.getText().toString().trim();
+        input.setError(null);
+        if (raw.isEmpty()) return null;
+        try {
+            long parsed = Long.parseLong(raw);
+            if (parsed < 0L) {
+                input.setError("Use 0 or more");
+                return null;
+            }
+            return parsed;
+        } catch (NumberFormatException ex) {
+            input.setError("Enter whole seconds");
+            return null;
+        }
+    }
+
     private LinearLayout buildFilterPanel() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
@@ -1029,9 +1314,10 @@ public class LibraryActivity extends AppCompatActivity
             durGroup.addView(makeRadio(durLabels[i], i + 1000, durationFilter == durVals[i]));
         durGroup.setOnCheckedChangeListener((g, id) -> {
             int idx = id - 1000;
-            if (idx >= 0 && idx < durVals.length) { durationFilter = durVals[idx]; refreshDisplayedList(); }
+            if (idx >= 0 && idx < durVals.length) applyPresetDurationFilter(durVals[idx]);
         });
         panel.addView(durGroup);
+        panel.addView(makeSheetActionButton("Custom duration range", v -> showCustomDurationRangeDialog()));
 
         panel.addView(sheetSectionLabel("Date added"));
         RadioGroup dateGroup = new RadioGroup(this);
@@ -1041,9 +1327,10 @@ public class LibraryActivity extends AppCompatActivity
             dateGroup.addView(makeRadio(dateLabels[i], i + 2000, dateFilter == dateVals[i]));
         dateGroup.setOnCheckedChangeListener((g, id) -> {
             int idx = id - 2000;
-            if (idx >= 0 && idx < dateVals.length) { dateFilter = dateVals[idx]; refreshDisplayedList(); }
+            if (idx >= 0 && idx < dateVals.length) applyPresetDateFilter(dateVals[idx]);
         });
         panel.addView(dateGroup);
+        panel.addView(makeSheetActionButton("Pick date range", v -> showCustomDateDialog()));
 
         return panel;
     }
@@ -1075,6 +1362,39 @@ public class LibraryActivity extends AppCompatActivity
         tv.setTypeface(null, Typeface.BOLD);
         tv.setPadding(0, dp(16), 0, dp(6));
         return tv;
+    }
+
+    private MaterialButton makeSheetActionButton(String text, View.OnClickListener listener) {
+        MaterialButton button = new MaterialButton(this);
+        button.setText(text);
+        button.setAllCaps(false);
+        button.setInsetTop(0);
+        button.setInsetBottom(0);
+        button.setCornerRadius(dp(12));
+        button.setStrokeWidth(dp(1));
+        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(getColor(R.color.app_box_inner_surface)));
+        button.setStrokeColor(android.content.res.ColorStateList.valueOf(0x663B4D7A));
+        button.setTextColor(getColor(R.color.app_on_surface));
+        button.setOnClickListener(listener);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(8);
+        button.setLayoutParams(lp);
+        return button;
+    }
+
+    private EditText buildNumberInput(String hint) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setTextColor(getColor(R.color.app_on_surface));
+        input.setHintTextColor(getColor(R.color.app_on_surface_variant));
+        input.setSingleLine(true);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(10);
+        input.setLayoutParams(lp);
+        return input;
     }
 
     private RadioButton makeRadio(String label, int id, boolean checked) {

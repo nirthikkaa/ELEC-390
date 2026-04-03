@@ -72,12 +72,12 @@ final class CalibrationDraft {
     }
 
     String summaryText(boolean unsaved, int octaveShift) {
-        String base = (unsaved ? "Unsaved • " : "Saved • ") + String.format(Locale.US,
-                "Pitch %.1f°→%.1f° | Freq %.0f→%.0f Hz | Volume %.1f°→%.1f°",
+        String base = String.format(Locale.US,
+                "P %.1f°→%.1f° | F %.0f→%.0fHz | V %.1f°→%.1f°",
                 pitchAngleMinDeg, pitchAngleMaxDeg, freqMinHz, freqMaxHz, volumeAngleMinDeg, volumeAngleMaxDeg);
         if (octaveShift != 0) {
             float mult = (float) Math.pow(2.0, octaveShift);
-            base += String.format(Locale.US, " [Oct %+d → %.0f–%.0f Hz]",
+            base += String.format(Locale.US, " | Oct %+d %.0f→%.0fHz",
                     octaveShift, freqMinHz * mult, freqMaxHz * mult);
         }
         return base;

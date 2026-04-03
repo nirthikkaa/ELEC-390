@@ -17,6 +17,8 @@ import java.util.Locale;
 /** Small single-row settings store. */
 public class SettingsStore extends SQLiteOpenHelper {
     // --- Storage keys for the single settings row and shared UI flags ---
+    // Process-wide schema gate so repeated loads do not re-run PRAGMA/ALTER checks on every screen.
+    private static volatile boolean schemaVerifiedForProcess;
 
     private static final String DB_NAME = "theremin_gloves.db";
     private static final int DB_VERSION = 4;
@@ -141,8 +143,13 @@ public class SettingsStore extends SQLiteOpenHelper {
     }
 
     private void ensureSchema(SQLiteDatabase db) {
-        db.execSQL(CREATE_SQL);
-        for (int i = 0; i < EXTRA_COLUMNS.length; i++) addColumnIfMissing(db, EXTRA_COLUMNS[i], EXTRA_DEFS[i]);
+        if (schemaVerifiedForProcess) return;
+        synchronized (SettingsStore.class) {
+            if (schemaVerifiedForProcess) return;
+            db.execSQL(CREATE_SQL);
+            for (int i = 0; i < EXTRA_COLUMNS.length; i++) addColumnIfMissing(db, EXTRA_COLUMNS[i], EXTRA_DEFS[i]);
+            schemaVerifiedForProcess = true;
+        }
     }
 
     private ContentValues toValues(AppSettings s) {

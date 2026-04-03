@@ -1,6 +1,7 @@
 package com.example.thereminglovestest2;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
@@ -89,7 +90,20 @@ public class BottomNavBarView extends LinearLayout {
     }
 
     private void open(Class<? extends Activity> target) {
-        if (getContext() instanceof Activity) NavigationUtils.openScreen((Activity) getContext(), target);
+        if (!(getContext() instanceof Activity)) return;
+        Activity current = (Activity) getContext();
+        if (target == ConnectGlovesActivity.class) {
+            // Manual bottom-nav Connect should stay on Connect even if startup auto-connect already finished.
+            Intent intent = new Intent(current, ConnectGlovesActivity.class)
+                    .putExtra(ConnectGlovesActivity.EXTRA_SUPPRESS_AUTO_PLAY_REDIRECT, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                            | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            current.startActivity(intent);
+            current.overridePendingTransition(0, 0);
+            return;
+        }
+        NavigationUtils.openScreen(current, target);
     }
 
     private int selectableRes() {

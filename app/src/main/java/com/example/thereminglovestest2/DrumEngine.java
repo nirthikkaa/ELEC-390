@@ -2,6 +2,7 @@ package com.example.thereminglovestest2;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.os.Process;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,6 +40,7 @@ public class DrumEngine {
     private static final float PIANO_MIX_HEADROOM = 0.22f;
     private static final int RENDER_WORKERS =
             Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors()));
+    private static final int WARMUP_RENDER_WORKERS = 2;
 
     // Sound indices
     static final int SND_KICK    = 0;
@@ -65,6 +67,7 @@ public class DrumEngine {
     // bass: SND_BASS_E2..SND_BASS_G2
 
     private final float[][] sounds = new float[NUM_SOUNDS][];
+    private final boolean warmupConstruction;
 
     // Per-sound volumes [0=kick, 1=snare, 2=closed hat, 3=open hat, 4=crash, 5=clap,
     // 6-9=bass notes, 10=high tom, 11=low tom, 12=rim, 13=shaker]
@@ -303,8 +306,16 @@ public class DrumEngine {
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
+    static DrumEngine createWarmup(Context context) {
+        return new DrumEngine(context, true);
+    }
+
     public DrumEngine(Context context) {
-        this();
+        this(context, false);
+    }
+
+    private DrumEngine(Context context, boolean warmupConstruction) {
+        this(warmupConstruction);
         if (context != null) {
             // Load bundled WAV samples on a background thread so the constructor returns
             // immediately. Synthesized fallback sounds (from this()) are used until loading
@@ -313,6 +324,10 @@ public class DrumEngine {
             final android.content.res.Resources res =
                     context.getApplicationContext().getResources();
             Thread loader = new Thread(() -> {
+                if (this.warmupConstruction) {
+                    // Launch warmup should never outrun the UI thread just to decode optional samples.
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                }
                 try {
                     loadBundledSamples(res);
                 } catch (Exception ignored) {
@@ -325,6 +340,11 @@ public class DrumEngine {
     }
 
     public DrumEngine() {
+        this(false);
+    }
+
+    private DrumEngine(boolean warmupConstruction) {
+        this.warmupConstruction = warmupConstruction;
         for (int i = 0; i < MAX_VOICES; i++) voicePos.set(i, -1);
         for (int i = 0; i < MAX_PIANO_VOICES; i++) {
             pianoVoiceMode.set(i, PIANO_SYNTH_KEYS);
@@ -383,12 +403,21 @@ public class DrumEngine {
     private void runRenderJobs(Runnable... jobs) {
         if (jobs == null || jobs.length == 0) return;
         int workerCount = Math.min(RENDER_WORKERS, jobs.length);
+        if (warmupConstruction) {
+            // Warmup still prepares the sound bank, but with fewer background workers so launch stays responsive.
+            workerCount = Math.min(workerCount, WARMUP_RENDER_WORKERS);
+        }
         if (workerCount <= 1) {
             for (Runnable job : jobs) job.run();
             return;
         }
         ExecutorService pool = Executors.newFixedThreadPool(workerCount, r -> {
-            Thread t = new Thread(r, "DrumRenderWorker");
+            Thread t = new Thread(() -> {
+                if (warmupConstruction) {
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                }
+                r.run();
+            }, "DrumRenderWorker");
             t.setDaemon(true);
             return t;
         });
@@ -411,12 +440,21 @@ public class DrumEngine {
     private void runIoJobs(IoJob... jobs) throws IOException {
         if (jobs == null || jobs.length == 0) return;
         int workerCount = Math.min(RENDER_WORKERS, jobs.length);
+        if (warmupConstruction) {
+            // Keep launch-time sample decoding polite for the same reason as render warmup.
+            workerCount = Math.min(workerCount, WARMUP_RENDER_WORKERS);
+        }
         if (workerCount <= 1) {
             for (IoJob job : jobs) runIoJob(job);
             return;
         }
         ExecutorService pool = Executors.newFixedThreadPool(workerCount, r -> {
-            Thread t = new Thread(r, "DrumSampleWorker");
+            Thread t = new Thread(() -> {
+                if (warmupConstruction) {
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                }
+                r.run();
+            }, "DrumSampleWorker");
             t.setDaemon(true);
             return t;
         });
