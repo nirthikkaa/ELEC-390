@@ -1,5 +1,7 @@
 # Theremin Gloves — User Manual
 
+> This manual is also available inside the app at **Settings → User Manual**.
+
 ## Quick Start
 
 If you only need the shortest working path:

@@ -123,7 +123,15 @@ BLE, calibration system, audio engine, pitch and volume mapping, range settings,
 
 ---
 
-### 6. Documentation and Planning
+### 6. In-App User Manual (UserManualActivity)
+**Tool:** Claude Code CLI  
+**What AI helped with:** Creating `UserManualActivity.java`, `activity_user_manual.xml`, and the Settings card that launches it. The manual content (all 11 sections) was authored by the team in `docs/final/03_User_Manual.md`; AI generated the Android UI scaffolding (activity, layout, card builder, ViewBinding wiring) from that existing content.
+
+**Niraj's contribution:** Niraj specified the requirement (in-app manual, no links, matches app visual style), reviewed the implementation, and verified the build.
+
+---
+
+### 7. Documentation and Planning
 **Tool:** claude.ai (web interface)  
 **What AI helped with:**
 - Sprint task breakdown files for teammates (Ayan, Marie Ella, Nirthika, Matei)

@@ -1,5 +1,6 @@
 package com.example.thereminglovestest2;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.StatFs;
 import android.widget.Toast;
@@ -37,6 +38,9 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void bindActions() {
+        binding.btnOpenUserManual.setOnClickListener(v ->
+                startActivity(new Intent(this, UserManualActivity.class)));
+
         binding.switchBackgroundAudio.setOnCheckedChangeListener((v, on) ->
                 onToggle(() -> {
                     SettingsStore.setBgAudioEnabled(this, on);
