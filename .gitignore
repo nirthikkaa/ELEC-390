@@ -1,6 +1,11 @@
 *.iml
 .DS_Store
 
+# Google API credentials — never commit
+credentials.json
+service_account.json
+token.json
+
 # Android/Gradle local state
 .gradle/
 /build/
