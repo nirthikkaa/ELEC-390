@@ -205,7 +205,7 @@ Target audience: someone who has never used the app before.
 Sections:
 
 ## 1. Getting Started — Hardware Setup
-- What you need: Android phone (API 24+), two BLE IMU gloves (Arduino Nano 33 BLE Sense)
+- What you need: Android phone (API 36+), two BLE IMU gloves (Arduino Nano 33 BLE Sense)
 - Naming: pitch glove must be named "ThereminGlove", volume glove must be named "ThereminGloveVol"
 - How to power on the gloves
 
@@ -399,7 +399,7 @@ Fill in this template (update from the original Milestone 1 version):
 - Assumption 3: Android AudioTrack would support low-latency real-time synthesis. **VALIDATED TRUE** — THREAD_PRIORITY_AUDIO + 2048-sample buffer achieves stable playback.
 - Assumption 4: Recording could capture exact synthesized output (not microphone). **VALIDATED TRUE** — PCM tap on ThereminAudioEngine captures exact audio.
 
-**Constraints:** Project complete by April 15, 2026. All data stored locally (no cloud). Works on Android API 24+.
+**Constraints:** Project complete by April 15, 2026. All data stored locally (no cloud). Works on Android API 36+.
 
 **Stakeholders:** Performers using the app, music educators at Concordia, engineering students replicating the hardware build, Dr. Lynch and Bipin Patel (project evaluators).
 

@@ -15,7 +15,7 @@ If you only need the shortest working path:
 ## 1. Getting Started — Hardware Setup
 
 You need:
-- an Android phone running API 24 or higher
+- an Android phone running API 36 or higher
 - two BLE gloves built around Arduino Nano 33 BLE Sense boards
 - the Theremin Gloves Android app installed on the phone
 
