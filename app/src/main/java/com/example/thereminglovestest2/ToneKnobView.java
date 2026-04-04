@@ -38,9 +38,6 @@ public class ToneKnobView extends View {
     private final Paint pointerGlow = stroke("#43E5FF", 5f);
     private final Paint pointer = stroke("#F6F1FF", 3f);
     private final Paint notch = fill("#EAF6FF");
-    private final Paint hubShadow = fill("#4D87A6C0");
-    private final Paint hub = fill("#F8FCFF");
-    private final Paint hubInner = fill("#B7DBF4");
     private final Paint label = text("#F6F1FF", 12f);
     private final RectF arcRect = new RectF();
 
@@ -105,9 +102,6 @@ public class ToneKnobView extends View {
         drawTicks(canvas, cx, cy, ringR);
         drawPointer(canvas, cx, cy, dishR - dp(3));
         drawNotch(canvas, cx, cy, faceR);
-        canvas.drawCircle(cx, cy + dp(1.5f), dp(8), hubShadow);
-        canvas.drawCircle(cx, cy, dp(7), hub);
-        canvas.drawCircle(cx, cy - dp(1.2f), dp(3.2f), hubInner);
         canvas.drawText(currentAbbrev(), cx, cy + dp(27), label);
     }
 
