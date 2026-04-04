@@ -115,7 +115,7 @@ public class UserManualActivity extends AppCompatActivity {
         },
         {
             "6. TONE SELECTION",
-            "The Play screen uses the tone knob to cycle through 10 tones:\n\n" +
+            "The Play screen uses the tone knob to cycle through 11 tones:\n\n" +
             "• Theremin — classic theremin-like tone with a vocal/cello quality.\n" +
             "• Air Pad — soft ambient pad.\n" +
             "• Cello — dark bowed-string style tone.\n" +
@@ -125,6 +125,7 @@ public class UserManualActivity extends AppCompatActivity {
             "• Clarinet — woody reed-like tone.\n" +
             "• Triangle — hollow, cleaner synth tone.\n" +
             "• Saw — bright, sharper synth tone.\n" +
+            "• Square — hollow, odd-harmonic square-wave tone.\n" +
             "• Helicopter — rhythmic rotor-like special effect tone."
         },
         {

@@ -53,7 +53,7 @@ An Android app that turns two BLE IMU gloves into a real-time theremin. The righ
 | Auto-reconnect delay | 1 500 ms |
 | Output gain | 0.14 |
 
-**Tones:** Theremin, Air Pad, Cello, Pad, Choir, Flute, Clarinet, Triangle, Saw, Helicopter  
+**Tones:** Theremin, Air Pad, Cello, Pad, Choir, Flute, Clarinet, Triangle, Saw, Square, Helicopter  
 **Effects:** Reverb (Schroeder comb), Delay (ring buffer), Distortion (tanh saturation)  
 **Scales:** Chromatic, Major, Minor, Pentatonic  
 **Recording formats:** Lossless WAV, High/Medium/Low AAC

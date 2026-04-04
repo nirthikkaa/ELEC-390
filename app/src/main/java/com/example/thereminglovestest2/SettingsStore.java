@@ -355,6 +355,7 @@ class AppSettings {
             TONE_CLARINET,
             TONE_TRIANGLE,
             TONE_SAW,
+            TONE_SQUARE,
             TONE_HELICOPTER
             // Future reimplementation candidates for the public selector:
             // TONE_SWEET_LEAD,
@@ -364,7 +365,6 @@ class AppSettings {
             // TONE_OBOE,
             // TONE_TRUMPET,
             // TONE_LEAD,
-            // TONE_SQUARE,
             // TONE_PULSE,
             // TONE_ORGAN,
             // TONE_STRING,
