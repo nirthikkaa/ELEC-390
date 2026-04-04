@@ -36,7 +36,6 @@ public class ToneKnobView extends View {
     private final Paint minorTick = stroke("#2F4D67", 1.0f, Paint.Cap.BUTT);
     private final Paint pointerGlow = stroke("#43E5FF", 4f, Paint.Cap.ROUND);
     private final Paint pointer = stroke("#86EEFF", 2.6f, Paint.Cap.ROUND);
-    private final Paint label = text("#D7F6FF", 12f);
     private final RectF arcRect = new RectF();
 
     private String[] tones = new String[0];
@@ -98,7 +97,6 @@ public class ToneKnobView extends View {
         canvas.drawArc(arcRect, 120f, 300f, false, accentArc);
         drawTicks(canvas, cx, cy, ringR);
         drawPointer(canvas, cx, cy, dishR - dp(3));
-        canvas.drawText(currentAbbrev(), cx, cy + dp(27), label);
     }
 
     @Override
@@ -248,11 +246,6 @@ public class ToneKnobView extends View {
         return wrapped < 0 ? wrapped + size : wrapped;
     }
 
-    private String currentAbbrev() {
-        if (tones.length == 0) return "SIN";
-        return abbrev(tones[wrapIndex(currentIndex)]);
-    }
-
     private static Paint fill(String color) {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.FILL);
@@ -273,46 +266,7 @@ public class ToneKnobView extends View {
         return stroke(color, widthDp, Paint.Cap.ROUND);
     }
 
-    private Paint text(String color, float sizeSp) {
-        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setStyle(Paint.Style.FILL);
-        p.setColor(Color.parseColor(color));
-        p.setTextAlign(Paint.Align.CENTER);
-        p.setFakeBoldText(true);
-        p.setTextSize(sizeSp * getResources().getDisplayMetrics().scaledDensity);
-        return p;
-    }
-
     private float dp(float value) {
         return value * getResources().getDisplayMetrics().density;
-    }
-
-    private static String abbrev(String tone) {
-        switch (AppSettings.normalizeToneType(tone)) {
-            case AppSettings.TONE_THEREMIN: return "THR";
-            case AppSettings.TONE_AIR_PAD:  return "AIR";
-            case AppSettings.TONE_CELLO:    return "CEL";
-            case AppSettings.TONE_SWEET_LEAD:return "SWT";
-            case AppSettings.TONE_CHOIR:    return "CHR";
-            case AppSettings.TONE_VOWEL_O:  return "VOX";
-            case AppSettings.TONE_CLARINET: return "CLR";
-            case AppSettings.TONE_DRUM:     return "DRM";
-            case AppSettings.TONE_HELICOPTER:return "HEL";
-            case AppSettings.TONE_OBOE:     return "OBO";
-            case AppSettings.TONE_LEAD:     return "LED";
-            case AppSettings.TONE_VIOLIN:   return "VLN";
-            case AppSettings.TONE_GUITAR:   return "GTR";
-            case AppSettings.TONE_FLUTE:    return "FLT";
-            case AppSettings.TONE_TRUMPET:  return "TRP";
-            case AppSettings.TONE_SQUARE:   return "SQR";
-            case AppSettings.TONE_TRIANGLE: return "TRI";
-            case AppSettings.TONE_SAW:      return "SAW";
-            case AppSettings.TONE_PULSE:    return "PLS";
-            case AppSettings.TONE_ORGAN:    return "ORG";
-            case AppSettings.TONE_STRING:   return "STR";
-            case AppSettings.TONE_BELL:     return "BEL";
-            case AppSettings.TONE_PAD:      return "PAD";
-            default:                        return "THR";
-        }
     }
 }
