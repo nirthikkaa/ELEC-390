@@ -9,7 +9,7 @@ An Android app that turns two BLE IMU gloves into a real-time theremin. The righ
 
 ## Requirements
 
-- Android API 36+
+- Android API 31+
 - Two BLE gloves (Arduino Nano 33 BLE Sense)
   - Pitch glove must advertise as `ThereminGlove`
   - Volume glove must advertise as `ThereminGloveVol`

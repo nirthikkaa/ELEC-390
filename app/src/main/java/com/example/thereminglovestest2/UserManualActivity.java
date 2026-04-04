@@ -33,7 +33,7 @@ public class UserManualActivity extends AppCompatActivity {
         {
             "1. HARDWARE SETUP",
             "You need:\n\n" +
-            "• An Android phone running API 36 or higher.\n" +
+            "• An Android phone running API 31 or higher.\n" +
             "• Two BLE gloves built around Arduino Nano 33 BLE Sense boards.\n" +
             "• The Theremin Gloves app installed.\n\n" +
             "Required glove names:\n\n" +
