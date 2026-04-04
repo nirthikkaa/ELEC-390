@@ -13,16 +13,21 @@ import org.junit.runner.RunWith;
 import static org.junit.Assert.*;
 
 /**
- * Instrumented integration tests — run with: ./gradlew connectedAndroidTest
+ * Instrumented integration tests — run with: ./gradlew :app:connectedDebugAndroidTest
  * Requires a connected device or emulator.
  *
  * Covers:
  *   1. DrumEngine lifecycle  — create/start/stop/release without crash
  *   2. DrumEngine patterns   — setCustomPattern/clearCustomPattern/isCustomPatternActive
  *   3. DrumEngine clock      — step advances after start(); BPM affects tick rate
- *   4. Service flags         — bgDrumEnabled/bgBassEnabled static state propagation
- *   5. Audio engine latency  — stop() returns within 200 ms (bug-fix regression)
- *   6. Preset sound gating   — enabled flag stays true after pushMergedPattern-style call
+ *   4. Service statics       — background-audio flags and octave shift setters remain stable
+ *   5. Audio engine latency  — stop() returns promptly and start/stop cycles stay safe
+ *   6. Preset sound gating   — enabling and custom-pattern swaps do not silently mute playback
+ *   7. Drum enable toggles   — isEnabled()/isBassEnabled() reflect UI control changes
+ *   8. Drum gain behavior    — overall beat gain and per-track mix balance remain consistent
+ *   9. Service drum gain     — background forwarding tolerates rapid gain updates
+ *  10. Slider math           — UI volume controls map cleanly into engine gain values
+ *  11. Sequencer restart     — start/stop cycles keep the sample-accurate clock sane
  */
 @RunWith(AndroidJUnit4.class)
 public class AppFeatureTest {
@@ -280,8 +285,8 @@ public class AppFeatureTest {
     }
 
     // =========================================================================
-    // 5. Audio engine stop() latency — regression test for Bug #2
-    //    Stop must return in < 200 ms (was up to 300 ms before fix).
+    // 5. Audio engine stop() latency
+    //    Stop should return promptly even after the audio thread has been started.
     // =========================================================================
 
     @Test

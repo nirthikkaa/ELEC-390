@@ -6,4 +6,8 @@
     <string name="recording_saved">Recording saved</string>
     <string name="recording_unavailable">Recording unavailable — microphone permission denied</string>
     <string name="recording_failed_empty">Recording failed — file empty</string>
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="privacy_policy_accept">Accept</string>
+    <string name="privacy_policy_decline">Decline</string>
+    <string name="privacy_policy_message">Theremin Gloves collects no personal data and does not connect to the internet.\n\nThis app uses Bluetooth Low Energy to communicate with your IMU gloves. Your gesture data is processed locally on your device in real time and is never stored or transmitted.\n\nAudio recordings you create are saved privately on your device in app-private storage. They are not shared with or accessible by any third party.\n\nBy tapping Accept, you agree to these terms and allow the app to request Bluetooth access on the next screen.</string>
 </resources>

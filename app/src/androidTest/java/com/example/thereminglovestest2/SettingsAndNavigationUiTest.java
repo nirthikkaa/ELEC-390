@@ -25,9 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Espresso coverage for sprint settings and bottom-navigation flows.
- */
+/** Espresso coverage for settings persistence and bottom-navigation flows. */
 @RunWith(AndroidJUnit4.class)
 public class SettingsAndNavigationUiTest {
 

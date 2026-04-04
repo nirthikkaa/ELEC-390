@@ -50,7 +50,7 @@ public class SettingsStore extends SQLiteOpenHelper {
     private static final String COL_SENSITIVITY_LEVEL = "sensitivity_level";
     private static final String COL_SENSITIVITY_CURVE = "sensitivity_curve";
 
-    // Performance/effects columns
+    // Performance and effects columns that travel with the main theremin settings row.
     private static final String COL_ACTIVE_SCALE       = "active_scale";
     private static final String COL_OCTAVE_SHIFT       = "octave_shift";
     private static final String COL_REVERB_ENABLED     = "reverb_enabled";
@@ -84,7 +84,7 @@ public class SettingsStore extends SQLiteOpenHelper {
             COL_PITCH_ENABLED,
             COL_VOL_ENABLED,
             COL_UPDATED_AT_MS,
-            // Sprint 3
+            // Performance and effects settings
             COL_ACTIVE_SCALE,
             COL_OCTAVE_SHIFT,
             COL_REVERB_ENABLED,
@@ -105,7 +105,7 @@ public class SettingsStore extends SQLiteOpenHelper {
             "INTEGER NOT NULL DEFAULT 1",
             "INTEGER NOT NULL DEFAULT 1",
             "INTEGER NOT NULL DEFAULT 0",
-            // Sprint 3
+            // Performance and effects defaults
             "TEXT NOT NULL DEFAULT 'CHROMATIC'",
             "INTEGER NOT NULL DEFAULT 0",
             "INTEGER NOT NULL DEFAULT 0",
@@ -167,7 +167,7 @@ public class SettingsStore extends SQLiteOpenHelper {
         v.put(COL_PITCH_ENABLED, s.pitchEnabled ? 1 : 0);
         v.put(COL_VOL_ENABLED, s.volumeEnabled ? 1 : 0);
         v.put(COL_UPDATED_AT_MS, System.currentTimeMillis());
-        // Sprint 3
+        // Persist performance-mode sound controls with the main calibration row.
         v.put(COL_ACTIVE_SCALE, s.activeScale != null ? s.activeScale : AppSettings.SCALE_CHROMATIC);
         v.put(COL_OCTAVE_SHIFT, s.octaveShift);
         v.put(COL_REVERB_ENABLED, s.reverbEnabled ? 1 : 0);
@@ -196,7 +196,7 @@ public class SettingsStore extends SQLiteOpenHelper {
         s.toneType = AppSettings.normalizeToneType(getString(c, COL_TONE_TYPE, AppSettings.TONE_THEREMIN));
         s.pitchEnabled = getInt(c, COL_PITCH_ENABLED, 1) != 0;
         s.volumeEnabled = getInt(c, COL_VOL_ENABLED, 1) != 0;
-        // Sprint 3
+        // Recover performance-mode sound controls alongside the calibration settings.
         s.activeScale = AppSettings.normalizeScale(getString(c, COL_ACTIVE_SCALE, AppSettings.SCALE_CHROMATIC));
         s.octaveShift = Math.max(-2, Math.min(2, getInt(c, COL_OCTAVE_SHIFT, 0)));
         s.reverbEnabled = getInt(c, COL_REVERB_ENABLED, 0) != 0;
@@ -299,7 +299,7 @@ class AppSettings {
     public static final String COMPRESSION_MEDIUM   = "MEDIUM";
     public static final String COMPRESSION_LOW      = "LOW";
 
-    // Sprint 3: scale lock
+    // Scale-lock labels persisted in settings and forwarded to the audio engine.
     public static final String SCALE_CHROMATIC  = "CHROMATIC";
     public static final String SCALE_MAJOR      = "MAJOR";
     public static final String SCALE_MINOR      = "MINOR";

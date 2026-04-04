@@ -23,9 +23,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Espresso coverage for the Sprint 3 stage/performance mode UI.
- */
+/** Espresso coverage for the Play stage/performance mode UI. */
 @RunWith(AndroidJUnit4.class)
 public class PlayStageModeUiTest {
 

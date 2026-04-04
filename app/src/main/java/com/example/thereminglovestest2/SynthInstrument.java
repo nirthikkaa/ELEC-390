@@ -1,22 +1,13 @@
 package com.example.thereminglovestest2;
 
 /**
- * A concrete {@link Instrument} backed by a synthesized (or loaded) float[] PCM buffer.
+ * A concrete {@link Instrument} backed by a synthesized or loaded float[] PCM buffer.
  *
- * All mutable fields are volatile so the audio thread always reads fresh values without
- * requiring locks.  The PCM reference is also volatile, so calling {@link #replacePcm}
- * from the UI thread (e.g. after loading a WAV file) is immediately visible to the
- * audio thread on its next buffer fill.
+ * All mutable fields are volatile so readers always observe fresh state without locks. The PCM
+ * reference is also volatile, which makes {@link #replacePcm(float[])} safe for hot-swapping a
+ * synthesized placeholder with a higher-quality sample while playback code is reading it.
  *
- * Typical usage
- * ─────────────
- *   // Synthesize at startup
- *   SynthInstrument kick = new SynthInstrument("kick", "KICK", synthesizeKick());
- *   engine.registerInstrument(DrumEngine.SND_KICK, kick);
- *
- *   // Upgrade to a WAV sample later (hot-swap, no engine restart)
- *   float[] wavPcm = WavLoader.load(context, R.raw.drum_kick);
- *   kick.replacePcm(wavPcm);
+ * This class is currently a lightweight PCM holder rather than a core DrumEngine dependency.
  */
 public final class SynthInstrument implements Instrument {
 

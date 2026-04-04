@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Sprint 3: PCM-based drum and bass backing engine.
+ * PCM-based drum and bass backing engine.
  *
  * All sounds are synthesised at construction time as float[] PCM arrays at 48 kHz.
  * The scheduler thread triggers voices by writing into a lock-free voice pool.
@@ -30,7 +30,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * the next tick based on System.currentTimeMillis(), so BPM changes take effect on the
  * next tick with no restart, no step-position reset, and no audible glitch.
  *
- * Per-sound volume (trackVolumes[]) is applied when mixing.
+ * Each sound keeps its own mix weight in trackVolumes[], and the user-facing drumGain slider is
+ * applied on top of that during mixing so the relative kick/snare/hat balance stays intact.
  */
 public class DrumEngine {
 
@@ -280,7 +281,11 @@ public class DrumEngine {
     /** Returns the last grid set via {@link #setCustomPattern}, or null if none was ever set. */
     public boolean[][] getCustomPattern() { return customDrumGrid; }
 
-    /** Set the clap / snare-variant tone brightness (0.0–1.0). No-op in default synthesis. */
+    /**
+     * Placeholder hook for clap-brightness control.
+     * The UI and background service still forward this value, but the current synthesized clap
+     * ignores it, so this setter intentionally stores no state yet.
+     */
     public void setClapTone(float tone) { /* tone brightness reserved for future use */ }
 
     // Stored drum gain multiplier (1.0 = default mix level). Applied during mixInto() so the
@@ -992,7 +997,8 @@ public class DrumEngine {
 
     /**
      * Mix all active drum, bass, and piano voices into the caller-provided mono short[] buffer.
-     * Per-sound volumes are applied based on the sound index.
+     * Each voice uses its per-sound mix weight from trackVolumes[] and the overall drumGain
+     * multiplier, so changing beat volume does not flatten the kit balance.
      * Called from the live audio and preview threads, so it must be non-blocking and allocation-free.
      */
     public void mixInto(short[] buffer, int count) {

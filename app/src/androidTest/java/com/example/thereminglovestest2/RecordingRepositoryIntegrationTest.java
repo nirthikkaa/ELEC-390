@@ -14,9 +14,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Instrumented repository tests for the Sprint 2 recording and library backlog.
- */
+/** Instrumented repository tests for recording storage, folders, and library ordering. */
 @RunWith(AndroidJUnit4.class)
 public class RecordingRepositoryIntegrationTest {
 

@@ -1,32 +1,25 @@
 package com.example.thereminglovestest2;
 
 /**
- * Contract for a single playable instrument in the sequencer engine.
+ * Small PCM-instrument contract retained for synth/sample wrappers.
  *
- * Design principles
- * ─────────────────
- * • Each instrument is self-contained: it knows its identity, its audio data,
- *   whether it is active, and at what volume it plays.
- * • The engine treats every sound as an Instrument — no special-casing for kicks
- *   vs. bass vs. any future sound you add.
- *
- * Adding a new instrument
- * ───────────────────────
- *   1. Define a new SND_* constant in DrumEngine and assign the next integer.
- *   2. Create a SynthInstrument (or another implementation) with the PCM data.
- *   3. Call DrumEngine.registerInstrument(SND_*, instrument) — no existing code changes.
+ * The current {@link DrumEngine} still mixes raw float[] buffers directly, so this interface is
+ * not the live engine entry point today. It remains useful for standalone PCM holders such as
+ * {@link SynthInstrument}, and it keeps a clean contract in place if the beat engine is refactored
+ * to work with richer instrument objects later.
  *
  * Thread safety
  * ─────────────
- * All methods may be called from the UI thread.  Implementations must ensure that
- * getPcm() is safe to read from the audio thread concurrently (volatile field).
+ * Callers may touch these methods from the UI thread while audio code reads the PCM buffer on a
+ * worker thread. Implementations therefore need to keep {@link #getPcm()} safe for concurrent
+ * reads, typically by swapping the buffer reference atomically.
  */
 public interface Instrument {
 
-    /** Stable machine-readable ID.  Used in log messages and as a SharedPreferences suffix. */
+    /** Stable machine-readable ID for callers that want to log or persist the instrument. */
     String getId();
 
-    /** Human-readable display label shown in the Beat Maker row header, e.g. "KICK". */
+    /** Human-readable label suitable for UI surfaces such as Beat Maker row headers. */
     String getDisplayName();
 
     /**
@@ -36,7 +29,7 @@ public interface Instrument {
      */
     float[] getPcm();
 
-    /** Whether this instrument fires when triggered by the sequencer. */
+    /** Whether callers should currently treat this instrument as active. */
     boolean isEnabled();
     void    setEnabled(boolean on);
 

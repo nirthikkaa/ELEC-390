@@ -4,19 +4,22 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * JVM unit tests — run with: ./gradlew test
+ * JVM unit tests — run with: ./gradlew :app:testDebugUnitTest
  *
  * No Android runtime needed. Covers:
- *   1. Waveform formulas    — all 15 tones stay in [-1, 1], are non-zero, are mutually distinct
- *   2. GridPatternSource    — correct sound indices, bass routing, enable gating, multi-fire
- *   3. Pattern OR-merge     — logic used by MainActivity.pushMergedPattern()
- *   4. Characteristic tone  — instrument-specific harmonic properties verified analytically
+ *   1. Analytic reference waveforms — bounded output, non-zero energy, distinct signatures
+ *   2. Characteristic tone fingerprints — analytic harmonic checks for selected instrument colors
+ *   3. Public tone-selection guards — curated picker behavior and legacy tone coercion
+ *   4. GridPatternSource routing — row-to-sound mapping, bass dispatch, and gating
+ *   5. Pattern OR-merge logic — the merge contract used when Beat Maker layers combine
+ *   6. Drum-gain and slider math — overall beat gain and UI value-to-gain conversion
  */
 public class ThereminUnitTest {
 
     // =========================================================================
-    // Inline waveform formulas (mirror ThereminAudioEngine.sample() exactly)
-    // If a formula changes in production this test will break, flagging the drift.
+    // Analytic reference waveforms used by the JVM tests.
+    // These are stable math-only stand-ins for tone-shape regression checks; the tests do not
+    // instantiate ThereminAudioEngine because the production engine depends on Android audio APIs.
     // =========================================================================
 
     private static float tanh(float x) { return (float) Math.tanh(x); }
@@ -75,7 +78,7 @@ public class ThereminUnitTest {
                  + sin(p*3.007f)*0.14f + sin(p*4)*0.08f + sin(p*5)*0.05f, 1.05f);
     }
 
-    // Collect all 15 values at a given phase for convenience.
+    // Collect all analytic waveform values at a given phase for convenience.
     private static float[] allWaveforms(float p) {
         return new float[]{
             wSine(p, 0.5f), wTriangle(p), wSaw(p), wSquare(p), wPulse(p),
@@ -143,7 +146,7 @@ public class ThereminUnitTest {
     }
 
     // =========================================================================
-    // 3. All 15 waveforms produce distinct values at the same phase
+    // 3. All reference waveforms produce distinct values at the same phase
     // =========================================================================
 
     @Test
@@ -295,7 +298,7 @@ public class ThereminUnitTest {
     }
 
     // =========================================================================
-    // 5. GridPatternSource — sound routing and gating
+    // 6. GridPatternSource — sound routing and gating
     // =========================================================================
 
     @Test
@@ -439,7 +442,7 @@ public class ThereminUnitTest {
     }
 
     // =========================================================================
-    // 6. Pattern OR-merge logic (mirrors MainActivity.pushMergedPattern)
+    // 7. Pattern OR-merge logic (mirrors MainActivity.pushMergedPattern)
     // =========================================================================
 
     @Test
@@ -498,10 +501,10 @@ public class ThereminUnitTest {
     }
 
     // =========================================================================
-    // 7. DrumEngine gain — unit-level math (no Android context needed)
+    // 8. DrumEngine gain — unit-level math (no Android context needed)
     // =========================================================================
 
-    /** Simulates DrumEngine.setDrumGain / getDrumGain arithmetic. */
+    /** Models DrumEngine's overall drum-gain path without touching Android audio code. */
     private static final float DRUM_BUS_GAIN_FULL = 0.58f;
 
     private static float[] drumGainRoundTrip(float scale) {
@@ -557,10 +560,10 @@ public class ThereminUnitTest {
     }
 
     // =========================================================================
-    // 8. Volume slider math — value-to-gain conversion
+    // 9. Volume slider math — value-to-gain conversion
     // =========================================================================
 
-    /** Mirrors MainActivity.applyMixerVol / applyBeatVol: sliderValue / 100f. */
+    /** Mirrors the shared slider-to-gain conversion used by the mixer and beat-volume controls. */
     private static float sliderToGain(float sliderValue) { return sliderValue / 100f; }
 
     @Test
@@ -599,6 +602,7 @@ public class ThereminUnitTest {
         }
     }
 
+    // Additional OR-merge coverage kept here because it reuses the shared layer helpers above.
     @Test
     public void patternMerge_threeLayersAllPresent() {
         int rows = 14, steps = 16;

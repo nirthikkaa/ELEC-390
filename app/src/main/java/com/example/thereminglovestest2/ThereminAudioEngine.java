@@ -63,13 +63,12 @@ public final class ThereminAudioEngine {
     private volatile float targetVolumeLinear;
     private volatile String toneType = AppSettings.TONE_SINE;
 
-    // Sprint 2: PCM tap for recording. Listener receives the mixed mono render buffer before it
-    // is duplicated into stereo for playback.
-    // Volatile so the recording start/stop from the UI thread is immediately visible to audio thread.
+    // PCM tap for recording. The listener receives the mixed mono render buffer before it is
+    // duplicated into stereo for playback. Volatile keeps UI-thread start/stop visible to audio.
     private volatile PcmListener pcmListener;
 
-    // Sprint 3: Effects pipeline fields.
-    // All buffers are pre-allocated here — no allocation inside fillBuffer().
+    // Effects pipeline state. All delay/reverb buffers are pre-allocated here so fillBuffer()
+    // stays allocation-free on the audio thread.
     private volatile boolean reverbEnabled = false;
     private volatile float reverbMix = 0.3f;
     // Power-of-2 length so the wrap-around can use bitwise AND instead of integer division.
@@ -90,7 +89,7 @@ public final class ThereminAudioEngine {
     private volatile float distortionGain = 2.5f;
     private volatile float mixGain = 0.85f;
 
-    // Sprint 3: Scale lock — snaps the smoothed frequency to the nearest note in the chosen scale.
+    // Scale lock snaps the smoothed frequency to the nearest note in the chosen scale.
     private volatile String activeScale = "CHROMATIC";
     private static final int[] SCALE_MAJOR      = {0, 2, 4, 5, 7, 9, 11};
     private static final int[] SCALE_MINOR      = {0, 2, 3, 5, 7, 8, 10};
@@ -117,8 +116,8 @@ public final class ThereminAudioEngine {
     private float snapCacheIn  = Float.NaN;
     private float snapCacheOut = Float.NaN;
 
-    // Sprint 3: Reference to the drum engine — held here so effects and drums share the same owner.
-    // volatile: written from background init thread, read from audio thread.
+    // Optional DrumEngine mixed into the theremin output so beats and theremin share one audio path.
+    // Volatile because it can be attached from another thread after engine construction.
     private volatile DrumEngine drumEngine;
 
     private float phase;
@@ -135,7 +134,7 @@ public final class ThereminAudioEngine {
     private float drumNoiseEnv;
     private int drumNoiseState = 0x2468ACE1;
 
-    // --- Sprint 2: PCM tap interface ---
+    // --- PCM tap interface ---
     // Implemented by RecordingManager. Called from the audio thread on every buffer fill
     // (~1024 samples at 48kHz = ~21 ms per call). Implementations must be fast and non-blocking.
     public interface PcmListener {
@@ -215,12 +214,12 @@ public final class ThereminAudioEngine {
             short[] stereoBuffer = new short[AUDIO_WRITE_FRAMES * OUTPUT_CHANNELS];
             while (running) {
                 fillBuffer(monoBuffer);
-                // Sprint 3: Mix drum and bass PCM into buffer before the PCM tap so
+                // Mix drum and bass PCM into the mono buffer before the recording tap so
                 // recordings capture both the theremin and the drum engine output.
                 DrumEngine drum = drumEngine;
                 if (drum != null) drum.mixInto(monoBuffer, monoBuffer.length);
                 updateVisualizer(monoBuffer);
-                // Sprint 2: PCM tap — capture local reference to avoid race on volatile field.
+                // PCM tap — capture a local reference to avoid racing the volatile field mid-buffer.
                 // The listener (RecordingManager) must be non-blocking; this runs on the audio thread.
                 PcmListener l = pcmListener;
                 if (l != null) l.onPcmSamples(monoBuffer, monoBuffer.length);
@@ -319,8 +318,8 @@ public final class ThereminAudioEngine {
     }
 
     // Fill one PCM block. Each sample uses the latest smoothed pitch and volume, not the raw UI
-    // target values, which avoids clicks and sudden jumps.
-    // Sprint 3: effects (reverb, delay, distortion) and scale lock are applied per-sample here.
+    // target values, which avoids clicks and sudden jumps. Scale lock and effects are applied
+    // inside this loop.
     private void fillBuffer(short[] buffer) {
         // toneType is always normalized by setToneType(); no need to normalize again here.
         String tone = toneType;
@@ -341,11 +340,11 @@ public final class ThereminAudioEngine {
 
         for (int i = 0; i < buffer.length; i++) {
             float freq = updateFrequency();
-            // Sprint 3: snap smoothed frequency to the nearest scale note before synthesis.
+            // Snap the smoothed frequency to the active scale before synthesis.
             freq = snapToScale(freq, scale);
             float volume = updateVolume();
             float s = sample(tone, phase, freq, volume) * volume * OUTPUT_GAIN * mg;
-            // Sprint 3: run the effects chain with hoisted locals — no volatile reads in loop.
+            // Run the effects chain from hoisted locals so the hot loop does not perform volatile reads.
             if (doReverb)     s = applyReverb(s, rMix);
             if (doDelay)      s = applyDelay(s, dFb, dMix);
             if (doDistortion) s = applyDistortion(s, dGain);
@@ -458,8 +457,8 @@ public final class ThereminAudioEngine {
                 return sampleHelicopterTone(freqHz, volume);
 
             case AppSettings.TONE_DRUM:
-                // Real drum tone: keep the hit-rate mapping the user asked for, but give each hit
-                // a shorter envelope and a punchier transient so it reads as percussion.
+                // Hidden drum-kit tone: keep frequency-to-hit-rate mapping, but give each hit
+                // a shorter envelope and a punchier transient than Helicopter.
                 return sampleDrumTone(freqHz, volume);
 
             case AppSettings.TONE_OBOE:
@@ -706,7 +705,7 @@ public final class ThereminAudioEngine {
     }
 
     // -------------------------------------------------------------------------
-    // Sprint 3: Effects pipeline — all methods must be non-blocking, allocation-free.
+    // Effects pipeline helpers. These stay allocation-free because they run per sample.
     // -------------------------------------------------------------------------
 
     /**
@@ -752,7 +751,7 @@ public final class ThereminAudioEngine {
     }
 
     /**
-     * Sprint 3: Scale lock. Snaps freqHz to the nearest in-scale frequency.
+     * Scale lock. Snaps freqHz to the nearest in-scale frequency.
      * Takes 'scale' as a parameter (hoisted from the volatile field in fillBuffer)
      * so there are no volatile reads inside the per-sample loop.
      *
@@ -838,7 +837,7 @@ public final class ThereminAudioEngine {
     }
 
     // -------------------------------------------------------------------------
-    // Sprint 3: Public setters for effects and scale lock (called from UI thread).
+    // Public setters for effects and scale lock. These are called from the UI and service threads.
     // -------------------------------------------------------------------------
 
     public void setReverbEnabled(boolean on)     { reverbEnabled = on; }

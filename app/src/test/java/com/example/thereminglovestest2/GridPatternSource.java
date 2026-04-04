@@ -2,7 +2,7 @@ package com.example.thereminglovestest2;
 
 /**
  * Minimal JVM-test helper that mirrors the Beat Maker row routing used by DrumEngine custom
- * patterns. It exists only so legacy unit tests can validate row-to-sound mapping without
+ * patterns. It exists only so JVM tests can validate row-to-sound mapping without
  * standing up the Android activity layer.
  */
 final class GridPatternSource implements PatternSource {

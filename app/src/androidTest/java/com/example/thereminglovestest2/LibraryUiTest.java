@@ -24,9 +24,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.containsString;
 
-/**
- * Espresso coverage for Sprint 2 Library filtering and playback flows.
- */
+/** Espresso coverage for Library filtering and playback flows. */
 @RunWith(AndroidJUnit4.class)
 public class LibraryUiTest {
 

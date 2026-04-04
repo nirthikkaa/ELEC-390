@@ -26,13 +26,13 @@ public class ThereminBackgroundAudioService extends Service {
     private static volatile AppSettings calibrationPreviewSettings;
     private static volatile ThereminBackgroundAudioService activeInstance;
     private static volatile boolean thereminMuted = false;
-    // Sprint 3: Octave shift applied in the sync thread before pushing freq targets.
-    // Range is clamped to [-2, 2] (4 octaves total).
+    // Octave shift is applied in the sync loop before target frequencies are pushed to the
+    // background audio engine. Range is clamped to [-2, 2].
     private static volatile int octaveShift = 0;
 
     private final AppSettings fallbackSettings = new AppSettings();
     private ThereminAudioEngine audioEngine;
-    // Sprint 3: Drum engine owned by the service so it survives Play screen navigation.
+    // The service owns DrumEngine so beats and bass can keep running while Play is off-screen.
     private DrumEngine drumEngine;
     private SettingsStore settingsStore;
     private Thread syncThread;
@@ -104,8 +104,9 @@ public class ThereminBackgroundAudioService extends Service {
     }
 
     /**
-     * Sprint 3: Shift the theremin pitch by whole octaves without changing the
-     * glove mapping. Applied in the sync thread before setTargets() is called.
+     * Shift the theremin pitch by whole octaves without changing glove mapping.
+     * The sync thread applies this just before it pushes the current target frequency.
+     *
      * @param shift Number of octaves to shift; clamped to [-2, 2].
      */
     public static void setOctaveShift(int shift) {
@@ -130,7 +131,7 @@ public class ThereminBackgroundAudioService extends Service {
     /** Returns the current octave shift value. */
     public static int getOctaveShift() { return octaveShift; }
 
-    /** Sprint 3: Scale lock + effects + drum/bass — forwarded to background engines every sync tick. */
+    /** Background-playback control values mirrored from the UI and applied on each sync tick. */
     public static void setActiveScale(String scale)       { bgActiveScale = (scale != null) ? scale : "CHROMATIC"; }
     public static void setReverbEnabled(boolean on)       { bgReverbEnabled = on; }
     public static void setReverbMix(float mix)            { bgReverbMix = mix; }
@@ -173,8 +174,7 @@ public class ThereminBackgroundAudioService extends Service {
     }
 
     /**
-     * Sprint 3: Expose the service's DrumEngine so MainActivity can toggle
-     * drums without owning a separate instance.
+     * Expose the service-owned DrumEngine so Play can update beats without building a second one.
      */
     public static DrumEngine getDrumEngine() {
         ThereminBackgroundAudioService svc = activeInstance;
@@ -215,7 +215,7 @@ public class ThereminBackgroundAudioService extends Service {
     @Override public void onDestroy() {
         stopLoop();
         if (audioEngine != null) audioEngine.shutdown();
-        // Sprint 3: release drum engine resources before the service exits.
+        // Release the service-owned beat engine before the process lets the service go.
         if (drumEngine != null) { drumEngine.release(); drumEngine = null; }
         calibrationPreviewSettings = null;
         serviceActive = false;
@@ -298,13 +298,13 @@ public class ThereminBackgroundAudioService extends Service {
             lastPushedToneType = active.toneType;
         }
 
-        // Sprint 3: Forward drum/bass enabled state to background drum engine every tick.
+        // Mirror the current drum and bass toggles into the service-owned beat engine every tick.
         if (drumEngine != null) {
             drumEngine.setEnabled(bgDrumEnabled);
             drumEngine.setBassEnabled(bgBassEnabled);
         }
 
-        // Sprint 3: Forward scale lock + effects to the background audio engine every tick.
+        // Mirror scale lock and effects into the background synth every tick.
         audioEngine.setActiveScale(bgActiveScale);
         audioEngine.setReverbEnabled(bgReverbEnabled);
         audioEngine.setReverbMix(bgReverbMix);
@@ -314,7 +314,7 @@ public class ThereminBackgroundAudioService extends Service {
         audioEngine.setDistortionEnabled(bgDistortionEnabled);
         audioEngine.setDistortionGain(bgDistortionGain);
 
-        // Sprint 3: Apply octave shift — multiply frequency by 2^shift, then re-clamp.
+        // Apply octave shift after mapping glove motion into frequency, then clamp the result.
         float pitchFreq = pitchOk ? freq : active.freqMinHz;
         int shift = octaveShift;
         if (shift != 0) pitchFreq = Math.max(20f, Math.min(20000f, pitchFreq * (float) Math.pow(2.0, shift)));

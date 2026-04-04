@@ -12,6 +12,7 @@ import android.os.SystemClock;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.thereminglovestest2.databinding.ActivityLaunchBinding;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 public class LaunchActivity extends AppCompatActivity {
     private static final long MIN_LOADING_VISIBILITY_MS = 180L;
@@ -21,6 +22,7 @@ public class LaunchActivity extends AppCompatActivity {
     static final String PREFS_NAME = "theremin_prefs";
     static final String KEY_FIRST_LAUNCH_DONE = "first_launch_done";
     static final String KEY_GRID_HINT_PENDING = "grid_hint_pending";
+    private static final String KEY_PRIVACY_POLICY_ACCEPTED = "privacy_policy_accepted";
 
     private ActivityLaunchBinding binding;
     private boolean started;
@@ -52,6 +54,11 @@ public class LaunchActivity extends AppCompatActivity {
 
     private void beginLaunchChecks() {
         if (launchChecksStarted || isFinishing() || isDestroyed()) return;
+        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (!prefs.getBoolean(KEY_PRIVACY_POLICY_ACCEPTED, false)) {
+            showPrivacyPolicyDialog();
+            return;
+        }
         launchChecksStarted = true;
         binding.tvLaunchStatus.setText("Checking Bluetooth");
         binding.tvLaunchDetail.setText("Resolving permissions and Bluetooth state before opening the app...");
@@ -67,6 +74,23 @@ public class LaunchActivity extends AppCompatActivity {
             return;
         }
         routeAfterFirstFrame();
+    }
+
+    private void showPrivacyPolicyDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.privacy_policy_title)
+                .setMessage(R.string.privacy_policy_message)
+                .setCancelable(false)
+                .setPositiveButton(R.string.privacy_policy_accept, (dialog, which) -> {
+                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                            .putBoolean(KEY_PRIVACY_POLICY_ACCEPTED, true)
+                            .apply();
+                    beginLaunchChecks();
+                })
+                .setNegativeButton(R.string.privacy_policy_decline, (dialog, which) ->
+                        finishAffinity()
+                )
+                .show();
     }
 
     private void routeAfterFirstFrame() {

@@ -794,7 +794,7 @@ public class MainActivity extends AppCompatActivity {
         wireSpring3Controls();
     }
 
-    // Sprint 3: scale lock, octave shift, effects
+    // Wire the Play-screen scale, octave-shift, and effect controls into both audio paths.
     private void wireSpring3Controls() {
         // Make effect buttons checkable (toggle behaviour)
         binding.btnReverb.setCheckable(true);
@@ -2016,7 +2016,7 @@ public class MainActivity extends AppCompatActivity {
         updateBleButtonText();
         updateVisualizer();
 
-        // Sprint 3: Pulse the play hero card on each bass hit
+        // Pulse the Play hero card on each bass hit so the beat engine has visible feedback.
         long bassHitMs = getLastBassHitMs();
         if (bassHitMs > lastAnimatedBassHitMs) {
             lastAnimatedBassHitMs = bassHitMs;

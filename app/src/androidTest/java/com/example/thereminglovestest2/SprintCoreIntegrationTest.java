@@ -12,9 +12,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Instrumented logic and persistence tests covering sprint-core behavior without BLE hardware.
- */
+/** Instrumented logic and persistence tests for settings, calibration, and mapping without BLE hardware. */
 @RunWith(AndroidJUnit4.class)
 public class SprintCoreIntegrationTest {
 
@@ -24,7 +22,7 @@ public class SprintCoreIntegrationTest {
     }
 
     @Test
-    public void settingsStore_roundTripsSprintOneAndSprintThreeFields() {
+    public void settingsStore_roundTripsCoreAndPerformanceFields() {
         Context context = TestAppState.targetContext();
         SettingsStore store = new SettingsStore(context);
         AppSettings settings = new AppSettings();
