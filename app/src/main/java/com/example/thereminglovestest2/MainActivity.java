@@ -238,6 +238,7 @@ public class MainActivity extends AppCompatActivity {
         setupRecordingCallbacks();
 
         beatMakerLauncher = registerForActivityResult(
+
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == RESULT_OK) {
