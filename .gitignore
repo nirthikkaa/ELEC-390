@@ -39,3 +39,7 @@ local.properties
 
 # Local assistant notes
 CLAUDE.md
+
+# Submission docs and scripts — kept locally at ~/Desktop/ThereminGloves_Submission/
+docs/
+scripts/

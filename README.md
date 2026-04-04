@@ -1,9 +1,18 @@
 # Theremin Gloves
 
-An Android app that turns two BLE-connected IMU gloves into a real-time theremin instrument. The right glove controls pitch and the left glove controls volume — both by wrist roll angle. Audio is synthesized live on the phone using `AudioTrack`.
+An Android app that turns two BLE IMU gloves into a real-time theremin. The right glove controls pitch and the left glove controls volume via wrist roll angle, streamed over Bluetooth Low Energy from Arduino Nano 33 BLE Sense boards.
 
 **Course:** COEN 390 / ELEC 390 — Concordia University, Winter 2026  
-**Team 5:** Niraj Patel · Ayan Pirani · Marie Ella Cambay · Nirthika Ilaiyarajah · Matei Moldovan
+**Team 5:** Niraj Patel, Ayan Pirani, Marie Ella Cambay, Nirthika Ilaiyarajah, Matei Moldovan
+
+---
+
+## Requirements
+
+- Android API 36+
+- Two BLE gloves (Arduino Nano 33 BLE Sense)
+  - Pitch glove must advertise as `ThereminGlove`
+  - Volume glove must advertise as `ThereminGloveVol`
 
 ---
 
@@ -12,52 +21,39 @@ An Android app that turns two BLE-connected IMU gloves into a real-time theremin
 ```bash
 ./gradlew assembleDebug       # build APK
 ./gradlew installDebug        # install to connected device
-./gradlew connectedAndroidTest # run instrumented tests
+./gradlew test                # unit tests
+./gradlew connectedAndroidTest  # instrumented tests (requires device/emulator)
+./gradlew lint
 ```
 
-- **compileSdk / targetSdk:** 36 · **minSdk:** 24 · **Java:** 17
+- **compileSdk / targetSdk:** 36
+- **minSdk:** 36
+- **Java:** 17
 
 ---
 
 ## How It Works
 
-Two Arduino Nano 33 BLE Sense gloves stream wrist-angle telemetry over BLE. `BleSessionManager` handles scanning, connection, and auto-reconnect. `PlayMappingState` maps the incoming angles to frequency and volume targets. `ThereminAudioEngine` synthesizes audio in real time using 10 selectable tones, a live effects pipeline (reverb, delay, distortion), scale lock, and octave shift. Performances can be recorded as lossless WAV or AAC and managed in the built-in library.
+1. Launch the app — it checks Bluetooth permissions and auto-connects to known gloves.
+2. Calibrate on the **Cal** tab: capture neutral wrist position for each glove, set angle and frequency ranges, tap **Save & Play**.
+3. On the **Play** tab, press the Play button. Move your pitch hand to change frequency; move your volume hand to change loudness.
+4. Optional: select a tone from the rotary knob, apply scale lock or octave shift, enable reverb/delay/distortion, or open the Beat Maker.
+5. Tap **Record** to save a performance; manage recordings in the **Library** tab.
 
 ---
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Design Document](docs/final/01_Design_Document.md) | Full architecture — subsystems, constants, data flow |
-| [Test Document](docs/final/02_Test_Document.md) | 51-row test matrix covering BLE, audio, recording, settings |
-| [User Manual](docs/final/03_User_Manual.md) | End-user walkthrough, screen-by-screen |
-| [Mission Statement](docs/final/04_Mission_Statement.md) | Product positioning and target users |
-| [Ethics Report](docs/final/05_Ethics_Report.md) | Privacy, data ownership, accessibility |
-| [Computer Simulation Summary](docs/final/06_Computer_Simulation_Summary.md) | Latency analysis (background ~61 ms, foreground ~91 ms) |
-| [Definition of Done](docs/final/07_Definition_of_Done.md) | Team acceptance criteria |
-| [AI Usage Document](docs/final/08_AI_Usage_Document.md) | Generative AI disclosure |
-| [Presentation Notes](docs/final/09_Presentation_Notes.md) | Speaker notes for all 11 slides |
-| [Demo Preparation](docs/final/10_Demo_Preparation.md) | Live demo runbook with fallback steps |
-| [Submission Checklist](docs/final/11_Submission_Checklist.md) | eConcordia filing checklist |
-| [Final Product Backlog](docs/final/12_Final_Product_Backlog.md) | All completed stories across sprints 1–3 |
-
-### Submission Artifacts
-
-| File | Format |
-|------|--------|
-| [FinalPresentation.pptx](docs/final/FinalPresentation.pptx) | 11-slide deck with speaker notes |
-| [docs/final/docx/](docs/final/docx/) | Word versions of all 12 documents |
-
----
-
-## Key Technical Facts
+## Key Technical Details
 
 | Constant | Value |
-|----------|-------|
-| `SAMPLE_RATE` | 48 000 Hz |
-| `AUDIO_WRITE_FRAMES` | 1 024 (~21.3 ms/buffer) |
-| `SYNC_TICK_MS` | 20 ms |
-| `UI_TICK_MS` | 50 ms |
-| Public tones | THEREMIN, AIR\_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, HELICOPTER |
+|---|---|
+| Sample rate | 48 000 Hz |
+| Audio buffer | 1 024 frames (~21.3 ms) |
 | BLE service UUID | `12345678-1234-1234-1234-1234567890ab` |
+| Watchdog ping | 3 000 ms stale |
+| Auto-reconnect delay | 1 500 ms |
+| Output gain | 0.14 |
+
+**Tones:** Theremin, Air Pad, Cello, Pad, Choir, Flute, Clarinet, Triangle, Saw, Helicopter  
+**Effects:** Reverb (Schroeder comb), Delay (ring buffer), Distortion (tanh saturation)  
+**Scales:** Chromatic, Major, Minor, Pentatonic  
+**Recording formats:** Lossless WAV, High/Medium/Low AAC
