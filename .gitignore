@@ -1,24 +1,36 @@
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+# Android/Gradle local state
+.gradle/
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
 local.properties
+/local.properties
+
+# Android Studio / IntelliJ machine-local files
 .idea/workspace.xml
+.idea/.name
+.idea/deviceManager.xml
 .idea/deploymentTargetSelector.xml
 .idea/studiobot.xml
-.idea/caches
-.idea/libraries
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
 .idea/navEditor.xml
 .idea/assetWizardSettings.xml
-CLAUDE.md
+
+# Local tooling
+.claude/
+
+# Built artifacts / signing material
+*.apk
+*.aab
+*.ap_
+*.jks
+*.keystore
+
+# Local assistant notes
 CLAUDE.md
