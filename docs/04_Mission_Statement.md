@@ -1,7 +1,7 @@
 # Theremin Gloves — Mission Statement (Updated)
 
 **Course:** COEN 390 / ELEC 390, Concordia University, Winter 2026  
-**Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan
+**Team 5:** Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay
 
 ## Product Description
 Theremin Gloves is an Android app that transforms two BLE-connected IMU gloves built around Arduino Nano 33 BLE Sense boards into a wireless theremin-style instrument. One glove controls pitch, the other controls volume, and the phone synthesizes the sound locally in real time. The app also supports calibration, recording, local playback, tone selection, effects, beat tools, and settings persistence.

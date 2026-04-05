@@ -295,7 +295,7 @@ Slides:
 
 SLIDE 1 — Title (30 seconds)
 "Theremin Gloves — A Gesture-Controlled Wireless Instrument"
-Team 5: Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan
+Team 5: Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay
 COEN 390 / ELEC 390, Winter 2026
 
 SLIDE 2 — Who is the customer? (60 seconds)
@@ -594,17 +594,17 @@ Prepare 3-4 sentences each. Be specific — mention class names and features.
 **Niraj Patel:**
 "I was the sole developer on this project. I wrote the entire Arduino firmware myself — that's the IMU angle computation, the BLE peripheral setup with custom UUIDs, and all the packet formatting. On the Android side I built the entire BLE layer in Sprint 1 from scratch without any AI — scanning, connection flow, GATT notification subscription, the static singleton architecture, and the BleSnapshot pattern. I also wrote the core audio engine: the AudioTrack synthesis loop, the smoothing algorithm, the original four waveforms, and the vibrato. I built the foundation of RecordingManager and LibraryActivity myself. In Sprint 2 I used Claude Code to help handle specific edge cases I had identified through hardware testing — things like the reconnect watchdog timing and the Android 12 permission split — and to extend the engine with additional waveforms and recording quality modes."
 
+**Matei Moldovan:**
+"I handled UI polish and all project documentation. On the code side I improved the play screen layout — spacing, button sizing, making sure everything was accessible on small screens. I also added the ToneKnobView selector and wired the waveform selection to the audio engine for the user-facing controls. On the documentation side I was responsible for the design document, test results, the demo script, the ethics report, and coordinating the final submission package. I also maintained the team blog throughout all three sprints."
+
+**Nirthika Ilaiyarajah:**
+"I implemented the storage and recording engine. RecordingManager implements the PcmListener tap interface on ThereminAudioEngine — it receives raw PCM from the audio thread and encodes it either as lossless WAV or compressed AAC using MediaCodec and MediaMuxer. RecordingRepository is the SQLite layer — I chose to use a separate recordings.db file to avoid database migration conflicts with SettingsStore. I also added performance mode in Sprint 3 — the toggle that hides non-essential UI elements on the play screen — and benchmarked end-to-end latency at approximately 55–70ms typical."
+
 **Ayan Pirani:**
 "I was responsible for the play screen recording UI. I added the record button, the blinking indicator, and the timer display to MainActivity. I implemented the RECORD_AUDIO runtime permission request flow and handled the case where permission is denied gracefully. I also wired the RecordingManager start/stop calls and the callback that saves the recording to RecordingRepository when complete. For Sprint 3 I added the scale lock UI chip group, the octave shift +/- buttons, and the effects control panel."
 
 **Marie Ella Cambay:**
 "I rebuilt the Library screen from a blank placeholder into a full-featured recording management system. That's LibraryActivity — over a thousand lines — with a RecyclerView, RecordingListAdapter for drag-to-reorder, MediaPlayer integration for audio playback, a search bar that filters in real time, long-press for rename, swipe-to-delete with confirmation, and folder organization. I also implemented the sensitivity settings feature in Sprint 3, which applies a multiplier to the angle range in PlayMappingState."
-
-**Nirthika Ilaiyarajah:**
-"I implemented the storage and recording engine. RecordingManager implements the PcmListener tap interface on ThereminAudioEngine — it receives raw PCM from the audio thread and encodes it either as lossless WAV or compressed AAC using MediaCodec and MediaMuxer. RecordingRepository is the SQLite layer — I chose to use a separate recordings.db file to avoid database migration conflicts with SettingsStore. I also added performance mode in Sprint 3 — the toggle that hides non-essential UI elements on the play screen — and benchmarked end-to-end latency at approximately 55–70ms typical."
-
-**Matei Moldovan:**
-"I handled UI polish and all project documentation. On the code side I improved the play screen layout — spacing, button sizing, making sure everything was accessible on small screens. I also added the ToneKnobView selector and wired the waveform selection to the audio engine for the user-facing controls. On the documentation side I was responsible for the design document, test results, the demo script, the ethics report, and coordinating the final submission package. I also maintained the team blog throughout all three sprints."
 
 ---
 

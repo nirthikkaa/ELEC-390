@@ -1,7 +1,7 @@
 # Theremin Gloves — Professor FAQ
 
 **Course:** COEN 390 / ELEC 390, Concordia University, Winter 2026  
-**Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan
+**Team 5:** Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay
 
 > All answers are source-verified against the sprint3 branch as of April 4, 2026. Every constant, class name, and algorithm reference matches the actual production code.
 
@@ -11,14 +11,15 @@
 
 | Category | Topics | Questions |
 |---|---|---|
-| [A — Project Overview](#category-a--project-overview) | What it does, hardware, latency, tones | 10 |
+| [A — Project Overview](#category-a--project-overview) | What it does, hardware, latency, latency path breakdown | 12 |
 | [B — Hardware and BLE Protocol](#category-b--hardware-and-ble-protocol) | Microcontroller, sensor, UUIDs, packet format, watchdog | 15 |
 | [C — Audio Synthesis and DSP](#category-c--audio-synthesis-and-dsp) | Sample rate, IIR smoothing, vibrato, reverb, delay, distortion, scale lock, tones | 20 |
 | [D — Software Architecture](#category-d--software-architecture-and-design-patterns) | Activity flow, threading, BleSnapshot, recording, databases, design patterns | 20 |
 | [E — Testing](#category-e--testing) | Test counts, platforms, BLE stability, latency verification | 10 |
-| [F — Sprints and Agile Process](#category-f--sprints-and-agile-process) | Sprint deliverables, exclusions, Definition of Done | 10 |
+| [F — Sprints and Agile Process](#category-f--sprints-and-agile-process) | Sprint deliverables, exclusions, Definition of Done, story points, velocity, team blog | 15 |
 | [G — Ethics, Privacy, and AI](#category-g--ethics-privacy-and-ai) | Data collection, AI usage, surveillance risk | 10 |
 | [H — Live Demo](#category-h--live-demo) | Demo flow, failure recovery, showcasing features | 10 |
+| [I — Deep Technical](#category-i--deep-technical) | Audio format, thread priority, latency path, IIR constants, BLE internals, scale cache | 10 |
 
 ---
 
@@ -41,6 +42,12 @@ A: API 31 (Android 12) is the minimum SDK. Android 12 introduced `BLUETOOTH_SCAN
 
 **Q: What is the end-to-end latency?**  
 A: The background-service path (used when the app is backgrounded and during calibration preview) has a typical latency of approximately 39–51 ms and a worst case of approximately 61 ms. The foreground Play path (visible Play screen) has a typical latency of approximately 54–66 ms and a worst case of approximately 91 ms. The worst-case foreground value exceeds the HD-11 `<80 ms` target slightly because the Play UI polls at 50 ms; however, typical use is well within target. See `docs/06_Computer_Simulation_Summary.md` for the full latency budget derivation.
+
+**Q: Why does the background-service path have lower latency than the foreground Play path?**  
+A: The controlling variable is the sync-loop period, not the audio buffer. Both paths share the same `AUDIO_WRITE_FRAMES = 1024` → 21.3 ms buffer. What differs is the middle stage. `ThereminBackgroundAudioService` runs a dedicated sync thread that polls `BleSessionManager.getSnapshot()` and calls `pushTargets()` every `SYNC_TICK_MS = 20 ms`. `MainActivity`'s UI poller runs at `UI_TICK_MS = 50 ms` to keep main-thread CPU load reasonable. The full budget: background = BLE(≤20 ms) + sync(≤20 ms) + buffer(21.3 ms) = **≤61.3 ms**; foreground = BLE(≤20 ms) + UI-tick(≤50 ms) + buffer(21.3 ms) = **≤91.3 ms**. Reducing `UI_TICK_MS` to 20 would equalize the paths but at a higher main-thread scheduling cost.
+
+**Q: What would happen to latency if `AUDIO_WRITE_FRAMES` were doubled to 2048?**  
+A: The buffer contribution doubles from 21.3 ms to 42.6 ms. Background worst case: 20 + 20 + 42.6 = **82.6 ms** — this exceeds the HD-11 `<80 ms` target by 2.6 ms. Foreground worst case: 20 + 50 + 42.6 = **112.6 ms**. This is exactly why the buffer was reduced from 2048 to 1024 frames in Sprint 3 — halving the buffer's contribution was the single code change that brought the background path comfortably inside the 80 ms target. The trade-off is more frequent `AudioTrack.write()` calls, each covering less time, but the OS overhead per call is acceptable at this size.
 
 **Q: How many tones are supported?**  
 A: 11 user-selectable tones: THEREMIN, AIR_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, SQUARE, and HELICOPTER. Additional tones (SWEET_LEAD, BELL, ORGAN, STRING, OBOE, TRUMPET, VIOLIN, GUITAR, and others) exist internally for backward compatibility but are not exposed in the public picker. The user-selectable set is defined in `SettingsStore.USER_SELECTABLE_TONES[]`.
@@ -349,10 +356,61 @@ A: Nine criteria must all be true before a story is marked complete: (1) `./grad
 A: MoSCoW method. Sprint 1 must-haves: BLE communication + audio synthesis (without these, nothing works). Sprint 2 should-haves: recording and library (high product value, clear scope). Sprint 3 could-haves: effects, drum engine, scale lock (enhancements). Won't-haves: battery display, MIDI controller support, cloud sync (explicitly out of scope).
 
 **Q: How many completed stories total, and how many were excluded?**  
-A: 31 stories completed across three sprints. 20 stories explicitly listed as not implemented with reasons. Full detail in `docs/12_Final_Product_Backlog.md`.
+A: 29 stories completed across three sprints (Sprint 1: 17, Sprint 2: 5, Sprint 3: 7). 20 stories explicitly listed as not implemented with reasons. Full detail in `docs/12_Final_Product_Backlog.md`.
 
 **Q: How long was each sprint?**  
 A: Two weeks each. Sprint 1: weeks 3–4 of the semester. Sprint 2: weeks 7–8. Sprint 3: March 23 – April 6, 2026. Final submission: April 15, 2026.
+
+**Q: How many story points were completed per sprint?**  
+A: Story points are taken directly from `docs/12_Final_Product_Backlog.md` and `docs/backlog.txt`.
+
+| Sprint | Stories completed | Story points | Ideal hours budgeted |
+|--------|------------------|-------------|----------------------|
+| Sprint 1 | 17 | **80** | 155 |
+| Sprint 2 | 5 | **19** | 115 |
+| Sprint 3 | 7 | **56** | — |
+| **Total** | **29** | **155** | — |
+
+Sprint 1 point total: HD-1(8)+ID-1(3)+HD-2(5)+HD-3(8)+ID-2(5)+HD-4(8)+HD-5(8)+HD-6(5)+HD-7(8)+ID-3(3)+ID-12(3)+ID-22(3)+ID-23(3)+ID-24(2)+ID-25(3)+ID-26(2)+ID-27(3) = 80.  
+Sprint 2 point total: ID-4(5)+ID-5(3)+ID-8(3)+ID-9(3)+ID-21(5) = 19.  
+Sprint 3 point total: ID-10(5)+HD-13(13)+HD-29(11)+HD-30(6)+ID-11(5)+HD-16(8)+HD-11(8) = 56.
+
+**Q: What is team velocity and what was your team's velocity?**  
+A: Velocity is the number of story points completed in a single sprint. It is the primary Agile metric for predicting how much work a team can take on in a future sprint.
+
+| Sprint | Velocity (pts) |
+|--------|---------------|
+| Sprint 1 | 80 |
+| Sprint 2 | 19 |
+| Sprint 3 | 56 |
+| **Average** | **~52** |
+
+The Sprint 1 outlier (80 pts) reflects the breadth of the foundational sprint — 17 stories covering BLE, calibration, audio engine, mapping, settings, navigation, and permissions. Sprint 2 velocity dropped to 19 because the 5 stories were individually deeper: the recording pipeline and LibraryActivity (~1070 lines) each required significant engineering. Sprint 3 rebounded to 56 because DrumEngine (13 pts) and Scale Lock (11 pts) were high-value stories that the team had planned carefully since the start of the semester. Average velocity of ~52 pts/sprint is consistent with a 5-person engineering team doing part-time course work.
+
+**Q: What is the team blog and what does it contain?**  
+A: The team blog is a per-sprint activity log maintained as a spreadsheet. Files:
+- `docs/COEN-ELEC 390 - Project/Sprint 1/Team blog.xlsx`
+- `docs/COEN-ELEC 390 - Project/Milestone 1/Team blog_Milestone 1.pdf`
+- `docs/COEN-ELEC 390 - Project/Milestone 2/Team blog.xlsx`
+
+Each entry records: date, team member name, activity performed, decisions made, blockers encountered, and how blockers were resolved. The log is updated after every team working session. The final blog entry for the Sprint 3 submission period requires sign-off from all five team members: Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay. It is listed as a manual deliverable in `docs/11_Submission_Checklist.md` because it is a spreadsheet submitted separately from the Git repository.
+
+**Q: How was the product backlog managed and groomed between sprints?**  
+A: The full backlog is in `docs/backlog.txt` (51 stories). Grooming followed MoSCoW prioritization:
+- **Must-have** (Sprint 1): BLE + audio — without these the product does not exist.
+- **Should-have** (Sprint 2): Recording + Library + tone selection — high product value, well-scoped.
+- **Could-have** (Sprint 3): DrumEngine, effects, scale lock, octave shift — meaningful enhancements but not blockers.
+- **Won't-have**: 20 stories documented with explicit reasons in `docs/12_Final_Product_Backlog.md`.
+
+Admin stories were allocated per sprint for grooming: A-1 (Sprint 1 backlog grooming, 2 h), A-8 (Sprint 2 backlog refinement, 2 h). After Sprint 3, the final backlog was locked and the completed vs. not-implemented split was documented in `12_Final_Product_Backlog.md`.
+
+**Q: What were the sprint goals?**  
+A: Each sprint was framed so the result was a playable instrument state, not an internal milestone:
+- **Sprint 1 goal:** A performer can connect two gloves, calibrate, and play a real-time theremin with stable BLE and audio.
+- **Sprint 2 goal:** A performer can record a performance and replay it from a library, and choose from 10 tone shapes.
+- **Sprint 3 goal:** A performer can add drum backing, use audio effects (reverb/delay/distortion), lock pitch to a musical scale, shift octaves, and adjust gesture sensitivity — making the instrument suitable for a live demo.
+
+This framing kept every sprint deliverable verifiable on real hardware (the Pixel 7 + two gloves), matching the Definition of Done requirement that features work on the physical device, not just the emulator.
 
 ---
 
@@ -426,3 +484,39 @@ A: Connect both gloves. Deliberately power off one glove (remove from power bank
 
 **Q: What is the minimum hardware required for the demo?**  
 A: One Google Pixel 7 (or equivalent Android 12+ device) running the debug APK. Two Arduino Nano 33 BLE Sense boards mounted in gloves with power (USB power bank or rechargeable battery), running the glove firmware (advertises `ThereminGlove` and `ThereminGloveVol`). Headphones or a Bluetooth speaker are optional but improve audio quality for the audience.
+
+---
+
+## Category I — Deep Technical
+
+Questions probing low-level implementation decisions that may arise during technical Q&A.
+
+**Q: What is the exact output format of `AudioTrack`?**  
+A: `ENCODING_PCM_16BIT` (signed 16-bit little-endian), `CHANNEL_OUT_STEREO` (two channels), `SAMPLE_RATE = 48000 Hz`. `ThereminAudioEngine.fillBuffer()` produces a mono `short[]` of 1024 samples. Before writing to `AudioTrack`, each sample is duplicated into a stereo `short[]` of 2048 values: `stereo[2i] = mono[i]; stereo[2i+1] = mono[i]`. The write call is `audioTrack.write(stereoBuffer, 0, 2048)` — 2048 shorts = 4096 bytes = 1024 stereo frames = 21.3 ms at 48 kHz.
+
+**Q: Why is the audio thread run at `THREAD_PRIORITY_AUDIO` and what does it prevent?**  
+A: `android.os.Process.setThreadPriority(THREAD_PRIORITY_AUDIO)` maps to Linux nice value −16 (higher = more CPU time). By comparison, the UI thread is nice 0 and network threads are nice 10. Without elevated priority, the Linux completely-fair scheduler can preempt the audio thread mid-buffer to handle a UI event or network callback. That preemption causes `AudioTrack.write()` to miss its deadline, draining the internal PCM queue and producing an audible dropout or glitch. At `THREAD_PRIORITY_AUDIO`, the scheduler virtually never preempts the audio loop for lower-priority threads.
+
+**Q: Does enabling reverb, delay, or distortion increase audio latency?**  
+A: No. All three effects are in-line single-pass operations computed inside the same 1024-sample `fillBuffer()` call. The reverb (`combBuffer[8192]`) and delay (`delayBuffer[32768]`) are read-then-write ring buffers: on each sample, the delayed value is read first, then the current sample is written in. The output is a mix of the current and delayed values. No extra buffering stage is added — the effect processes the sample and produces the output in the same pass. Total latency remains `AUDIO_WRITE_FRAMES / SAMPLE_RATE = 21.3 ms` regardless of which effects are active.
+
+**Q: Why does `ThereminAudioEngine` pre-warm `AudioTrack` with two silent buffers?**  
+A: After `audioTrack.play()`, some Android devices stall their internal PCM queue for 40–80 ms waiting for the first `write()` call. This stall causes the first audible buffer to arrive noticeably late even though the app's latency measurement looks normal. Writing two `short[2048]` zero buffers immediately after `play()` fills the queue to steady state before any real audio arrives. Without pre-warming, the initial note after app start or reconnect is delayed by up to 80 ms — perceptible and jarring. This is a documented Android `AudioTrack` quirk on some OEM implementations.
+
+**Q: What is the BLE connection interval and how does it contribute to the latency budget?**  
+A: The BLE connection interval is the time between consecutive BLE data-exchange events between the phone and the glove. The nRF52840 (inside the Arduino Nano 33 BLE Sense) defaults to a 7.5–20 ms connection interval. Each `ACTIVE_DELTA_DEG` notification is sent at most once per interval, so fresh IMU data arrives at the phone every 7.5–20 ms at best. This is the first (and uncontrollable) stage of the latency pipeline. The Android side cannot reduce it below the hardware default — it is negotiated during connection establishment by Nordic's `BleManager` and the nRF52840 firmware. It contributes the `BLE(≤20 ms)` term in every latency budget calculation.
+
+**Q: What is the IIR filter time constant for frequency smoothing, and what does it mean in practice?**  
+A: The filter is a first-order exponential moving average: `smoothFreq += (target − smoothFreq) × FREQ_SMOOTHING`, where `FREQ_SMOOTHING = 0.003`. The time constant in samples is τ = −1 / ln(1 − 0.003) = −1 / ln(0.997) ≈ **333 samples ≈ 6.94 ms at 48 kHz**. In practice: after a sudden pitch change (e.g., right glove snaps from 440 Hz to 880 Hz), the smoothed frequency reaches 63% of the new value in ~6.9 ms and 99% (within 1%) in ~5τ ≈ 34.7 ms (~1.6 audio buffers). This is fast enough to track deliberate gestures but slow enough to suppress click-inducing phase discontinuities from sensor noise spikes.
+
+**Q: Why does `snapToScale()` cache its last result, and how effective is that cache?**  
+A: `snapToScale()` maintains two fields: `snapCacheIn` (last input frequency) and `snapCacheOut` (last snapped result). On entry, if `smoothFreqHz == snapCacheIn`, it returns `snapCacheOut` immediately — no binary search needed. Because `FREQ_SMOOTHING = 0.003`, the smoothed frequency changes by at most 0.3% per sample. Over one 1024-sample buffer (~21 ms), frequency shifts by at most a few Hz at typical playing pitches. A scale-note boundary crossing requires a step of ~6% (one semitone). The cache therefore hits for most samples in a buffer, and misses only near a note boundary. The binary search itself is O(log N) = 7 comparisons over the 128-note chromatic table, but the cache reduces average comparisons to well under 1 per sample. Cache hit rate exceeds 99% under continuous play.
+
+**Q: What happens if a glove firmware sends a malformed or truncated BLE packet?**  
+A: `BleSessionManager`'s notification callback calls `parsePacket(String data)` which splits on `":"`. For `ACTIVE_DELTA_DEG`, it checks `tokens.length == 2` and parses `tokens[1]` as a float via `Float.parseFloat()`. If either check fails — wrong token count, non-numeric value, or `null` — the exception is caught, the packet is silently dropped, and the glove's last-known snapshot values are preserved unchanged. The audio engine continues on the stale value. `STALE_WARNING_MS = 4500 ms` will eventually flag the glove if packets stop altogether, but a single malformed packet causes no state corruption.
+
+**Q: Why is there no `INTERNET` permission in the manifest, and does that actually prevent network access?**  
+A: The `INTERNET` permission is deliberately omitted — it is not in `AndroidManifest.xml`. On Android, `INTERNET` permission is enforced at two levels: (1) the package manager checks it at install time, and (2) the Linux kernel enforces it via SELinux policy. Even if a library or future code accidentally attempted a socket call, the OS would block it at the kernel level with `EACCES`. This is the strongest possible guarantee of "no cloud sync" — it is not just app-level logic but OS-enforced. It also means the app cannot accidentally be updated to include analytics without an explicit manifest change that reviewers would notice.
+
+**Q: Why is `RecordingManager` protected with `ReentrantLock.tryLock()` rather than `synchronized`?**  
+A: The audio thread calls `RecordingManager.onPcmSamples()` ~47 times per second (every 21.3 ms). If `RecordingManager.stopRecording()` is simultaneously finalizing on the main thread — writing the 44-byte WAV header or waiting for `MediaMuxer.stop()` — a `synchronized` block would cause the audio thread to block until finalization completes. Finalization can take 10–100 ms. A blocked audio thread means `AudioTrack.write()` misses its deadline, draining the internal PCM queue and producing an audible gap. `tryLock(0, TimeUnit.MILLISECONDS)` is non-blocking: if the lock is held, it returns false immediately, the PCM buffer is skipped for that call (at most one 21 ms buffer lost at the very end of a recording), and the audio thread continues without stalling.

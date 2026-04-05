@@ -41,6 +41,7 @@ local.properties
 CLAUDE.md
 
 # Submission docs and scripts — kept locally at ~/Desktop/ThereminGloves_Submission/
-docs/
+docs/*
 !docs/USER_MANUAL.md
+!docs/02b_Latency_Benchmark_Results.md
 scripts/

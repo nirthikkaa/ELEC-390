@@ -1,7 +1,7 @@
 # Theremin Gloves — Ethics Report
 
 **Course:** COEN 390 / ELEC 390, Concordia University, Winter 2026  
-**Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan
+**Team 5:** Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay
 
 ## 1. Privacy of Recorded Audio
 

@@ -251,6 +251,16 @@ Use these as balanced high-level talking points. They are intentionally written 
 - "My main areas were the firmware-facing and core runtime pieces: the Arduino telemetry path, the BLE session architecture, and the base theremin audio path."
 - "On Android, that includes the BLE session flow, glove-state/watchdog foundation, and the real-time synthesis path around `AudioTrack`."
 
+### Matei Moldovan
+
+- "My main areas were UI cohesion and the submission package."
+- "That includes layout polish across the user-facing screens, presentation-facing refinement for the demo flow, and the final written material."
+
+### Nirthika Ilaiyarajah
+
+- "My main areas were the recording pipeline, persistence behavior, and performance-oriented validation work."
+- "That includes the PCM capture and saved-file flow, repository or settings-side persistence behavior, and latency or responsiveness reasoning."
+
 ### Ayan Pirani
 
 - "My main areas were the Play-screen interaction flows and performer-facing controls."
@@ -260,16 +270,6 @@ Use these as balanced high-level talking points. They are intentionally written 
 
 - "My main areas were the Library experience and the user-facing management flows around saved performances."
 - "That includes browsing, search, organization, rename/delete behavior, and related usability work on the app side."
-
-### Nirthika Ilaiyarajah
-
-- "My main areas were the recording pipeline, persistence behavior, and performance-oriented validation work."
-- "That includes the PCM capture and saved-file flow, repository or settings-side persistence behavior, and latency or responsiveness reasoning."
-
-### Matei Moldovan
-
-- "My main areas were UI cohesion and the submission package."
-- "That includes layout polish across the user-facing screens, presentation-facing refinement for the demo flow, and the final written material."
 
 ## Final 15-Minute Pre-Demo Check
 

@@ -1,7 +1,7 @@
 # Theremin Gloves — Final Test Document
 
 **Course:** COEN 390 / ELEC 390, Concordia University, Winter 2026  
-**Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan  
+**Team 5:** Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay  
 **Verification basis:** Source code inspection (sprint3 branch, April 5, 2026) + manual Pixel 7 verification with both BLE gloves powered + `./gradlew connectedAndroidTest` run on Pixel 7 (Android 16, April 5, 2026)
 
 ## At a Glance
@@ -152,6 +152,18 @@ All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino 
 **Failed test:** `BluetoothPromptUiTest.launch_promptsForBluetoothPermissions_whenMissing`
 
 This test revokes Bluetooth permissions at runtime and waits for the OS permission dialog to appear. It failed because the Pixel 7 demo device has Bluetooth permissions permanently configured from prior sessions, causing the OS to suppress the dialog. This is an environment-dependent test — the permission-dialog flow itself is correct and was verified manually during initial setup. It is not a code defect.
+
+### Targeted Latency Benchmark Run — April 5, 2026
+
+`./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.thereminglovestest2.LatencyBenchmarkTest` on Pixel 7 (Android 16): **10 / 10 passed**
+
+This benchmark suite runs headless under instrumentation, so no app activity is expected to visibly launch on the phone during the run. A brief tone may still be heard during the audio-engine benchmark methods. Detailed benchmark numbers are recorded in `docs/02b_Latency_Benchmark_Results.md`.
+
+For the April 5, 2026 run, the benchmark logic recorded `BLE_INTER_ARRIVAL_US` as a skip note because both gloves were not connected within 30 seconds. That condition did not fail the suite; it only omitted that one measured metric from the report.
+
+`./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.example.thereminglovestest2.VisibleLaunchBenchmarkTest` on Pixel 7 (Android 16): **2 / 2 passed**
+
+This second benchmark class intentionally launches visible Activities so the phone clearly shows the app opening during the run. The measured April 5, 2026 averages were approximately `0.63 s` for `LaunchActivity` and `1.88 s` for direct `MainActivity` launch. The detailed metric table is also recorded in `docs/02b_Latency_Benchmark_Results.md`.
 
 ### Automated Test Inventory
 

@@ -18,7 +18,7 @@
 ---
 
 **Course:** COEN 390 / ELEC 390 — Concordia University, Winter 2026  
-**Team 5:** Niraj Patel · Ayan Pirani · Marie Ella Cambay · Nirthika Ilaiyarajah · Matei Moldovan
+**Team 5:** Niraj Patel · Matei Moldovan · Nirthika Ilaiyarajah · Ayan Pirani · Marie Ella Cambay
 
 ---
 

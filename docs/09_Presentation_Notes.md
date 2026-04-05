@@ -118,17 +118,17 @@ Use these as balanced high-level speaking points. They are intentionally phrased
 ### Niraj Patel
 “My main areas were the firmware-facing and core runtime pieces: the Arduino telemetry path, the BLE session architecture, and the base theremin audio path. That includes the custom BLE packet flow, the glove-state and watchdog foundation in `BleSessionManager`, and the real-time synthesis path built around `AudioTrack` and `ThereminAudioEngine`.”
 
-### Ayan Pirani
-“My main areas were the Play-screen interaction flows and performer-facing controls. That includes the recording UI state, transport or control wiring, and the user actions for things like scale, octave, and effect controls that update the live instrument state.”
-
-### Marie Ella Cambay
-“My main areas were the Library experience and the user-facing management flows around saved performances. That includes browsing, search, organization, rename/delete behavior, and related usability work on the app side that helps users manage recordings and settings.”
+### Matei Moldovan
+"My main areas were UI cohesion and the submission package. That includes layout polish across the user-facing screens, presentation-facing refinement for the demo flow, and the final written material such as the design, testing, demo, ethics, and submission documents."
 
 ### Nirthika Ilaiyarajah
-“My main areas were the recording pipeline, persistence behavior, and performance-oriented validation work. That includes the PCM capture and saved-file flow, repository and settings-side persistence behavior, and the latency or responsiveness reasoning used to keep the instrument practical on-device.”
+"My main areas were the recording pipeline, persistence behavior, and performance-oriented validation work. That includes the PCM capture and saved-file flow, repository and settings-side persistence behavior, and the latency or responsiveness reasoning used to keep the instrument practical on-device."
 
-### Matei Moldovan
-“My main areas were UI cohesion and the submission package. That includes layout polish across the user-facing screens, presentation-facing refinement for the demo flow, and the final written material such as the design, testing, demo, ethics, and submission documents.”
+### Ayan Pirani
+"My main areas were the Play-screen interaction flows and performer-facing controls. That includes the recording UI state, transport or control wiring, and the user actions for things like scale, octave, and effect controls that update the live instrument state."
+
+### Marie Ella Cambay
+"My main areas were the Library experience and the user-facing management flows around saved performances. That includes browsing, search, organization, rename/delete behavior, and related usability work on the app side that helps users manage recordings and settings."
 
 ## Notes To The Team Before Final Slides Are Exported
 

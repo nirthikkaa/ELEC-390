@@ -67,6 +67,10 @@ public final class ThereminAudioEngine {
     // duplicated into stereo for playback. Volatile keeps UI-thread start/stop visible to audio.
     private volatile PcmListener pcmListener;
 
+    /** Duration of the most recent fillBuffer() call in nanoseconds. Written by audio thread,
+     *  read by benchmark tests only. Zero until the first buffer completes. */
+    public volatile long lastFillDurationNs = 0L;
+
     // Effects pipeline state. All delay/reverb buffers are pre-allocated here so fillBuffer()
     // stays allocation-free on the audio thread.
     private volatile boolean reverbEnabled = false;
@@ -321,6 +325,7 @@ public final class ThereminAudioEngine {
     // target values, which avoids clicks and sudden jumps. Scale lock and effects are applied
     // inside this loop.
     private void fillBuffer(short[] buffer) {
+        final long _fillT0 = System.nanoTime();
         // toneType is always normalized by setToneType(); no need to normalize again here.
         String tone = toneType;
 
@@ -352,6 +357,7 @@ public final class ThereminAudioEngine {
             buffer[i] = (short) (s * Short.MAX_VALUE);
             advancePhase(freq);
         }
+        lastFillDurationNs = System.nanoTime() - _fillT0;
     }
 
     // Duplicate each mono frame into left/right so every instrument reaches the output bus

@@ -1,7 +1,7 @@
 # Theremin Gloves — Final Product Backlog
 
 **Course:** COEN 390 / ELEC 390, Concordia University, Winter 2026  
-**Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan
+**Team 5:** Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay
 
 ---
 
@@ -41,7 +41,7 @@ Stories completed across all three sprints.
 | HD-16 | Performance Mode | Sprint 3 | 8 | Single toggle button hides debug log, mapping sliders, glove commands, and status labels; visualizer, tone knob, connection chips, record button remain visible; state persists across restart. |
 | HD-11 | Gesture Latency Optimization | Sprint 3 | 8 | Latency benchmarked: ~21.3 ms audio buffer (`AUDIO_WRITE_FRAMES=1024`); background path ~38–61 ms; foreground path ~55–91 ms (bounded by `UI_TICK_MS=50`). No code changes warranted — architecture is already optimal. |
 
-**Total completed: 31 stories**
+**Total completed: 29 stories**
 
 ---
 
@@ -80,6 +80,6 @@ Stories that were in the backlog but not implemented in any sprint.
 
 | Category | Count |
 |---|---|
-| Completed | 31 |
+| Completed | 29 |
 | Not implemented (out of scope) | 20 |
 | **Total in backlog** | **51** |

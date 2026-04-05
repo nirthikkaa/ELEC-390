@@ -4,11 +4,11 @@
 Theremin Gloves
 Prepared By:
 Team 5
-Ayan Pirani (40276971)
 Niraj Patel (40211758)
-Marie Ella Cambay (40284457)
-Nirthika Ilaiyarajah (40298669)
 Matei Moldovan (40277256)
+Nirthika Ilaiyarajah (40298669)
+Ayan Pirani (40276971)
+Marie Ella Cambay (40284457)
 
 
 === Product Backlog ===
