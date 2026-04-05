@@ -44,7 +44,7 @@ These submission tasks still need manual handling outside the current repo-only 
 ## Important Truthfulness Notes
 
 - The current public Play build exposes **11 tones** (SQUARE was re-added in Sprint 3), not the older 9-waveform or 10-tone lists in stale docs.
-- Persisted Calibration/Settings defaults are pitch `0°..90°`, volume `0°..90°`, and frequency `20..2000 Hz`, while Play-only restore defaults are pitch `-15°..55°`, volume `-10°..55°`, and frequency `880..2000 Hz`.
+- Default ranges: pitch `0°..90°`, volume `0°..90°`, frequency `20 Hz..20 kHz`.
 - The current audio buffer is `AUDIO_WRITE_FRAMES = 1024`, not `2048`.
 - `MainActivity` and `ThereminBackgroundAudioService` hand off playback between separate engine instances; they do not literally share one audio-engine object.
 - The test document in this folder is intentionally conservative and should not be turned into a “100% pass” claim without doing the remaining physical/manual checks.

@@ -445,9 +445,9 @@ Important nuance:
 - the SQLite schema default for `tone_type` is still `'SINE'` for backward compatibility, but `SettingsStore.load()` normalizes that legacy value to `THEREMIN`
 
 Separate Play-only defaults used by `PlayMappingState.restoreDefaults()`:
-- play pitch angle range: `-15f` to `55f`
-- play volume angle range: `-10f` to `55f`
-- play frequency range: `880f` to `2000f`
+- pitch angle range: `0f` to `90f`
+- volume angle range: `0f` to `90f`
+- frequency range: `20f` to `20 000f` (20 kHz; standard ceiling `2 000f` without extended-range setting)
 
 ## 9. Calibration System
 
@@ -863,7 +863,7 @@ Pure mapping class with no Android framework dependencies. Converts live glove a
 | `recompute(BleSnapshot)` | Normalizes angles, applies sensitivity curve, octave shift, readiness check |
 | `normalizeClamped(float, float, float)` | `clamp((x−min)/(max−min), 0, 1)` with zero-width guard |
 | `applySensitivityCurve(float)` | `pow(norm, sensitivityResponseCurve)` |
-| `restoreDefaults()` | Resets to Play-screen defaults (−15°→55°, 880–2000 Hz) |
+| `restoreDefaults()` | Resets to defaults: angle 0°→90°, frequency 20 Hz→20 kHz |
 | `isInstrumentReady(BleSnapshot)` | Returns false if Bluetooth off or either glove disconnected |
 
 ---

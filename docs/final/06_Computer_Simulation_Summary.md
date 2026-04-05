@@ -44,23 +44,14 @@ pitchNorm = pitchNorm ^ sensitivityResponseCurve
 freq = freqMinHz + (freqMaxHz - freqMinHz) * pitchNorm
 ```
 
-The current default Play ranges are:
-- pitch angle: `-15°` to `55°`
-- volume angle: `-10°` to `55°`
-- frequency: `880 Hz` to `2000 Hz`
-
-Important distinction:
-- these are Play-screen mapping defaults from `PlayMappingState`
-- the persisted Calibration/Settings defaults in `AppSettings` remain pitch `0°` to `90°`, volume `0°` to `90°`, and frequency `20 Hz` to `2000 Hz`
-
-**Interpretation:**
-- these defaults bias the live instrument toward a musically useful upper register rather than a huge raw span
-- the calibration screen still allows much wider range customization
-- extended range mode raises the ceiling to `20,000 Hz`, but that mode favors experimentation over precise melodic control
+The default operating ranges are:
+- pitch angle: `0°` to `90°`
+- volume angle: `0°` to `90°`
+- frequency: `20 Hz` to `20 kHz` (standard ceiling `2 000 Hz`; the Settings extended-range toggle raises it to `20 000 Hz`)
 
 **Finding:**
-- a moderate calibrated angle span remains the best compromise between reachable movement and useful melodic resolution
-- the current default ranges are aggressive but practical for a demo-oriented theremin experience
+- the 0°–90° span maps well to natural wrist-rotation; the calibration screen lets users narrow or widen this range
+- the 20 Hz–20 kHz system span covers the full human auditory range; most musical use stays well below 4 kHz
 
 ## 3. Waveform / Tone Harmonic Analysis
 
@@ -262,19 +253,24 @@ freq = clamp(freq × 2^octaveShift, 20, 20000)
 
 ### 7.2 Worked Example
 
-Given: θ = 30°, θ_min = −15°, θ_max = 55°, f_min = 880 Hz, f_max = 2000 Hz, curve = 1.0 (linear)
+Given: θ = 45°, θ_min = 0°, θ_max = 90°, f_min = 20 Hz, f_max = 2 000 Hz, curve = 1.0 (linear, standard range)
 
 ```
-norm = clamp((30 - (−15)) / (55 - (−15)), 0, 1)
-     = clamp(45 / 70, 0, 1)
-     = 0.643
+norm = clamp((45 - 0) / (90 - 0), 0, 1)
+     = clamp(45 / 90, 0, 1)
+     = 0.500
 
-norm_curved = pow(0.643, 1.0) = 0.643
+norm_curved = pow(0.500, 1.0) = 0.500
 
-freq = 880 + (2000 - 880) × 0.643
-     = 880 + 1120 × 0.643
-     = 880 + 720.2
-     = 1600.2 Hz  (≈ G#5/Ab5 in equal temperament)
+freq = 20 + (2 000 - 20) × 0.500
+     = 20 + 1 980 × 0.500
+     = 20 + 990
+     = 1 010 Hz  (≈ B5 in equal temperament)
+```
+
+With extended range enabled (f_max = 20 000 Hz) at the same angle:
+```
+freq = 20 + (20 000 - 20) × 0.500 = 10 010 Hz  (≈ 10 kHz)
 ```
 
 ### 7.3 Sensitivity Curve Effect Analysis

@@ -98,8 +98,7 @@ If the calibration guide is enabled, the next button to press glows green.
 - just reopen `Cal`, capture new neutral positions, and save again
 
 **Default ranges to know:**
-- the persisted Calibration/Settings defaults start at pitch `0°` to `90°`, volume `0°` to `90°`, and frequency `20 Hz` to `2000 Hz`
-- the Play screen uses narrower live-control defaults when you reset Play mapping there: pitch `-15°` to `55°`, volume `-10°` to `55°`, and frequency `880 Hz` to `2000 Hz`
+- default ranges: pitch `0°` to `90°`, volume `0°` to `90°`, and frequency `20 Hz` to `20 kHz`
 
 **Calibration preview:**
 - the calibration screen can play live preview audio using the current draft settings
