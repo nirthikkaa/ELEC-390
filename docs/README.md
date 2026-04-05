@@ -29,25 +29,18 @@ Two Arduino Nano 33 BLE Sense gloves stream wrist-angle telemetry over BLE. `Ble
 
 | Document | Description |
 |----------|-------------|
-| [Design Document](docs/final/01_Design_Document.md) | Full architecture — subsystems, constants, data flow |
-| [Test Document](docs/final/02_Test_Document.md) | 51-row test matrix covering BLE, audio, recording, settings |
-| [User Manual](docs/final/03_User_Manual.md) | End-user walkthrough, screen-by-screen |
-| [Mission Statement](docs/final/04_Mission_Statement.md) | Product positioning and target users |
-| [Ethics Report](docs/final/05_Ethics_Report.md) | Privacy, data ownership, accessibility |
-| [Computer Simulation Summary](docs/final/06_Computer_Simulation_Summary.md) | Latency analysis (background ~61 ms, foreground ~91 ms) |
-| [Definition of Done](docs/final/07_Definition_of_Done.md) | Team acceptance criteria |
-| [AI Usage Document](docs/final/08_AI_Usage_Document.md) | Generative AI disclosure |
-| [Presentation Notes](docs/final/09_Presentation_Notes.md) | Speaker notes for all 11 slides |
-| [Demo Preparation](docs/final/10_Demo_Preparation.md) | Live demo runbook with fallback steps |
-| [Submission Checklist](docs/final/11_Submission_Checklist.md) | eConcordia filing checklist |
-| [Final Product Backlog](docs/final/12_Final_Product_Backlog.md) | All completed stories across sprints 1–3 |
-
-### Submission Artifacts
-
-| File | Format |
-|------|--------|
-| [FinalPresentation.pptx](docs/final/FinalPresentation.pptx) | 11-slide deck with speaker notes |
-| [docs/final/docx/](docs/final/docx/) | Word versions of all 12 documents |
+| [Design Document](01_Design_Document.md) | Full architecture — subsystems, constants, data flow |
+| [Test Document](02_Test_Document.md) | 51-row test matrix covering BLE, audio, recording, settings |
+| [User Manual](03_User_Manual.md) | End-user walkthrough, screen-by-screen |
+| [Mission Statement](04_Mission_Statement.md) | Product positioning and target users |
+| [Ethics Report](05_Ethics_Report.md) | Privacy, data ownership, accessibility |
+| [Computer Simulation Summary](06_Computer_Simulation_Summary.md) | Latency analysis (background ~61 ms, foreground ~91 ms) |
+| [Definition of Done](07_Definition_of_Done.md) | Team acceptance criteria |
+| [AI Usage Document](08_AI_Usage_Document.md) | Generative AI disclosure |
+| [Presentation Notes](09_Presentation_Notes.md) | Speaker notes for all 11 slides |
+| [Demo Preparation](10_Demo_Preparation.md) | Live demo runbook with fallback steps |
+| [Submission Checklist](11_Submission_Checklist.md) | eConcordia filing checklist |
+| [Final Product Backlog](12_Final_Product_Backlog.md) | All completed stories across sprints 1–3 |
 
 ---
 
