@@ -4,21 +4,23 @@
 **Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan  
 **Verification basis:** Source code inspection (sprint3 branch, April 4, 2026) + manual Pixel 7 verification with both BLE gloves powered
 
-## At A Glance
+## At a Glance
 
 | Status | Count |
 |---|---|
-| Total rows in this submission | `51` |
-| `Pass` | `51` |
-| `Pending manual verification` | `0` |
-| `Fail` | `0` |
+| Total rows in this submission | 51 |
+| Pass | 51 |
+| Pending manual verification | 0 |
+| Fail | 0 |
 
-## How To Read This Document
+## How to Read This Document
 
-- `Pass` means the row is backed by source code analysis and/or physical Pixel 7 verification with powered BLE gloves.
+- **Pass** means the row is backed by source code analysis and/or physical Pixel 7 verification with powered BLE gloves.
 - All 51 rows have been verified before final submission. The features are implemented in the sprint3 branch and confirmed working on the demo device.
 
-## BLE CONNECTION
+---
+
+## BLE Connection
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -33,7 +35,9 @@
 | BLE-09 | App prompts to enable Bluetooth if off | Verify Bluetooth-off system prompt path | Turn Bluetooth off; launch app | System enable-Bluetooth prompt appears | When Bluetooth is off, `LaunchActivity` calls `BleSessionManager.requestEnableBluetoothPrompt()` which fires `ACTION_REQUEST_ENABLE`. System dialog appears. Verified on Pixel 7 with Bluetooth disabled. | Pass |
 | BLE-10 | Connection survives 30-minute continuous session | Long-run BLE stability | Connect both gloves; leave session active for 30 minutes | No crash and no unusable BLE degradation | 30-minute session run on Pixel 7 with both gloves connected and audio playing. No crash, ANR, or audio degradation observed. Watchdog kept connections alive; one ping event at ~18 minutes resolved automatically. | Pass |
 
-## CALIBRATION
+---
+
+## Calibration
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -43,7 +47,9 @@
 | CAL-04 | Recalibration works without disconnecting gloves | Verify repeat calibration session | Calibrate once; stay connected; recalibrate again | Neutral capture and save still work | Calibration storage and neutral-capture flows work independently of whether a prior calibration has occurred. The Activity does not require a disconnect between sessions. | Pass |
 | CAL-05 | Calibration preview plays sound live during calibration | Verify preview audio path | Open Calibration; move gloves with preview active | Calibration screen emits live preview audio | Calibration preview audio confirmed on Pixel 7. `ThereminBackgroundAudioService.beginCalibrationPreview()` starts the service with the draft settings; glove movement is audible immediately. `endCalibrationPreview()` stops the override on screen exit. | Pass |
 
-## AUDIO ENGINE
+---
+
+## Audio Engine
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -56,7 +62,9 @@
 | AUD-07 | Tone switches without audio glitch | Verify tone-change stability | Start audio; cycle through all 11 public tones while playing | Tone changes occur cleanly with no crash/dropout | All 11 public tones (THEREMIN, AIR_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, SQUARE, HELICOPTER) switch cleanly without click, crash, or audio dropout. `setToneType()` is a volatile write; new tone takes effect at next buffer boundary (~21 ms). Verified by ear on Pixel 7. | Pass |
 | AUD-08 | Sound remains stable during 30-minute session | Long-run audio stability | Leave Play active for 30 minutes | No crash, dropout, or stuck audio | 30-minute audio session run on Pixel 7. `AudioTrack.ERROR_DEAD_OBJECT` recovery path is implemented and handles output device changes. No unrecoverable audio failure observed. Session remained stable throughout. | Pass |
 
-## RECORDING
+---
+
+## Recording
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -69,7 +77,9 @@
 | REC-07 | Recording captures audio matching live output | Verify PCM tap correctness | Record live playback; compare saved result with heard output | Saved file matches synthesized output | Recordings capture the exact synthesized audio because `RecordingManager` taps `ThereminAudioEngine.PcmListener` before the mono buffer is duplicated to stereo. No microphone is involved. Playback of a recorded session in Library matches what was heard live. Verified on Pixel 7. | Pass |
 | REC-08 | Recording persists after app kill and reopen | Verify persistence across restart | Record something; kill app; reopen Library | Recording still appears and plays | Recordings remain in Library after app kill and reopen. `RecordingRepository` persists metadata in `recordings.db`. Files stored in `getFilesDir()/recordings/` survive process death. Verified on Pixel 7. | Pass |
 
-## LIBRARY SCREEN
+---
+
+## Library Screen
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -81,7 +91,9 @@
 | LIB-06 | Search filters recordings by name in real time | Verify search UI | Type text in Library search field | Matching recordings remain visible, non-matches hide | Typing in the Library search field calls `recordingMatchesSearch()` on each list update. Non-matching recordings hide in real time. Verified on Pixel 7 with multiple recordings of different names. | Pass |
 | LIB-07 | Playback works without gloves connected | Verify library independence from BLE | Disconnect gloves; open Library; play a recording | Playback still works normally | Verified by `LibraryUiTest.validRecordingPlaybackShowsMiniPlayer`; library playback is independent of glove state. | Pass |
 
-## SETTINGS
+---
+
+## Settings
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -91,7 +103,9 @@
 | SET-04 | Volume direction toggle inverts and syncs to glove | Verify direction inversion sync | Toggle volume direction; reconnect/use glove | Mapping direction changes and glove syncs | Volume direction toggle inverts the mapping and sends `D` to the volume glove. Behavior mirrors the pitch direction flow. Verified on Pixel 7. | Pass |
 | SET-05 | All settings survive app kill and reopen | Verify persisted settings bundle | Change settings; relaunch app | Saved settings reload correctly | Verified by `SprintCoreIntegrationTest.settingsStore_roundTripsSprintOneAndSprintThreeFields` and `settingsStore_normalizesInvalidValuesAndUiPrefs`. | Pass |
 
-## NAVIGATION
+---
+
+## Navigation
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -100,7 +114,9 @@
 | NAV-03 | Back button works correctly from each screen | Verify back-stack behavior | Open each screen and use system back | Back returns to the expected previous surface | System back from each Activity returns to the correct prior screen. Back from `MainActivity` goes to `HomeActivity` on first run or exits; from Library returns to Play. Verified on Pixel 7. | Pass |
 | NAV-04 | Screen rotation does not crash any screen | Verify rotation resilience | Rotate device on each screen | No crash occurs | All Activities are locked to `android:screenOrientation="portrait"` in `AndroidManifest.xml`. Rotation requests do not recreate these Activities. | Pass |
 
-## STABILITY / STRESS
+---
+
+## Stability and Stress
 
 | Test ID | Feature | Test Description | Steps | Expected Result | Actual Result | Pass/Fail |
 |---|---|---|---|---|---|---|
@@ -109,12 +125,16 @@
 | STAB-03 | Rapid tone switching no crash or dropout | Tone-switch stress | Start audio; cycle through every public tone quickly | No crash or persistent stuck audio | Verified for the current public tone cycle by `PlayMatrixUiTest.playPause_andAllTonesRemainResponsive`. | Pass |
 | STAB-04 | Recording immediately after disconnect/reconnect cycle works | Recovery + recording stress | Disconnect/reconnect gloves; immediately start recording | App records successfully and stays stable | Disconnect both gloves, reconnect, then immediately start recording. Recording begins successfully and captures valid audio. No crash or empty file produced. Verified on Pixel 7. | Pass |
 
+---
+
 ## Summary
 
-- Total tests in this document: `51`
-- `Pass`: `51`
-- `Pending manual verification`: `0`
-- `Fail`: `0`
+| Metric | Count |
+|---|---|
+| Total test rows | 51 |
+| Pass | 51 |
+| Pending manual verification | 0 |
+| Fail | 0 |
 
 All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino Nano 33 BLE Sense gloves prior to the April 15, 2026 final submission. The sprint3 codebase contains an additional **127 automated tests** across 15 test files (40 JVM unit tests + 87 instrumented tests):
 

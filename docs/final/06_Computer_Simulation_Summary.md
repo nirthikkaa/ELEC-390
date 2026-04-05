@@ -11,6 +11,7 @@
 - The default Play mapping ranges are intentionally narrower than the persisted calibration defaults so the instrument feels more controllable in a demo setting.
 
 ## 1. BLE Latency Model
+
 The latency chain was modelled analytically from the current implementation constants:
 - BLE notify interval: typically about `7.5–20 ms`
 - service sync loop: `SYNC_TICK_MS = 20 ms`
@@ -24,16 +25,17 @@ For the visible Play path, target updates currently depend on `UI_TICK_MS = 50 m
 - typical latency is approximately `53.8–66.3 ms`
 - worst case is approximately `91.3 ms`
 
-Finding:
+**Finding:**
 - the service path satisfies the HD-11 `<80 ms` criterion comfortably
 - typical foreground use is also acceptable
 - strict foreground worst case exceeds the target because the current UI refresh loop is slower than the service sync loop
 
-Design implication:
+**Design implication:**
 - the code no longer uses the older `2048`-sample assumption seen in stale docs
 - the present limiting factor is not the audio buffer alone, but the foreground update cadence
 
 ## 2. Frequency Mapping Range Analysis
+
 The mapping function in `PlayMappingState` is a clamped linear interpolation after angle normalization and sensitivity shaping:
 
 ```text
@@ -51,16 +53,17 @@ Important distinction:
 - these are Play-screen mapping defaults from `PlayMappingState`
 - the persisted Calibration/Settings defaults in `AppSettings` remain pitch `0°` to `90°`, volume `0°` to `90°`, and frequency `20 Hz` to `2000 Hz`
 
-Interpretation:
+**Interpretation:**
 - these defaults bias the live instrument toward a musically useful upper register rather than a huge raw span
 - the calibration screen still allows much wider range customization
 - extended range mode raises the ceiling to `20,000 Hz`, but that mode favors experimentation over precise melodic control
 
-Finding:
+**Finding:**
 - a moderate calibrated angle span remains the best compromise between reachable movement and useful melodic resolution
 - the current default ranges are aggressive but practical for a demo-oriented theremin experience
 
 ## 3. Waveform / Tone Harmonic Analysis
+
 The current public build exposes **11 user-selectable tones** (SQUARE was re-added to `USER_SELECTABLE_TONES[]` in the sprint3 branch). Harmonic inspection of the synthesis code in `ThereminAudioEngine.sample(...)` shows:
 - `THEREMIN`: harmonic stack with strong second partial for classic vocal/cello theremin color
 - `AIR_PAD` and `PAD`: detuned layered partials for width and slow beating
@@ -73,12 +76,13 @@ The current public build exposes **11 user-selectable tones** (SQUARE was re-add
 - `SQUARE`: odd-harmonic stack (1, 3, 5, 7…); hollow quality; re-added in sprint3
 - `HELICOPTER`: pulse-like rhythmic rotor effect whose hit rate follows scaled frequency (0.75–12 Hz)
 
-Finding:
+**Finding:**
 - the code intentionally favors restrained additive or phase-modulated spectra over raw discontinuous waveforms, which reduces harshness and alias-like roughness on phone speakers
 - the current public tone set is curated for usability rather than for preserving every legacy tone ever implemented
 - SQUARE and HELICOPTER are the most sonically distinctive tones and are particularly useful for demonstration purposes
 
 ## 4. Scale Quantization Accuracy
+
 Scale lock is implemented in `ThereminAudioEngine.snapToScale(...)` using:
 - precomputed MIDI frequencies for MIDI notes `0..127`
 - scale-specific semitone offsets for `CHROMATIC`, `MAJOR`, `MINOR`, and `PENTATONIC`
@@ -90,7 +94,7 @@ This approach means:
 - scale quantization remains consistent across octaves
 - the audio thread stays allocation-free during ordinary steady-state playback
 
-Finding:
+**Finding:**
 - the scale-lock design is computationally lightweight and musically coherent
 - the implementation is well suited to real-time theremin control because most adjacent samples remain near the same snapped note, allowing the cache path to avoid repeated searches
 
@@ -150,7 +154,7 @@ For the three smoothing constants in `ThereminAudioEngine`:
 | `ATTACK_SMOOTHING` | 0.0046 | 0.9954 | 216 | 4.5 ms | Volume fade-in speed |
 | `RELEASE_SMOOTHING` | 0.0018 | 0.9982 | 555 | 11.6 ms | Volume fade-out speed |
 
-**Interpretation:**
+****Interpretation:****
 - Pitch changes settle to within 37% of their target in ~6.9 ms. A full octave jump (440 → 880 Hz) takes approximately 3τ ≈ 20 ms to be 95% complete — well within one audio buffer (21.3 ms).
 - Volume attack (hand entering playing range) responds in ~4.5 ms — quick enough to feel immediate.
 - Volume release (hand withdrawing) fades in ~11.6 ms — slow enough to avoid abrupt cutoffs.
@@ -226,7 +230,7 @@ The latency budget is derived analytically from the implementation constants. Al
 | Background/calibration | ~78 ms | ~136 ms | Yes (typical) |
 | Foreground Play | ~93 ms | ~166 ms | Yes (typical), No (strict worst case) |
 
-**Finding:** Typical foreground use satisfies HD-11. The strict worst case for the foreground path exceeds the target because `UI_TICK_MS = 50 ms` is the controlling factor. This is documented and accepted: the background path (which handles calibration preview and backgrounded play) always satisfies the target comfortably.
+****Finding:**** Typical foreground use satisfies HD-11. The strict worst case for the foreground path exceeds the target because `UI_TICK_MS = 50 ms` is the controlling factor. This is documented and accepted: the background path (which handles calibration preview and backgrounded play) always satisfies the target comfortably.
 
 ---
 
@@ -317,7 +321,7 @@ f_peak_k = k × (SAMPLE_RATE / L) = k × (48000 / 8192) = k × 5.86 Hz
 
 The first 10 resonant peaks occur at: 5.86, 11.72, 17.58, 23.44, 29.30, 35.16, 41.02, 46.88, 52.74, 58.60 Hz — all well below the lower limit of musical pitch perception (~80 Hz). 
 
-**Finding:** Because the comb filter's resonant peaks are all sub-audible (< 60 Hz), the reverb produces a smooth, diffuse tail rather than the metallic "pinging" that short-delay comb filters produce. The ~170 ms delay length was specifically chosen to place all resonances below audibility while providing a musically useful tail duration.
+****Finding:**** Because the comb filter's resonant peaks are all sub-audible (< 60 Hz), the reverb produces a smooth, diffuse tail rather than the metallic "pinging" that short-delay comb filters produce. The ~170 ms delay length was specifically chosen to place all resonances below audibility while providing a musically useful tail duration.
 
 ### 8.2 Reverb Decay Time
 
@@ -331,4 +335,4 @@ T60 = −3 × L / (SAMPLE_RATE × log10(g))
     ≈ 2.31 seconds
 ```
 
-**Interpretation:** The reverb tail decays by 60 dB (factor of 1000 in amplitude) over approximately 2.3 seconds. At the default `reverbMix = 0.3f` (30% wet), the perceptible reverb is considerably shorter. This T60 value is consistent with a medium-large room or hall reverb character.
+****Interpretation:**** The reverb tail decays by 60 dB (factor of 1000 in amplitude) over approximately 2.3 seconds. At the default `reverbMix = 0.3f` (30% wet), the perceptible reverb is considerably shorter. This T60 value is consistent with a medium-large room or hall reverb character.

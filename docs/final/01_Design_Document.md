@@ -5,16 +5,20 @@
 
 ## At A Glance
 
-| Item | Current build |
+| Item | Value |
 |---|---|
-| Hardware | Two Arduino Nano 33 BLE Sense gloves over BLE |
-| BLE host | `BleSessionManager` singleton using Nordic BLE `2.11.0` |
-| Main audio path | `ThereminAudioEngine` -> `AudioTrack` |
-| Background audio path | `ThereminBackgroundAudioService` with its own engine and 20 ms sync loop |
-| Recording path | `PcmListener` -> `RecordingManager` -> file -> `RecordingRepository` |
-| Public Play tones | 11 |
-| Audio buffer | `AUDIO_WRITE_FRAMES = 1024` at `48 kHz` |
-| Current orientation policy | portrait-locked activities |
+| Hardware | Two Arduino Nano 33 BLE Sense gloves + Android phone |
+| BLE library | Nordic `no.nordicsemi.android:ble:2.11.0` |
+| BLE host | `BleSessionManager` static singleton |
+| Foreground audio | `ThereminAudioEngine` → `AudioTrack` (MainActivity) |
+| Background audio | `ThereminBackgroundAudioService` (20 ms sync loop) |
+| Recording tap | `PcmListener` → `RecordingManager` → WAV / AAC file |
+| Public Play tones | 11 (THEREMIN through HELICOPTER) |
+| Audio buffer | `AUDIO_WRITE_FRAMES = 1024` frames @ 48 kHz ≈ 21.3 ms |
+| Sample rate | `SAMPLE_RATE = 48000 Hz` |
+| Orientation | Portrait-locked (all activities) |
+| Java source files | 34 |
+| SQLite databases | 2 (`theremin_gloves.db`, `recordings.db`) |
 
 This document is intentionally current-build specific. If an older Sprint note conflicts with this file, the current code and this audited draft take precedence.
 

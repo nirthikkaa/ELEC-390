@@ -55,21 +55,21 @@ Recommended manual steps:
 3. Power on both gloves.
 4. Wait for the app to discover them, or tap `Connect All`.
 
-What the connection text means:
+**What the connection text means:**
 - `Waiting`: no live connection yet
 - `Connecting…`: scan/GATT connection is in progress
 - `Connected`: glove is connected and telemetry is arriving
 - `Connected • no data`: glove is still connected but telemetry has gone stale
 - `Bluetooth off`: phone Bluetooth is disabled
 
-If a glove does not appear:
+**If a glove does not appear:**
 - verify Bluetooth is on
 - verify the glove is powered on
 - verify the glove name is exactly `ThereminGlove` or `ThereminGloveVol`
 - move the glove closer to the phone
 - use the per-glove reconnect button or `Connect All`
 
-Auto-reconnect:
+**Auto-reconnect:**
 - the app keeps a cached device address
 - if a glove drops, `BleSessionManager` tries to reconnect automatically
 
@@ -89,19 +89,19 @@ The current calibration flow is tab-based:
 
 If the calibration guide is enabled, the next button to press glows green.
 
-What “neutral” means:
+**What “neutral” means:**
 - it is the wrist orientation you want to treat as the baseline resting position
 - live motion is measured relative to that baseline
 
-Recalibrating:
+**Recalibrating:**
 - you do not need to disconnect the gloves
 - just reopen `Cal`, capture new neutral positions, and save again
 
-Default ranges to know:
+**Default ranges to know:**
 - the persisted Calibration/Settings defaults start at pitch `0°` to `90°`, volume `0°` to `90°`, and frequency `20 Hz` to `2000 Hz`
 - the Play screen uses narrower live-control defaults when you reset Play mapping there: pitch `-15°` to `55°`, volume `-10°` to `55°`, and frequency `880 Hz` to `2000 Hz`
 
-Calibration preview:
+**Calibration preview:**
 - the calibration screen can play live preview audio using the current draft settings
 - this lets you hear changes before saving
 
@@ -109,12 +109,12 @@ Calibration preview:
 
 Open the `Play` tab.
 
-Basic gesture mapping:
+**Basic gesture mapping:**
 - pitch glove: wrist movement changes pitch
 - volume glove: wrist movement changes loudness
 - both gloves must be connected for live theremin output
 
-On-screen Play features:
+**On-screen Play features:**
 - live frequency readout
 - live volume readout
 - large audio visualizer
@@ -146,7 +146,7 @@ The Play screen uses `ToneKnobView` to cycle through the current public tone set
 - `Square`: odd-harmonic square wave; hollow quality (re-added in Sprint 3)
 - `Helicopter`: rhythmic rotor-like special effect tone
 
-Notes:
+**Notes:**
 - the app still contains additional hidden legacy tones internally for backward compatibility
 - the user-facing selector exposes the curated **11-tone list** above
 - for current docs and presentations, describe these as `tones`, not as the old 9-waveform set
@@ -155,22 +155,22 @@ Notes:
 
 Play includes more than basic theremin control.
 
-Scale lock:
+**Scale lock:**
 - `CHROM`
 - `MAJOR`
 - `MINOR`
 - `PENTA`
 
-Octave shift:
+**Octave shift:**
 - use the `-` and `+` buttons around the octave label
 - range is from `-2` to `+2`
 
-Effects:
+**Effects:**
 - `Reverb`
 - `Delay`
 - `Distortion`
 
-Beat and keyboard tools:
+**Beat and keyboard tools:**
 - 8 beat preset slots
 - `BEATS` button to open the Beat Maker workflow
 - keyboard mode and synth mode controls
@@ -185,20 +185,20 @@ To record:
 3. Perform.
 4. Tap the same button again to stop.
 
-What happens during recording:
+**What happens during recording:**
 - the record button changes into a stop state
 - a timer appears
 - the button blinks
 
-First-time permission:
+**First-time permission:**
 - the current UI still asks for `RECORD_AUDIO` permission before allowing the first recording
 - the saved audio itself comes from the internal synth PCM tap, not from microphone capture
 
-Where recordings go:
+**Where recordings go:**
 - the app keeps a private original copy under `getFilesDir()/recordings/`
 - it also tries to create a second user-visible export copy in `Music/Theremin Gloves Recordings`
 
-Quality options:
+**Quality options:**
 - `Lossless` WAV
 - `High` AAC
 - `Medium` AAC
@@ -208,7 +208,7 @@ Quality options:
 
 The `Library` tab lets you manage saved performances.
 
-Features:
+**Features:**
 - view recordings with date, duration, and quality badge
 - play recordings back without connecting the gloves
 - search by name
@@ -229,7 +229,7 @@ If there are no recordings, the screen shows an empty-state message instead of a
 
 The `Settings` tab controls the main persistent app behavior.
 
-Available settings:
+**Available settings:**
 - `Keep audio playing when leaving Play`
 - `Extended frequency range`
 - `Invert pitch glove direction`
@@ -239,14 +239,14 @@ Available settings:
 - recording compression/quality
 - sensitivity response slider
 
-What they do:
+**What they do:**
 - Background audio: lets playback continue through the foreground service when leaving Play
 - Extended frequency range: raises the allowed frequency ceiling from `2,000 Hz` to `20,000 Hz`
 - Direction toggles: invert the meaning of glove movement
 - Calibration guide reset: shows the guided calibration flow again
 - Sensitivity: changes how aggressively glove motion maps into sound
 
-Good defaults for a first-time demo:
+**Good defaults for a first-time demo:**
 - leave extended range off
 - leave direction toggles at their default values
 - keep the rename dialog enabled
@@ -254,19 +254,19 @@ Good defaults for a first-time demo:
 
 ## 11. Troubleshooting
 
-No sound:
+**No sound:**
 - make sure both gloves are connected
 - make sure you pressed the Play transport button
 - check that the phone volume is up
 - if only one glove is connected, the theremin output is intentionally muted
 
-Glove not found:
+**Glove not found:**
 - turn Bluetooth on
 - power-cycle the glove
 - check the glove name
 - bring the glove closer to the phone
 
-Pitch or volume feels wrong:
+**Pitch or volume feels wrong:**
 - recalibrate
 - check the direction toggles in Settings
 - review your calibrated min/max ranges

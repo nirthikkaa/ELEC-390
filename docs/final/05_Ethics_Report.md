@@ -4,6 +4,7 @@
 **Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan
 
 ## 1. Privacy of Recorded Audio
+
 Theremin Gloves records musical performances locally on the Android device. The primary recording files are written into the app-private internal directory at `getFilesDir()/recordings/`, which means other ordinary Android apps cannot browse them directly. This is the strongest default local protection the Android sandbox provides without introducing a separate account system or device-level encryption workflow inside the app.
 
 The app does not upload recordings to any server. There is no `INTERNET` permission in the manifest, no analytics SDK, and no remote telemetry pipeline. That significantly reduces privacy risk because the recording path is architecturally local-only.
@@ -16,6 +17,7 @@ The ethical position is therefore:
 - users should still understand that exported copies in shared storage are less protected than app-private files
 
 ## 2. Data Ownership
+
 All recorded performances belong to the user. Theremin Gloves does not require login, account creation, or any content-sharing agreement. The app includes no server-side profile, no cloud account, and no remote ownership claim over recorded material.
 
 From a technical perspective, this is reinforced by the architecture:
@@ -29,6 +31,7 @@ The result is that ownership is practical, not only theoretical. The user contro
 The main limitation is device sharing. If multiple people have unlocked access to the same phone, they can open the app and view the library unless the phone itself is protected. That is a general device-security issue rather than a cloud-data issue, but it still matters ethically because private recordings can become accessible to other device users.
 
 ## 3. Gesture Detection Misuse
+
 The glove data used by the app is limited. On the Android side, the BLE layer consumes packet types such as `ACTIVE_DELTA_DEG`, `NEUTRAL_ROLL_DEG`, and `DIRECTION`. The app uses that information only to drive live control of pitch and volume, detect calibration state, and render connection status.
 
 This data is coarse compared with full-body motion tracking or biometric sensing:
@@ -42,6 +45,7 @@ That makes misuse for surveillance or biometric profiling implausible in the cur
 The realistic misuse concern is future scope creep. If a later version of the app were extended to log raw motion traces or transmit them externally, the ethical profile would change. For the current build, that risk is limited by architecture: no internet permission, no raw telemetry persistence, and no background analytics subsystem.
 
 ## 4. Accessibility
+
 The current product is not universally accessible. It assumes the user can wear two gloves and perform repeatable wrist motions with both hands. That creates barriers for users with limited upper-limb mobility, reduced fine motor control, limb differences, or fatigue-related conditions.
 
 There are still some accessibility-positive choices in the app:

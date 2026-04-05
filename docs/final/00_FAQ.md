@@ -7,6 +7,21 @@
 
 ---
 
+## Contents
+
+| Category | Topics | Questions |
+|---|---|---|
+| [A — Project Overview](#category-a--project-overview) | What it does, hardware, latency, tones | 10 |
+| [B — Hardware and BLE Protocol](#category-b--hardware-and-ble-protocol) | Microcontroller, sensor, UUIDs, packet format, watchdog | 15 |
+| [C — Audio Synthesis and DSP](#category-c--audio-synthesis-and-dsp) | Sample rate, IIR smoothing, vibrato, reverb, delay, distortion, scale lock, tones | 20 |
+| [D — Software Architecture](#category-d--software-architecture-and-design-patterns) | Activity flow, threading, BleSnapshot, recording, databases, design patterns | 20 |
+| [E — Testing](#category-e--testing) | Test counts, platforms, BLE stability, latency verification | 10 |
+| [F — Sprints and Agile Process](#category-f--sprints-and-agile-process) | Sprint deliverables, exclusions, Definition of Done | 10 |
+| [G — Ethics, Privacy, and AI](#category-g--ethics-privacy-and-ai) | Data collection, AI usage, surveillance risk | 10 |
+| [H — Live Demo](#category-h--live-demo) | Demo flow, failure recovery, showcasing features | 10 |
+
+---
+
 ## Category A — Project Overview
 
 **Q: What does Theremin Gloves do?**  
@@ -266,7 +281,21 @@ Key test files:
 - `AppFeatureTest.java` — 53 instrumented feature tests: `DrumEngine` lifecycle, custom pattern API, BPM, gain, volume slider math, sequencer restart.
 - `SprintCoreIntegrationTest.java` — 6 instrumented integration tests: settings round-trip, calibration constraints, `PlayMappingState` mapping math, background service flags.
 
-Additional instrumented test classes: `HardwareBleRegressionUiTest` (2), `CalibrationRegressionUiTest` (3), `BluetoothPromptUiTest` (1), `BluetoothStateIntegrationTest` (1), `PlayMatrixUiTest` (5), `PlayAudioControlsUiTest` (3), `LibraryUiTest` (4), `RecordingRepositoryIntegrationTest` (4), `SettingsAndNavigationUiTest` (3), `PlayStageModeUiTest` (1).
+Additional instrumented test classes:
+
+| Class | Tests |
+|---|---|
+| `PlayMatrixUiTest` | 5 |
+| `LibraryUiTest` | 4 |
+| `RecordingRepositoryIntegrationTest` | 4 |
+| `PlayAudioControlsUiTest` | 3 |
+| `CalibrationRegressionUiTest` | 3 |
+| `SettingsAndNavigationUiTest` | 3 |
+| `HardwareBleRegressionUiTest` | 2 |
+| `BluetoothPromptUiTest` | 1 |
+| `BluetoothStateIntegrationTest` | 1 |
+| `PlayStageModeUiTest` | 1 |
+| `ExampleInstrumentedTest` | 1 |
 
 Plus 51 scenario-level test rows in this test document covering BLE, calibration, audio, recording, library, settings, navigation, and stability.
 
