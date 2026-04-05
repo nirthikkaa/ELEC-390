@@ -863,7 +863,6 @@ Pure mapping class with no Android framework dependencies. Converts live glove a
 | `recompute(BleSnapshot)` | Normalizes angles, applies sensitivity curve, octave shift, readiness check |
 | `normalizeClamped(float, float, float)` | `clamp((x−min)/(max−min), 0, 1)` with zero-width guard |
 | `applySensitivityCurve(float)` | `pow(norm, sensitivityResponseCurve)` |
-| `restoreDefaults()` | Resets to defaults: angle 0°→90°, frequency 20 Hz→20 kHz |
 | `isInstrumentReady(BleSnapshot)` | Returns false if Bluetooth off or either glove disconnected |
 
 ---

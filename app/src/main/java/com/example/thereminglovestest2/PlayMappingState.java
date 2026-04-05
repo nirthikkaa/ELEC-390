@@ -12,12 +12,12 @@ final class PlayMappingState {
     static final float FREQ_EXTENDED_MAX_UI = 20000f;
 
     float currentFreqMaxUi = FREQ_STANDARD_MAX_UI;
-    float pitchAngleMinDeg = AppSettings.DEFAULT_PLAY_PITCH_ANGLE_MIN_DEG;
-    float pitchAngleMaxDeg = AppSettings.DEFAULT_PLAY_PITCH_ANGLE_MAX_DEG;
-    float freqMinHz = AppSettings.DEFAULT_PLAY_FREQ_MIN_HZ;
-    float freqMaxHz = AppSettings.DEFAULT_PLAY_FREQ_MAX_HZ;
-    float volumeAngleMinDeg = AppSettings.DEFAULT_PLAY_VOLUME_ANGLE_MIN_DEG;
-    float volumeAngleMaxDeg = AppSettings.DEFAULT_PLAY_VOLUME_ANGLE_MAX_DEG;
+    float pitchAngleMinDeg = AppSettings.DEFAULT_PITCH_ANGLE_MIN_DEG;
+    float pitchAngleMaxDeg = AppSettings.DEFAULT_PITCH_ANGLE_MAX_DEG;
+    float freqMinHz = AppSettings.DEFAULT_FREQ_MIN_HZ;
+    float freqMaxHz = AppSettings.DEFAULT_FREQ_MAX_HZ;
+    float volumeAngleMinDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MIN_DEG;
+    float volumeAngleMaxDeg = AppSettings.DEFAULT_VOLUME_ANGLE_MAX_DEG;
     float pitchActiveDeltaDeg;
     float volActiveDeltaDeg;
     boolean pitchHasAngle;
@@ -84,16 +84,6 @@ final class PlayMappingState {
         settings.volumeAngleMinDeg = volumeAngleMinDeg;
         settings.volumeAngleMaxDeg = volumeAngleMaxDeg;
         settings.toneType = AppSettings.normalizeToneType(currentToneType);
-    }
-
-    void restoreDefaults() {
-        pitchAngleMinDeg = AppSettings.DEFAULT_PLAY_PITCH_ANGLE_MIN_DEG;
-        pitchAngleMaxDeg = AppSettings.DEFAULT_PLAY_PITCH_ANGLE_MAX_DEG;
-        freqMinHz = AppSettings.DEFAULT_PLAY_FREQ_MIN_HZ;
-        freqMaxHz = AppSettings.DEFAULT_PLAY_FREQ_MAX_HZ;
-        volumeAngleMinDeg = AppSettings.DEFAULT_PLAY_VOLUME_ANGLE_MIN_DEG;
-        volumeAngleMaxDeg = AppSettings.DEFAULT_PLAY_VOLUME_ANGLE_MAX_DEG;
-        sanitize();
     }
 
     void syncLive(BleSnapshot snapshot) {

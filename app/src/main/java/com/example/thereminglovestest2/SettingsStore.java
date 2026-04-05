@@ -284,13 +284,6 @@ class AppSettings {
     public static final float DEFAULT_FREQ_MIN_HZ = 20f;
     public static final float DEFAULT_FREQ_MAX_HZ = 2000f;
 
-    public static final float DEFAULT_PLAY_PITCH_ANGLE_MIN_DEG = -15f;
-    public static final float DEFAULT_PLAY_PITCH_ANGLE_MAX_DEG = 55f;
-    public static final float DEFAULT_PLAY_VOLUME_ANGLE_MIN_DEG = -10f;
-    public static final float DEFAULT_PLAY_VOLUME_ANGLE_MAX_DEG = 55f;
-    public static final float DEFAULT_PLAY_FREQ_MIN_HZ = 880f;
-    public static final float DEFAULT_PLAY_FREQ_MAX_HZ = 2000f;
-
     public static final boolean DEFAULT_PITCH_DIRECTION_INVERTED = false;
     public static final boolean DEFAULT_VOLUME_DIRECTION_INVERTED = true;
 
