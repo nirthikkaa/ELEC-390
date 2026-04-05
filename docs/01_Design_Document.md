@@ -211,7 +211,38 @@ The app distinguishes a true Android GATT disconnect from a silent telemetry sta
 - Dependency: `no.nordicsemi.android:ble:2.11.0`
 - The code uses Nordic’s `BleManager` abstraction instead of raw Android `BluetoothGatt` directly.
 - Why this is beneficial here: it provides queued connection/notification/write operations, cleaner state callbacks, built-in retry/timeout helpers, and a smaller surface area for Android GATT race conditions than hand-written raw `BluetoothGatt` code.
-- Inference from the code: the project relies on Nordic features such as `retry(3, 250)`, structured notification enabling, and centralized failure callbacks to keep the BLE layer readable and robust.
+- The project uses Nordic features: `retry(3, 250)`, structured notification enabling via `enableNotifications(txCharacteristic).enqueue()`, and centralized failure callbacks via `BleManagerCallbacks`.
+
+### Why `useAutoConnect(false)` — custom reconnect instead of Android’s built-in
+The connection builder in `ThereminGloveBleManager.connectTo(...)` explicitly sets `.useAutoConnect(false)`. Android’s built-in auto-connect (`BluetoothDevice.connectGatt(context, true, callback)`) caches device addresses in the OS and attempts reconnection indefinitely, but it is well-documented to get stuck: cached entries go stale, GATT state machines enter unrecoverable states, and callbacks are sometimes never delivered. The result can be a phantom "Connecting…" state that only a Bluetooth power-cycle can escape.
+
+Using `useAutoConnect(false)` keeps every GATT session explicit. When a glove drops, `BleSessionManager.drop(...)` calls `close()` on the old manager, allocates a fresh `ThereminGloveBleManager`, and starts a new explicit connection — either directly to the cached MAC address (skipping a full scan) or by re-scanning for the device name. This produces reliable, diagnosable reconnect behavior and is why the watchdog exists: it drives all reconnect decisions rather than delegating them to the OS.
+
+### No BLE bonding — unauthenticated connections only
+The `Callbacks` class inside `ThereminGloveBleManager` leaves `onBondingRequired`, `onBonded`, and `onBondingFailed` as empty no-ops. Glove connections are unauthenticated: no PIN, no passkey, no bond database entry. The custom UUIDs and BLE device names serve as implicit gates without adding pairing complexity. Users never see a system pairing dialog.
+
+### Firmware-side BLE: `ArduinoBLE` library and 32-byte characteristic limit
+The glove firmware (`arduino/ble.cpp`) uses the Arduino `ArduinoBLE` library (`#include <ArduinoBLE.h>`), which is unrelated to the Nordic Android library. The two libraries interoperate via the standard GATT protocol — Nordic on the phone side, ArduinoBLE on the Arduino side.
+
+Each characteristic is declared as a `BLEStringCharacteristic` with a maximum of 32 bytes:
+
+```cpp
+static BLEStringCharacteristic gTxChar(kTxUuid, BLERead | BLENotify, 32);
+static BLEStringCharacteristic gRxChar(kRxUuid, BLERead | BLEWrite,  32);
+```
+
+`bleSendLine()` truncates any outgoing string to 31 characters before writing, reserving one byte for the null terminator within the BLE string type. This is a hard protocol constraint: any packet whose ASCII representation exceeds 31 characters is silently truncated. Current packet types stay well within the limit:
+
+| Packet | Max example | Length |
+|---|---|---|
+| `ACTIVE_DELTA_DEG:<float>` | `ACTIVE_DELTA_DEG:-123.45` | 25 chars |
+| `NEUTRAL_ROLL_DEG:<float>` | `NEUTRAL_ROLL_DEG:-123.45` | 25 chars |
+| `DIRECTION:POSITIVE` | `DIRECTION:POSITIVE` | 19 chars |
+
+Initial values written at firmware boot: TX characteristic gets `"BOOT"`, RX characteristic gets `"ready"`.
+
+### Same UUIDs for both gloves — differentiated by name only
+Both `ThereminGlove` and `ThereminGloveVol` advertise the identical service UUID and TX/RX characteristic UUIDs. They are distinguished solely by their BLE advertised local name. `BleSessionManager` opens two independent GATT sessions keyed by MAC address, so UUID collisions between the two sessions are not an issue — the Android GATT stack routes callbacks by device address, not by UUID.
 
 ## 5. IMU Processing and Gesture Mapping
 
