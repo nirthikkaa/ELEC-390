@@ -5,13 +5,19 @@ package com.example.thereminglovestest2;
  * Manual BLE control screen. It shows each glove clearly and lets the user connect, reconnect, or disconnect directly.
  */
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.thereminglovestest2.databinding.ActivityConnectGlovesBinding;
 
@@ -41,6 +47,11 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private boolean autoNavigatedToPlayThisVisit   = false;
     private boolean autoConnectRequestedThisVisit  = false;
     private boolean suppressAutoPlayRedirectThisVisit = false;
+
+    // ── Onboarding hint ──────────────────────────────────────────────────────
+    private static final int HINT_COLOR = 0xFF39F07A;
+    private ObjectAnimator connectHintAnimator;
+    private boolean connectHintDone;
     private final Runnable automaticBlePromptRunnable = () -> withBleReady(() -> {});
     // Set to true after the first startup auto-navigate to Play.
     // Prevents re-firing when the user navigates back to Connect from the Play screen.
@@ -89,12 +100,17 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         // Show system BLE dialogs only after the Connect screen is already visible.
         binding.getRoot().removeCallbacks(automaticBlePromptRunnable);
         binding.getRoot().postDelayed(automaticBlePromptRunnable, 32L);
+        // Onboarding hint: glow Connect All if user hasn't connected yet.
+        connectHintDone = getSharedPreferences(LaunchActivity.PREFS_NAME, MODE_PRIVATE)
+                .getBoolean(LaunchActivity.KEY_HINT_CONNECT_DONE, false);
+        if (!connectHintDone) startConnectHint();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         binding.getRoot().removeCallbacks(automaticBlePromptRunnable);
+        if (connectHintAnimator != null) { connectHintAnimator.cancel(); connectHintAnimator = null; }
         uiPoller.stop();
         // Manual "stay on Connect" applies only to the current visit, not future auto-open flows.
         suppressAutoPlayRedirectThisVisit = false;
@@ -188,6 +204,7 @@ public class ConnectGlovesActivity extends AppCompatActivity {
 
         // Auto-navigate to Play when both gloves are connected.
         if (snapshot.areBothGlovesConnected()) {
+            clearConnectHint();
             consecutiveFullyConnectedPolls++;
             if (!suppressAutoPlayRedirectThisVisit && consecutiveFullyConnectedPolls >= 1) openPlay();
         } else {
@@ -297,6 +314,50 @@ public class ConnectGlovesActivity extends AppCompatActivity {
     private void setButton(TextView button, boolean enabled, String text) {
         button.setEnabled(enabled);
         button.setText(text);
+    }
+
+    // ── Onboarding hint helpers ───────────────────────────────────────────────
+
+    private void startConnectHint() {
+        if (connectHintAnimator != null && connectHintAnimator.isStarted()) return;
+        com.google.android.material.button.MaterialButton btn = binding.btnConnectToggle;
+        btn.setStrokeWidth(dp(3));
+        btn.setStrokeColor(ColorStateList.valueOf(HINT_COLOR));
+        int base = ContextCompat.getColor(this, R.color.app_primary);
+        btn.setBackgroundTintList(ColorStateList.valueOf(blendColor(base, HINT_COLOR, 0.45f)));
+        btn.setTextColor(ContextCompat.getColor(this, R.color.app_on_primary));
+        connectHintAnimator = ObjectAnimator.ofFloat(btn, View.ALPHA, 1f, 0.42f, 1f);
+        connectHintAnimator.setDuration(900L);
+        connectHintAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        connectHintAnimator.setRepeatMode(ValueAnimator.RESTART);
+        connectHintAnimator.start();
+    }
+
+    private void clearConnectHint() {
+        if (connectHintDone) return;
+        connectHintDone = true;
+        getSharedPreferences(LaunchActivity.PREFS_NAME, MODE_PRIVATE)
+                .edit().putBoolean(LaunchActivity.KEY_HINT_CONNECT_DONE, true).apply();
+        if (connectHintAnimator != null) { connectHintAnimator.cancel(); connectHintAnimator = null; }
+        com.google.android.material.button.MaterialButton btn = binding.btnConnectToggle;
+        btn.setAlpha(1f);
+        btn.setStrokeWidth(0);
+        btn.setStrokeColor(ColorStateList.valueOf(Color.TRANSPARENT));
+        btn.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.app_primary)));
+        btn.setTextColor(ContextCompat.getColor(this, R.color.app_on_primary));
+    }
+
+    private int blendColor(int from, int to, float amount) {
+        float inv = 1f - amount;
+        return Color.argb(
+                Math.round(Color.alpha(from) * inv + Color.alpha(to) * amount),
+                Math.round(Color.red(from)   * inv + Color.red(to)   * amount),
+                Math.round(Color.green(from) * inv + Color.green(to) * amount),
+                Math.round(Color.blue(from)  * inv + Color.blue(to)  * amount));
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     @SuppressWarnings("deprecation")

@@ -121,7 +121,6 @@ public class MainActivity extends AppCompatActivity {
     private int  pianoSynthMode       = DrumEngine.PIANO_SYNTH_KEYS;
     // Active arpeggio roots in melody mode (multi-key harmonic selection)
     private final Set<Integer> activeMelodyNotes = new HashSet<>();
-    private long lastAnimatedBassHitMs = 0L; // tracks which bass hit we've already animated
     private int  lastDrumStep = -1;           // tracks drum step to detect new beats for visualizer
 
     private ActivityResultLauncher<Intent> beatMakerLauncher;
@@ -195,6 +194,10 @@ public class MainActivity extends AppCompatActivity {
     private long recordingStartElapsedMs;
     private ObjectAnimator recordBlinkAnimator;
     private ValueAnimator gridHintAnimator;
+    // ── Onboarding hints ─────────────────────────────────────────────────────
+    private static final int HINT_COLOR = 0xFF39F07A;
+    private ObjectAnimator playHintAnimator;
+    private boolean playHintDone;
     private int baseRootScrollTopPadding;
 
     private final Runnable recordingTimerRunnable = new Runnable() {
@@ -313,6 +316,12 @@ public class MainActivity extends AppCompatActivity {
         applyPerformanceMode(performanceModeActive);
         int densityLevel = prefs.getInt("pixel_density_level", 3);
         binding.thereminVisualizerView.setPixelDensityLevel(densityLevel);
+        // Onboarding hints
+        boolean calLearned = SettingsStore.isCalibrationGuideLearned(this);
+        binding.bottomNavBar.setTabGlowing(2, !calLearned);
+        playHintDone = prefs.getBoolean(LaunchActivity.KEY_HINT_PLAY_DONE, false);
+        if (calLearned && !playHintDone) startPlayHint();
+        else clearPlayHint(false);
     }
 
     @Override
@@ -591,6 +600,8 @@ public class MainActivity extends AppCompatActivity {
         super.onPause();
         cancelQuickStartConnectTimeout();
         stopGridHintPulse();
+        binding.bottomNavBar.setTabGlowing(2, false);
+        if (playHintAnimator != null) { playHintAnimator.cancel(); playHintAnimator = null; }
         automaticBlePromptArmed = false;
         binding.getRoot().removeCallbacks(automaticBlePromptRunnable);
         playUiVisible = false;
@@ -1593,6 +1604,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void toggleAudio() {
+        clearPlayHint(true);
         BleSnapshot snapshot = getSnapshot();
         if (snapshot != null && !snapshot.isBluetoothOn()) {
             // Re-open the system Bluetooth dialog instead of leaving the user on a dead-end toast.
@@ -1892,6 +1904,48 @@ public class MainActivity extends AppCompatActivity {
         binding.btnBeatMaker.setElevation(0f);
     }
 
+    private void startPlayHint() {
+        if (playHintAnimator != null && playHintAnimator.isStarted()) return;
+        if (binding == null) return;
+        com.google.android.material.button.MaterialButton btn = binding.btnAudioStart;
+        btn.setStrokeWidth(dp(3));
+        btn.setStrokeColor(ColorStateList.valueOf(HINT_COLOR));
+        int base = ContextCompat.getColor(this, R.color.app_primary);
+        btn.setBackgroundTintList(ColorStateList.valueOf(blendColor(base, HINT_COLOR, 0.45f)));
+        btn.setTextColor(ContextCompat.getColor(this, R.color.app_on_primary));
+        playHintAnimator = ObjectAnimator.ofFloat(btn, View.ALPHA, 1f, 0.42f, 1f);
+        playHintAnimator.setDuration(900L);
+        playHintAnimator.setRepeatCount(ValueAnimator.INFINITE);
+        playHintAnimator.setRepeatMode(ValueAnimator.RESTART);
+        playHintAnimator.start();
+    }
+
+    private void clearPlayHint(boolean save) {
+        if (playHintAnimator != null) { playHintAnimator.cancel(); playHintAnimator = null; }
+        if (binding == null) return;
+        com.google.android.material.button.MaterialButton btn = binding.btnAudioStart;
+        btn.setAlpha(1f);
+        btn.setStrokeWidth(0);
+        btn.setStrokeColor(ColorStateList.valueOf(android.graphics.Color.TRANSPARENT));
+        btn.setBackgroundTintList(ColorStateList.valueOf(
+                ContextCompat.getColor(this, R.color.app_primary)));
+        btn.setTextColor(ContextCompat.getColor(this, R.color.app_on_primary));
+        if (save && !playHintDone) {
+            playHintDone = true;
+            getSharedPreferences(LaunchActivity.PREFS_NAME, MODE_PRIVATE)
+                    .edit().putBoolean(LaunchActivity.KEY_HINT_PLAY_DONE, true).apply();
+        }
+    }
+
+    private int blendColor(int from, int to, float amount) {
+        float inv = 1f - amount;
+        return android.graphics.Color.argb(
+                Math.round(android.graphics.Color.alpha(from) * inv + android.graphics.Color.alpha(to) * amount),
+                Math.round(android.graphics.Color.red(from)   * inv + android.graphics.Color.red(to)   * amount),
+                Math.round(android.graphics.Color.green(from) * inv + android.graphics.Color.green(to) * amount),
+                Math.round(android.graphics.Color.blue(from)  * inv + android.graphics.Color.blue(to)  * amount));
+    }
+
     private void handleQuickStartConnectTimeout() {
         quickStartFallbackArmed = false;
         if (!playUiVisible || isFinishing() || isDestroyed()) return;
@@ -2017,32 +2071,6 @@ public class MainActivity extends AppCompatActivity {
         updateBleButtonText();
         updateVisualizer();
 
-        // Pulse the Play hero card on each bass hit so the beat engine has visible feedback.
-        long bassHitMs = getLastBassHitMs();
-        if (bassHitMs > lastAnimatedBassHitMs) {
-            lastAnimatedBassHitMs = bassHitMs;
-            pulseBassAnimation();
-        }
-    }
-
-    private long getLastBassHitMs() {
-        DrumEngine drum = audioEngine != null ? audioEngine.getDrumEngine() : null;
-        if (drum == null) drum = ThereminBackgroundAudioService.getDrumEngine();
-        return drum != null ? drum.getLastBassHitMs() : 0L;
-    }
-
-    private void pulseBassAnimation() {
-        android.view.View target = binding.thereminVisualizerView;
-        target.animate().cancel();
-        target.animate()
-            .scaleX(1.025f).scaleY(1.025f)
-            .setDuration(80)
-            .withEndAction(() ->
-                target.animate()
-                    .scaleX(1f).scaleY(1f)
-                    .setDuration(120)
-                    .start())
-            .start();
     }
 
 

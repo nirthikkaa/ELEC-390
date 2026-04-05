@@ -1,5 +1,7 @@
 package com.example.thereminglovestest2;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.Context;
@@ -7,6 +9,7 @@ import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -30,6 +33,7 @@ public class BottomNavBarView extends LinearLayout {
     private final int colorActive;
     private final int colorOnBarVariant;
     private final int colorActiveBackground;
+    private ObjectAnimator tabGlowAnimator;
 
     public BottomNavBarView(Context context) { this(context, null); }
     public BottomNavBarView(Context context, @Nullable AttributeSet attrs) { this(context, attrs, 0); }
@@ -104,6 +108,26 @@ public class BottomNavBarView extends LinearLayout {
             return;
         }
         NavigationUtils.openScreen(current, target);
+    }
+
+    /** Pulse the tab at {@code tabIndex} (0=Play,1=Connect,2=Cal,3=Library,4=Settings) to guide the user. */
+    public void setTabGlowing(int tabIndex, boolean glow) {
+        View tab = getChildAt(tabIndex);
+        if (tab == null) return;
+        if (glow) {
+            if (tabGlowAnimator != null && tabGlowAnimator.isStarted()) return;
+            tabGlowAnimator = ObjectAnimator.ofFloat(tab, View.ALPHA, 1f, 0.28f, 1f);
+            tabGlowAnimator.setDuration(900L);
+            tabGlowAnimator.setRepeatCount(ValueAnimator.INFINITE);
+            tabGlowAnimator.setRepeatMode(ValueAnimator.RESTART);
+            tabGlowAnimator.start();
+        } else {
+            if (tabGlowAnimator != null) {
+                tabGlowAnimator.cancel();
+                tabGlowAnimator = null;
+            }
+            if (tab.getAlpha() != 1f) tab.setAlpha(1f);
+        }
     }
 
     private int selectableRes() {

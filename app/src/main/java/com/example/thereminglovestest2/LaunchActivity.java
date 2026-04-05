@@ -20,8 +20,10 @@ public class LaunchActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BLUETOOTH = 3102;
 
     static final String PREFS_NAME = "theremin_prefs";
-    static final String KEY_FIRST_LAUNCH_DONE = "first_launch_done";
-    static final String KEY_GRID_HINT_PENDING = "grid_hint_pending";
+    static final String KEY_FIRST_LAUNCH_DONE    = "first_launch_done";
+    static final String KEY_GRID_HINT_PENDING    = "grid_hint_pending";
+    static final String KEY_HINT_CONNECT_DONE    = "hint_connect_done";
+    static final String KEY_HINT_PLAY_DONE       = "hint_play_done";
     private static final String KEY_PRIVACY_POLICY_ACCEPTED = "privacy_policy_accepted";
 
     private ActivityLaunchBinding binding;
