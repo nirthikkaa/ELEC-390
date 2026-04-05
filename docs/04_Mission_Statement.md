@@ -49,7 +49,7 @@ Recording could capture the exact synthesized output rather than microphone audi
 
 ## Constraints
 - final course submission deadline: April 15, 2026
-- Android minimum platform: API 36
+- Android minimum platform: API 31
 - local-first design: no cloud backend
 - project scope must remain practical for a course deliverable using two custom BLE gloves and one Android client
 

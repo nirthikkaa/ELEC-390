@@ -40,7 +40,7 @@ A: Two Arduino Nano 33 BLE Sense boards, each mounted in a glove with USB power 
 A: API 31 (Android 12) is the minimum SDK. Android 12 introduced `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` as separate, fine-grained BLE permissions. The app relies on these new permissions and the `neverForLocation` flag on `BLUETOOTH_SCAN` so it does not need to request location permission just to scan. API 31 is the lowest version where the complete dual-permission BLE model is available.
 
 **Q: What is the end-to-end latency?**  
-A: The background-service path (used when the app is backgrounded and during calibration preview) has a typical latency of approximately 39–51 ms and a worst case of approximately 61 ms. The foreground Play path (visible Play screen) has a typical latency of approximately 54–66 ms and a worst case of approximately 91 ms. The worst-case foreground value exceeds the HD-11 `<80 ms` target slightly because the Play UI polls at 50 ms; however, typical use is well within target. See `docs/final/06_Computer_Simulation_Summary.md` for the full latency budget derivation.
+A: The background-service path (used when the app is backgrounded and during calibration preview) has a typical latency of approximately 39–51 ms and a worst case of approximately 61 ms. The foreground Play path (visible Play screen) has a typical latency of approximately 54–66 ms and a worst case of approximately 91 ms. The worst-case foreground value exceeds the HD-11 `<80 ms` target slightly because the Play UI polls at 50 ms; however, typical use is well within target. See `docs/06_Computer_Simulation_Summary.md` for the full latency budget derivation.
 
 **Q: How many tones are supported?**  
 A: 11 user-selectable tones: THEREMIN, AIR_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, SQUARE, and HELICOPTER. Additional tones (SWEET_LEAD, BELL, ORGAN, STRING, OBOE, TRUMPET, VIOLIN, GUITAR, and others) exist internally for backward compatibility but are not exposed in the public picker. The user-selectable set is defined in `SettingsStore.USER_SELECTABLE_TONES[]`.
@@ -306,7 +306,7 @@ A: Waveform math (all 15 tone recipes bounded in ±1, non-zero energy, mutually 
 A: Settings round-trip for all 24 `app_settings` columns; invalid tone/scale coercion to defaults; octave shift clamping; sensitivity curve clamping; SharedPreferences flags; `CalibrationDraft.sanitize()` behaviour for angle/frequency boundary conditions; `PlayMappingState.recompute()` with octave shift, sensitivity curves, and mute conditions; background service static flag persistence.
 
 **Q: On what platform were tests run?**  
-A: Google Pixel 7, Android 14, API 34 — real hardware, not an emulator. BLE and audio behave differently on emulators (BLE is simulated; audio latency is non-representative), so all Pixel 7–targeted tests were run on the physical device.
+A: Google Pixel 7, Android 16, API 36 — real hardware, not an emulator. BLE and audio behave differently on emulators (BLE is simulated; audio latency is non-representative), so all Pixel 7–targeted tests were run on the physical device.
 
 **Q: How was recording quality verified?**  
 A: Playback of LOSSLESS (WAV) recordings in the Library compared audibly with the live theremin output they were recorded from. File size check: a 10-second LOSSLESS recording should be approximately `48000 Hz × 2 channels × 2 bytes × 10 s = 1 920 000 bytes ≈ 1.83 MB` (plus 44-byte header). AAC files were opened in the Android Music app and played back to confirm correct encoding.
@@ -340,7 +340,7 @@ A: `RecordingManager` with PCM tap → WAV and AAC-LC output. `RecordingReposito
 A: `DrumEngine` (14 sounds, 8 patterns, 16-step sequencer, piano synth, arpeggio). `BeatMakerActivity` sequencer editor. Audio effects pipeline (reverb/Schroeder comb, delay/ring buffer, distortion/tanh). Scale lock (CHROMATIC, MAJOR, MINOR, PENTATONIC). Octave shift (±2 octaves). Sensitivity presets (0.25–2.50 curve). Performance mode optimizations. Onboarding hint system (glowing buttons). Square tone re-added to public picker (11 tones total). Background audio foreground service refinements.
 
 **Q: What was explicitly excluded and why?**  
-A: HD-8 (battery % on Connect screen) — Arduino Nano 33 BLE Sense does not expose battery level over BLE; firmware change out of scope. HD-21 (explicit dead zone) — already solved by calibration + smoothing. HD-11.2 / HD-11.3 (latency micro-optimizations) — current 1024-frame buffer with `PERFORMANCE_MODE_LOW_LATENCY` already meets the target. 20 stories total are listed with their exclusion reasons in `docs/final/12_Final_Product_Backlog.md`.
+A: HD-8 (battery % on Connect screen) — Arduino Nano 33 BLE Sense does not expose battery level over BLE; firmware change out of scope. HD-21 (explicit dead zone) — already solved by calibration + smoothing. HD-11.2 / HD-11.3 (latency micro-optimizations) — current 1024-frame buffer with `PERFORMANCE_MODE_LOW_LATENCY` already meets the target. 20 stories total are listed with their exclusion reasons in `docs/12_Final_Product_Backlog.md`.
 
 **Q: What is the Definition of Done?**  
 A: Nine criteria must all be true before a story is marked complete: (1) `./gradlew assembleDebug` passes with no errors. (2) Feature works on the Pixel 7 with real BLE gloves. (3) No crash or ANR introduced. (4) Data persists correctly across app kill and reopen. (5) Feature survives device restart. (6) Code reviewed by at least one other team member. (7) Test document updated with a new row. (8) Design document updated if architecture changed. (9) No regression in previously passing tests.
@@ -349,7 +349,7 @@ A: Nine criteria must all be true before a story is marked complete: (1) `./grad
 A: MoSCoW method. Sprint 1 must-haves: BLE communication + audio synthesis (without these, nothing works). Sprint 2 should-haves: recording and library (high product value, clear scope). Sprint 3 could-haves: effects, drum engine, scale lock (enhancements). Won't-haves: battery display, MIDI controller support, cloud sync (explicitly out of scope).
 
 **Q: How many completed stories total, and how many were excluded?**  
-A: 31 stories completed across three sprints. 20 stories explicitly listed as not implemented with reasons. Full detail in `docs/final/12_Final_Product_Backlog.md`.
+A: 31 stories completed across three sprints. 20 stories explicitly listed as not implemented with reasons. Full detail in `docs/12_Final_Product_Backlog.md`.
 
 **Q: How long was each sprint?**  
 A: Two weeks each. Sprint 1: weeks 3–4 of the semester. Sprint 2: weeks 7–8. Sprint 3: March 23 – April 6, 2026. Final submission: April 15, 2026.
@@ -374,10 +374,10 @@ A: The app requires two functioning hands with sufficient fine motor control to 
 A: Claude (Anthropic) was used as a coding and documentation assistant in Sprint 2 and Sprint 3. Specific uses: BLE edge-case code review and suggestions, audio engine extension scaffolding (effects, additional tones), recording extension architecture review, UI scaffolding for `BeatMakerActivity`, documentation drafting and proofreading.
 
 **Q: What was built entirely without AI assistance?**  
-A: Arduino firmware for both gloves. BLE core from Sprint 1 (initial `BleSessionManager` implementation, `ThereminGloveBleManager`). Audio engine core algorithm (`ThereminAudioEngine.sample()` tone recipes, smoothing constants). Recording foundation (`RecordingManager` WAV path). Library foundation (`RecordingRepository`, `LibraryActivity` core). All Sprint 1 features. Full details in `docs/final/08_AI_Usage_Document.md`.
+A: Arduino firmware for both gloves. BLE core from Sprint 1 (initial `BleSessionManager` implementation, `ThereminGloveBleManager`). Audio engine core algorithm (`ThereminAudioEngine.sample()` tone recipes, smoothing constants). Recording foundation (`RecordingManager` WAV path). Library foundation (`RecordingRepository`, `LibraryActivity` core). All Sprint 1 features. Full details in `docs/08_AI_Usage_Document.md`.
 
 **Q: How is AI usage disclosed?**  
-A: `docs/final/08_AI_Usage_Document.md` contains a full component-by-component disclosure table: component name, whether AI was used (yes/no), what it was used for, and the level of human involvement. The document distinguishes between AI-generated scaffolding that was reviewed and modified by team members versus pure human-written code. A summary table shows 7 components with AI involvement and 4 without.
+A: `docs/08_AI_Usage_Document.md` contains a full component-by-component disclosure table: component name, whether AI was used (yes/no), what it was used for, and the level of human involvement. The document distinguishes between AI-generated scaffolding that was reviewed and modified by team members versus pure human-written code. A summary table shows 7 components with AI involvement and 4 without.
 
 **Q: What is the team's position on AI contribution and academic integrity?**  
 A: AI was used as an engineering tool — the equivalent of a smart search engine or pair-programmer assistant. All AI-generated code was reviewed, understood, tested, and modified by team members before being merged. No code was submitted without human understanding of what it does. The intellectual design decisions (architecture, BLE protocol, synthesis algorithm, effects pipeline, database schema) were made by the team. AI assisted with scaffolding and review, not with design.
@@ -401,7 +401,7 @@ A: Eight segments in approximately 8 minutes:
 8. (7:00–8:00) Library → play back recording → point out folder/search/quality display.
 
 **Q: What if a glove disconnects during the demo?**  
-A: Do not panic. The watchdog schedules auto-reconnect in 1.5 seconds. Keep talking through the architecture or switch to the Library/Settings screens temporarily. When the glove reconnects, the Connect screen will show "Connected" and the system navigates back to Play automatically (if `startupAutoNavUsed` is false) or manually. The demo script in `docs/final/10_Demo_Preparation.md` includes explicit fallbacks for this scenario.
+A: Do not panic. The watchdog schedules auto-reconnect in 1.5 seconds. Keep talking through the architecture or switch to the Library/Settings screens temporarily. When the glove reconnects, the Connect screen will show "Connected" and the system navigates back to Play automatically (if `startupAutoNavUsed` is false) or manually. The demo script in `docs/10_Demo_Preparation.md` includes explicit fallbacks for this scenario.
 
 **Q: What if Bluetooth is completely off on the demo phone?**  
 A: `LaunchActivity` calls `BleSessionManager.requestEnableBluetoothPrompt()` which fires `ACTION_REQUEST_ENABLE`. The system Enable Bluetooth dialog appears in front of the launch screen. The user can accept it, after which `onActivityResult()` continues the launch flow normally. This has been tested.

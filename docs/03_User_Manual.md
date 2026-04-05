@@ -22,7 +22,7 @@ New here? Follow these five steps and you'll be playing in under two minutes:
 
 Before you start, make sure you have:
 
-- An Android phone running Android 7 (API 24) or newer.
+- An Android phone running Android 12 (API 31) or newer.
 - Two Theremin Gloves powered on and within range.
 - Bluetooth enabled on your phone.
 
@@ -206,7 +206,7 @@ Use the **−** and **+** buttons to step from −2 to +2 octaves. Useful for fi
 
 The recording captures the full synthesiser output — drums, effects, and all. It does **not** use the phone's microphone.
 
-Recordings are saved to your **Music** folder (*Theremin Gloves Recordings*) so they appear in other music apps on your phone.
+Recordings are saved privately on the device. The app also creates a copy in your **Music** folder (*Theremin Gloves Recordings*) so they appear in other music apps.
 
 ### Quality options
 

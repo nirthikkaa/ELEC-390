@@ -125,7 +125,7 @@ BLE, calibration system, audio engine, pitch and volume mapping, range settings,
 
 ### 6. In-App User Manual (UserManualActivity)
 **Tool:** Claude Code CLI  
-**What AI helped with:** Creating `UserManualActivity.java`, `activity_user_manual.xml`, and the Settings card that launches it. The manual content (all 11 sections) was authored by the team in `docs/final/03_User_Manual.md`; AI generated the Android UI scaffolding from that existing content.
+**What AI helped with:** Creating `UserManualActivity.java`, `activity_user_manual.xml`, and the Settings card that launches it. The manual content (all 11 sections) was authored by the team in `docs/03_User_Manual.md`; AI generated the Android UI scaffolding from that existing content.
 
 **Niraj's contribution:** Niraj specified the requirement, reviewed the implementation, and verified the build.
 

@@ -64,7 +64,7 @@ The ethical conclusion is straightforward: Theremin Gloves is a compelling proto
 
 ## 5. AI Transparency and Intellectual Contribution
 
-The team used Claude (Anthropic) as an AI assistant in Sprint 2 and Sprint 3 for code scaffolding, documentation drafting, and architecture review. Full disclosure of what was built with and without AI assistance is available in `docs/final/08_AI_Usage_Document.md`.
+The team used Claude (Anthropic) as an AI assistant in Sprint 2 and Sprint 3 for code scaffolding, documentation drafting, and architecture review. Full disclosure of what was built with and without AI assistance is available in `docs/08_AI_Usage_Document.md`.
 
 The ethical question raised by AI-assisted development is: does using an AI coding assistant undermine the intellectual integrity of the work? The team's position is no, provided the following conditions are met — and they were:
 

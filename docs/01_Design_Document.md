@@ -92,7 +92,7 @@ This section moves from screens to shared classes to the live data path so a rev
 - `LibraryActivity`: recording browser/player. It loads metadata from `RecordingRepository`, supports search, folder organization, playback through `MediaPlayer`, rename/delete/move flows, playback modes, and custom date/duration filtering.
 - `SettingsActivity`: settings screen. It toggles background audio, extended frequency range, pitch/volume direction, rename-dialog behavior, recording quality, calibration-guide visibility, and sensitivity response curve.
 - `BeatMakerActivity`: dedicated 16-step sequencer editor. It uses `StepGridView`, `PianoKeyboardView`, and a local preview `AudioTrack` to edit drum/bass/piano patterns without going through the theremin audio engine.
-- `UserManualActivity`: in-app user manual. Opened from Settings, it displays all 11 manual sections as scrollable cards with hardcoded content — no external file reads or network requests. The content mirrors `docs/final/03_User_Manual.md`.
+- `UserManualActivity`: in-app user manual. Opened from Settings, it displays all 11 manual sections as scrollable cards with hardcoded content — no external file reads or network requests. The content mirrors `docs/03_User_Manual.md`.
 
 ### Non-Activity classes and their roles
 - `BleSessionManager`: process-wide BLE host. It scans, connects, reconnects, runs the watchdog, stores cached glove MAC addresses, parses telemetry packets, exposes immutable `BleSnapshot` state, and handles Bluetooth permission/prompt flows.
@@ -697,7 +697,7 @@ flowchart TD
 
     subgraph Persist["Persistence Layer"]
         SS["SettingsStore\ntheremin_gloves.db\napp_settings single row\n24 columns, additive migrations"]
-        SP["SharedPreferences\ntherminprefs + calibration_ui_prefs"]
+        SP["SharedPreferences\ntheremin_prefs + calibration_ui_prefs"]
     end
 
     PG -->|"ACTIVE_DELTA_DEG / NEUTRAL_ROLL_DEG\nDIRECTION (notify char ...90ac)"| BSM
@@ -1210,7 +1210,7 @@ Exposes toggles for: background audio, extended frequency range, pitch/volume di
 ---
 
 #### `UserManualActivity`
-In-app user manual. Content is hardcoded in Java (no file reads). Mirrors `docs/final/03_User_Manual.md`.
+In-app user manual. Content is hardcoded in Java (no file reads). Mirrors `docs/03_User_Manual.md`.
 
 ---
 

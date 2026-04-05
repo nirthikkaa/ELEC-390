@@ -15,13 +15,13 @@ An Android app that turns two BLE-connected IMU gloves into a real-time theremin
 ./gradlew connectedAndroidTest # run instrumented tests
 ```
 
-- **compileSdk / targetSdk:** 36 · **minSdk:** 24 · **Java:** 17
+- **compileSdk / targetSdk:** 36 · **minSdk:** 31 · **Java:** 17
 
 ---
 
 ## How It Works
 
-Two Arduino Nano 33 BLE Sense gloves stream wrist-angle telemetry over BLE. `BleSessionManager` handles scanning, connection, and auto-reconnect. `PlayMappingState` maps the incoming angles to frequency and volume targets. `ThereminAudioEngine` synthesizes audio in real time using 10 selectable tones, a live effects pipeline (reverb, delay, distortion), scale lock, and octave shift. Performances can be recorded as lossless WAV or AAC and managed in the built-in library.
+Two Arduino Nano 33 BLE Sense gloves stream wrist-angle telemetry over BLE. `BleSessionManager` handles scanning, connection, and auto-reconnect. `PlayMappingState` maps the incoming angles to frequency and volume targets. `ThereminAudioEngine` synthesizes audio in real time using 11 selectable tones, a live effects pipeline (reverb, delay, distortion), scale lock, and octave shift. Performances can be recorded as lossless WAV or AAC and managed in the built-in library.
 
 ---
 
@@ -52,5 +52,5 @@ Two Arduino Nano 33 BLE Sense gloves stream wrist-angle telemetry over BLE. `Ble
 | `AUDIO_WRITE_FRAMES` | 1 024 (~21.3 ms/buffer) |
 | `SYNC_TICK_MS` | 20 ms |
 | `UI_TICK_MS` | 50 ms |
-| Public tones | THEREMIN, AIR\_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, HELICOPTER |
+| Public tones | THEREMIN, AIR\_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, SQUARE, HELICOPTER |
 | BLE service UUID | `12345678-1234-1234-1234-1234567890ab` |
