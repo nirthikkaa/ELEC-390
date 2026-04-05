@@ -23,206 +23,200 @@ public class UserManualActivity extends AppCompatActivity {
     private static final String[][] SECTIONS = {
         {
             "QUICK START",
-            "The shortest path to playing:\n\n" +
-            "• Power on both gloves.\n" +
-            "• Open Connect and tap Connect All if they do not auto-connect.\n" +
-            "• Open Cal, capture Pitch Neutral, then Volume Neutral, then tap Save & Play.\n" +
-            "• Open Play and press the Play button.\n" +
-            "• Move the pitch glove to change pitch and the volume glove to change loudness."
+            "Welcome! Here is the fastest way to start playing:\n\n" +
+            "1. Power on both gloves.\n" +
+            "2. Open Connect → tap Connect All if they don't auto-connect.\n" +
+            "3. Open Cal → tap Pitch Neutral, then Volume Neutral, then Save & Play.\n" +
+            "4. Open Play → press the Play button.\n" +
+            "5. Tilt your pitch glove to change pitch; tilt your volume glove to change loudness.\n\n" +
+            "Tip: Calibration is the most important step — it tells the app what your natural " +
+            "resting wrist position is. Do it first and redo it any time the feel seems off."
         },
         {
-            "1. HARDWARE SETUP",
-            "You need:\n\n" +
-            "• An Android phone running API 31 or higher.\n" +
-            "• Two BLE gloves built around Arduino Nano 33 BLE Sense boards.\n" +
-            "• The Theremin Gloves app installed.\n\n" +
-            "Required glove names:\n\n" +
-            "• Pitch glove: ThereminGlove\n" +
+            "1. WHAT YOU NEED",
+            "Before you start, make sure you have:\n\n" +
+            "• An Android phone (Android 7 or newer).\n" +
+            "• Two Theremin Gloves powered on and within range.\n" +
+            "• Bluetooth enabled on your phone.\n\n" +
+            "Your gloves must use these exact names:\n\n" +
+            "• Pitch glove:  ThereminGlove\n" +
             "• Volume glove: ThereminGloveVol\n\n" +
-            "Power on both gloves before trying to connect. The app looks for those exact BLE names."
+            "Tip: Power the gloves on before opening the Connect screen — " +
+            "the app starts scanning as soon as you open that tab."
         },
         {
             "2. FIRST LAUNCH",
-            "When the app starts it warms dependencies, checks Bluetooth permissions, and " +
-            "prompts to turn Bluetooth on if needed.\n\n" +
-            "After that, the app routes you to Setup on first launch or Play on later launches.\n\n" +
-            "The bottom navigation bar contains five tabs:\n\n" +
-            "• Play\n" +
-            "• Connect\n" +
-            "• Cal\n" +
-            "• Library\n" +
-            "• Settings"
+            "When you first open the app it checks Bluetooth permissions and, if needed, " +
+            "asks you to turn Bluetooth on. After that you land on the main Play screen.\n\n" +
+            "Five tabs run along the bottom of every screen:\n\n" +
+            "• Play — where you perform.\n" +
+            "• Connect — manage your glove connections.\n" +
+            "• Cal — set your neutral wrist positions and playing ranges.\n" +
+            "• Library — listen to and organise your recordings.\n" +
+            "• Settings — adjust app preferences.\n\n" +
+            "Tip: If the app asks for Bluetooth permission, tap Allow — " +
+            "it cannot find your gloves without it."
         },
         {
             "3. CONNECTING YOUR GLOVES",
-            "Recommended manual steps:\n\n" +
-            "• Open the Connect tab.\n" +
-            "• Make sure Bluetooth is on.\n" +
-            "• Power on both gloves.\n" +
-            "• Wait for the app to discover them, or tap Connect All.\n\n" +
-            "Connection status meanings:\n\n" +
-            "• Waiting — no live connection yet.\n" +
-            "• Connecting… — scan or GATT connection is in progress.\n" +
-            "• Connected — glove is connected and telemetry is arriving.\n" +
-            "• Connected · no data — connected but telemetry has gone stale.\n" +
-            "• Bluetooth off — phone Bluetooth is disabled.\n\n" +
-            "If a glove does not appear:\n\n" +
-            "• Verify Bluetooth is on and the glove is powered on.\n" +
-            "• Verify the glove name is exactly ThereminGlove or ThereminGloveVol.\n" +
-            "• Move the glove closer to the phone.\n" +
-            "• Use the per-glove reconnect button or Connect All.\n\n" +
-            "The app keeps a cached device address and tries to reconnect automatically if a glove drops."
+            "Open the Connect tab. The app usually connects automatically — " +
+            "if it doesn't, tap Connect All.\n\n" +
+            "What the status label means:\n\n" +
+            "• Waiting — still searching for the glove.\n" +
+            "• Connecting… — found it, establishing the link.\n" +
+            "• Connected — glove is live and sending data.\n" +
+            "• Connected · no data — link is open but data has stopped arriving.\n" +
+            "• Bluetooth off — turn on Bluetooth in your phone's settings.\n\n" +
+            "If a glove won't connect:\n\n" +
+            "• Make sure Bluetooth is turned on.\n" +
+            "• Power the glove off, wait 5 seconds, then power it back on.\n" +
+            "• Move the glove within 2–3 metres of your phone.\n" +
+            "• Tap Connect All again.\n\n" +
+            "The app remembers your gloves — after the first connection it reconnects " +
+            "automatically whenever a glove is powered on nearby."
         },
         {
             "4. CALIBRATING",
-            "Open the Cal tab before serious use.\n\n" +
+            "Calibration tells the app what 'neutral' means for each hand. " +
+            "Do this before your first performance and any time the feel seems off.\n\n" +
             "Steps:\n\n" +
-            "• Stay on the Pitch tab.\n" +
-            "• Hold your pitch hand in a natural relaxed neutral position.\n" +
-            "• Tap Pitch Neutral.\n" +
-            "• Switch to the Volume tab.\n" +
-            "• Hold your volume hand in its natural neutral position.\n" +
-            "• Tap Volume Neutral.\n" +
-            "• Adjust the min/max angle and frequency controls if needed.\n" +
-            "• Tap Save & Play.\n\n" +
-            "Neutral means the wrist orientation you want as the baseline resting position. " +
-            "Live motion is measured relative to that baseline.\n\n" +
-            "Default ranges:\n\n" +
-            "• Settings defaults: pitch 0°–90°, volume 0°–90°, frequency 20–2000 Hz.\n" +
-            "• Play reset defaults: pitch −15°–55°, volume −10°–55°, frequency 880–2000 Hz.\n\n" +
-            "You do not need to disconnect the gloves to recalibrate. " +
-            "The calibration screen can also play live preview audio with your draft settings."
+            "1. Go to the Cal tab and stay on the Pitch tab.\n" +
+            "2. Hold your pitch hand in a relaxed, natural resting position.\n" +
+            "3. Tap Pitch Neutral — the app locks in that wrist angle as your zero point.\n" +
+            "4. Switch to the Volume tab.\n" +
+            "5. Hold your volume hand in a relaxed, natural resting position.\n" +
+            "6. Tap Volume Neutral.\n" +
+            "7. Adjust the min/max sliders to narrow or widen your gesture range if needed.\n" +
+            "8. Tap Save & Play when you are happy.\n\n" +
+            "Default ranges: pitch 0° to 90°, volume 0° to 90°, frequency 20 Hz to 20 kHz.\n\n" +
+            "Tip: The Cal screen plays live audio using your draft settings so you can " +
+            "hear the changes before you save."
         },
         {
             "5. PLAYING THE THEREMIN",
-            "Open the Play tab.\n\n" +
-            "Basic gesture mapping:\n\n" +
-            "• Pitch glove — wrist movement changes pitch.\n" +
-            "• Volume glove — wrist movement changes loudness.\n" +
-            "• Both gloves must be connected for live theremin output.\n\n" +
-            "On-screen features:\n\n" +
-            "• Live frequency and volume readout.\n" +
-            "• Large audio visualizer (shows synthesized output, not microphone).\n" +
+            "Open the Play tab and press the Play button to start sound.\n\n" +
+            "Your gesture controls:\n\n" +
+            "• Pitch glove — tilt your wrist to raise or lower the pitch.\n" +
+            "• Volume glove — tilt your wrist to make the sound louder or softer.\n" +
+            "• Both gloves must be connected — if either drops, audio mutes automatically.\n\n" +
+            "What you see on screen:\n\n" +
+            "• Current frequency and volume readout.\n" +
+            "• Waveform visualizer (your synth output — not the microphone).\n" +
             "• Record button.\n" +
-            "• Play transport button.\n" +
-            "• Rotary tone selector.\n" +
-            "• Scale lock controls.\n" +
-            "• Octave shift controls.\n" +
-            "• Effects controls.\n" +
-            "• Beat and bass controls.\n" +
-            "• BEATS button for Beat Maker access.\n" +
-            "• Stage View action in the top bar."
+            "• Tone selector knob.\n" +
+            "• Scale lock and octave shift controls.\n" +
+            "• Effects panel (reverb, delay, distortion).\n" +
+            "• Beat and bass controls plus the BEATS button.\n" +
+            "• Stage View in the top bar for a clean performance display.\n\n" +
+            "Tip: Adjust the Sensitivity slider in Settings to make gestures " +
+            "more responsive or more precise."
         },
         {
-            "6. TONE SELECTION",
-            "The Play screen uses the tone knob to cycle through 11 tones:\n\n" +
-            "• Theremin — classic theremin-like tone with a vocal/cello quality.\n" +
-            "• Air Pad — soft ambient pad.\n" +
-            "• Cello — dark bowed-string style tone.\n" +
-            "• Pad — warm sustained synth pad.\n" +
-            "• Choir — soft vocal pad.\n" +
-            "• Flute — light, smooth flute-like tone.\n" +
-            "• Clarinet — woody reed-like tone.\n" +
-            "• Triangle — hollow, cleaner synth tone.\n" +
-            "• Saw — bright, sharper synth tone.\n" +
-            "• Square — hollow, odd-harmonic square-wave tone.\n" +
-            "• Helicopter — rhythmic rotor-like special effect tone."
+            "6. CHOOSING A TONE",
+            "Rotate the tone knob on the Play screen to pick from 11 sounds:\n\n" +
+            "• Theremin — the classic singing theremin tone.\n" +
+            "• Air Pad — soft, drifting; great for ambient textures.\n" +
+            "• Cello — dark and bowed; expressive for melodies.\n" +
+            "• Pad — warm and sustained; good for slow, dreamy passages.\n" +
+            "• Choir — ethereal vocal quality.\n" +
+            "• Flute — light and airy; easy on the ears.\n" +
+            "• Clarinet — woody reed tone; expressive mid-range.\n" +
+            "• Triangle — hollow, pure tone with few overtones.\n" +
+            "• Saw — bright and sharp; classic synthesizer sound.\n" +
+            "• Square — hollow odd-harmonic buzz; retro feel.\n" +
+            "• Helicopter — rhythmic rotor effect; great for experimenting.\n\n" +
+            "Tip: Try Theremin or Cello with Reverb turned on for a rich, " +
+            "full-room sound."
         },
         {
-            "7. EFFECTS, SCALE LOCK & BEATS",
-            "Scale lock modes:\n\n" +
-            "• CHROM — no lock, full chromatic range.\n" +
+            "7. EFFECTS, SCALES & BEATS",
+            "Scale lock keeps your pitch on familiar notes:\n\n" +
+            "• CHROM — no lock; every frequency is available.\n" +
             "• MAJOR — snaps to major scale notes.\n" +
             "• MINOR — snaps to minor scale notes.\n" +
-            "• PENTA — snaps to pentatonic scale notes.\n\n" +
-            "Octave shift:\n\n" +
-            "• Use the − and + buttons around the octave label.\n" +
-            "• Range is from −2 to +2 octaves.\n\n" +
-            "Effects:\n\n" +
-            "• Reverb — adds room ambience.\n" +
-            "• Delay — adds echo with feedback control.\n" +
-            "• Distortion — adds saturation/overdrive.\n\n" +
-            "Beat tools:\n\n" +
-            "• 8 beat preset slots.\n" +
-            "• BEATS button opens the Beat Maker.\n" +
-            "• BPM controls for drum and piano sequencing.\n" +
-            "• Separate synth and beat gain controls."
+            "• PENTA — snaps to pentatonic notes (great for beginners).\n\n" +
+            "Octave shift moves your whole range up or down:\n\n" +
+            "• Use the − and + buttons to step from −2 to +2 octaves.\n" +
+            "• Useful for finding a comfortable pitch range for your voice.\n\n" +
+            "Audio effects:\n\n" +
+            "• Reverb — makes the sound bloom and decay like a real room.\n" +
+            "• Delay — adds a repeating echo; the feedback knob controls how long it rings.\n" +
+            "• Distortion — adds grit and saturation for a dirtier sound.\n\n" +
+            "Beat Maker:\n\n" +
+            "• 8 built-in drum patterns to choose from.\n" +
+            "• Tap BEATS to open the full Beat Maker screen.\n" +
+            "• BPM control and separate synth/beat gain sliders."
         },
         {
             "8. RECORDING",
-            "To record:\n\n" +
-            "• Start audio from the Play screen.\n" +
-            "• Tap Record.\n" +
-            "• Perform.\n" +
-            "• Tap Record again to stop.\n\n" +
-            "While recording the button shows a stop icon, a timer appears, and the button blinks.\n\n" +
-            "First-time permission:\n\n" +
-            "• The app asks for audio permission before the first recording.\n" +
-            "• The saved audio comes from the internal synth, not from the microphone.\n\n" +
-            "Where recordings go:\n\n" +
-            "• Private copy: internal app storage.\n" +
-            "• Export copy: Music/Theremin Gloves Recordings (user-visible).\n\n" +
-            "Quality options:\n\n" +
-            "• Lossless WAV\n" +
-            "• High AAC\n" +
-            "• Medium AAC\n" +
-            "• Low AAC"
+            "To capture a performance:\n\n" +
+            "1. Start playing from the Play screen.\n" +
+            "2. Tap the Record button — a timer appears and the button blinks.\n" +
+            "3. Perform.\n" +
+            "4. Tap Record again to stop and save.\n\n" +
+            "The recording captures the full synthesizer output — drums, effects, and all. " +
+            "It does not use the microphone.\n\n" +
+            "Recordings are saved to your Music folder (Theremin Gloves Recordings) " +
+            "so they show up in other music apps too.\n\n" +
+            "Quality options (set in Settings):\n\n" +
+            "• Lossless WAV — best quality, largest file.\n" +
+            "• High AAC — near-lossless quality, smaller file.\n" +
+            "• Medium AAC — good quality, compact file.\n" +
+            "• Low AAC — smallest file; fine for quick sharing.\n\n" +
+            "Tip: On your first recording the app will ask for audio permission — " +
+            "tap Allow to proceed."
         },
         {
             "9. THE LIBRARY",
-            "The Library tab lets you manage saved performances.\n\n" +
-            "Features:\n\n" +
-            "• View recordings with date, duration, and quality badge.\n" +
-            "• Play recordings back without connecting the gloves.\n" +
-            "• Search by name.\n" +
-            "• Rename or delete recordings.\n" +
-            "• Create and manage folders.\n" +
-            "• Drag recordings onto folders to move them.\n" +
-            "• Multi-select delete and move.\n" +
-            "• Filter by duration or date range.\n" +
-            "• Mini-player with playback progress and loop mode.\n\n" +
-            "Library playback does not require gloves — you can listen to saved recordings " +
-            "even with both gloves turned off."
+            "Open the Library tab to listen to and manage everything you have recorded.\n\n" +
+            "What you can do:\n\n" +
+            "• Tap any recording to play it back.\n" +
+            "• Search recordings by name.\n" +
+            "• Rename a recording (long-press) or delete it (swipe left).\n" +
+            "• Create folders and drag recordings into them to stay organised.\n" +
+            "• Use the mini-player at the bottom to pause, seek, and loop.\n" +
+            "• Filter recordings by length or date to find older sessions.\n\n" +
+            "Good to know: Library playback works even when the gloves are off — " +
+            "you can listen to your saved performances any time."
         },
         {
             "10. SETTINGS",
-            "Available settings:\n\n" +
-            "• Keep audio playing when leaving Play — lets playback continue via background service.\n" +
-            "• Extended frequency range — raises the ceiling from 2,000 Hz to 20,000 Hz.\n" +
-            "• Invert pitch glove direction — reverses the mapping direction for pitch.\n" +
-            "• Invert volume glove direction — reverses the mapping direction for volume.\n" +
-            "• Show Calibration Guide Again — re-enables the guided calibration flow.\n" +
-            "• Show rename dialog after recording — prompts to name each recording.\n" +
-            "• Recording quality — Lossless WAV, High, Medium, or Low AAC.\n" +
-            "• Sensitivity slider — changes how aggressively glove motion maps to sound.\n\n" +
-            "Good defaults for a first-time demo:\n\n" +
-            "• Leave extended range off.\n" +
-            "• Leave direction toggles at their default values.\n" +
-            "• Keep the rename dialog enabled.\n" +
-            "• Keep the calibration guide available until it has been completed once."
+            "Tap the Settings tab to customise the app.\n\n" +
+            "Key options and what they do:\n\n" +
+            "• Background audio — keeps sound going when you leave the Play screen.\n" +
+            "• Extended frequency range — raises the top pitch from 2,000 Hz to 20,000 Hz.\n" +
+            "• Invert pitch/volume direction — flips which wrist direction raises pitch or volume.\n" +
+            "• Show Calibration Guide Again — re-enables the step-by-step calibration walkthrough.\n" +
+            "• Rename dialog after recording — prompts you to name each recording when you stop.\n" +
+            "• Recording quality — WAV (lossless) or AAC at High / Medium / Low.\n" +
+            "• Sensitivity — controls how strongly wrist movement maps to sound.\n\n" +
+            "Recommended starting point:\n\n" +
+            "• Leave extended range off until you need very high pitches.\n" +
+            "• Keep the rename dialog on so recordings are easy to find later.\n" +
+            "• Start with Medium sensitivity and adjust to taste."
         },
         {
             "11. TROUBLESHOOTING",
             "No sound:\n\n" +
-            "• Make sure both gloves are connected.\n" +
-            "• Press the Play transport button.\n" +
-            "• Check that phone volume is up.\n" +
-            "• If only one glove is connected, theremin output is intentionally muted.\n\n" +
-            "Glove not found:\n\n" +
-            "• Turn Bluetooth on.\n" +
-            "• Power-cycle the glove.\n" +
-            "• Check the glove name (ThereminGlove / ThereminGloveVol).\n" +
-            "• Bring the glove closer to the phone.\n\n" +
-            "Pitch or volume feels wrong:\n\n" +
-            "• Recalibrate.\n" +
-            "• Check the direction toggles in Settings.\n" +
-            "• Review your calibrated min/max ranges.\n\n" +
+            "• Press the Play button — audio does not start until you tap it.\n" +
+            "• Make sure both gloves are connected — sound mutes if either is missing.\n" +
+            "• Turn up the phone volume.\n\n" +
+            "Glove won't connect:\n\n" +
+            "• Check that Bluetooth is on.\n" +
+            "• Power-cycle the glove (off, wait a few seconds, back on).\n" +
+            "• Confirm the glove name: ThereminGlove or ThereminGloveVol exactly.\n" +
+            "• Move the glove within 2–3 metres of the phone and tap Connect All.\n\n" +
+            "Pitch or volume feels off:\n\n" +
+            "• Recalibrate — open Cal, capture both neutral positions again, tap Save & Play.\n" +
+            "• Check the direction toggles in Settings if the movement feels backwards.\n" +
+            "• Widen or narrow the min/max sliders in Cal for a more comfortable range.\n\n" +
             "Recording failed:\n\n" +
-            "• Grant the recording permission.\n" +
-            "• Make sure audio was running before pressing Record.\n" +
-            "• Check free storage space.\n\n" +
-            "Bluetooth turned off during use:\n\n" +
-            "• Turn Bluetooth back on and let the app reconnect, or return to Connect and use Connect All."
+            "• Tap Allow if the app asks for permission.\n" +
+            "• Make sure the Play transport is running before you tap Record.\n" +
+            "• Free up storage space if the phone is nearly full.\n\n" +
+            "Bluetooth turned off during play:\n\n" +
+            "• Turn Bluetooth back on — the app reconnects automatically.\n" +
+            "• Or open Connect and tap Connect All to reconnect immediately."
         }
     };
 
