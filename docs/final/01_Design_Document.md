@@ -1127,3 +1127,356 @@ recordings.db
 ```
 
 **Migration strategy:** `SettingsStore.addColumnIfMissing(db, table, col, type, default)` is called in `onOpen()` for every column that was added after version 1. Columns are never dropped or renamed. The `schemaVerifiedForProcess` flag prevents re-running schema checks on every screen load within one app session.
+
+---
+
+## 17. UML Diagrams
+
+### 17.1 UML Class Diagram
+
+Core classes, key members, and inter-class relationships. All fields and return types are source-verified against the sprint3 codebase.
+
+```mermaid
+classDiagram
+    class ThereminAudioEngine {
+        +int SAMPLE_RATE = 48000
+        +int AUDIO_WRITE_FRAMES = 1024
+        +float OUTPUT_GAIN = 0.14
+        -volatile float targetFreqHz
+        -volatile float targetVolumeLinear
+        -volatile String toneType
+        -volatile String activeScale
+        -DrumEngine drumEngine
+        -PcmListener pcmListener
+        +start()
+        +stop()
+        +setTargets(float freqHz, float vol)
+        +setToneType(String tone)
+        +setDrumEngine(DrumEngine de)
+        +setPcmListener(PcmListener l)
+        +getVisualizerSnapshot() short[]
+        -fillBuffer()
+        -sample(String tone, float phase, float freq) float
+        -snapToScale(float freq) float
+        -applyReverb(float x) float
+        -applyDelay(float x) float
+        -applyDistortion(float x) float
+    }
+
+    class ThereminBackgroundAudioService {
+        +int SYNC_TICK_MS = 20
+        +int SETTINGS_REFRESH_MS = 500
+        -ThereminAudioEngine engine
+        -DrumEngine drumEngine
+        -PlayMappingState mappingState
+        +onStartCommand(Intent, int, int) int
+        +onDestroy()
+        -syncLoop()
+        -pushTargets()
+    }
+
+    class BleSessionManager {
+        +long SCAN_TIMEOUT_MS = 12000
+        +long AUTO_RECONNECT_DELAY_MS = 1500
+        +long PING_AFTER_MS = 3000
+        +long STALE_WARNING_MS = 4500
+        +long STALE_RECONNECT_MS = 20000
+        -Glove pitchGlove
+        -Glove volumeGlove
+        +getSnapshot() BleSnapshot
+        +requestScan(Context)
+        +requestDisconnect()
+        -watchdog()
+    }
+
+    class BleSnapshot {
+        <<value object>>
+        +float pitchDeltaDeg
+        +float volumeDeltaDeg
+        +boolean isPitchConnected
+        +boolean isVolumeConnected
+        +float pitchNeutralDeg
+        +float volumeNeutralDeg
+    }
+
+    class PlayMappingState {
+        -float pitchAngleMin
+        -float pitchAngleMax
+        -float freqMinHz
+        -float freqMaxHz
+        -float sensitivityResponseCurve
+        -int octaveShift
+        +recompute(BleSnapshot snapshot)
+        +getFrequencyHz() float
+        +getVolumeLinear() float
+        -normalizeClamped(float v, float lo, float hi) float
+    }
+
+    class DrumEngine {
+        +int MAX_VOICES = 32
+        +int NUM_SOUNDS = 14
+        +float DRUM_MIX_HEADROOM = 0.26
+        +float PIANO_MIX_HEADROOM = 0.22
+        -SequencerClock clock
+        -float[][] sounds
+        +mixInto(short[] buf, int frames)
+        +setBpm(float bpm)
+        +setPattern(int track, int step, boolean on)
+        +start()
+        +stop()
+    }
+
+    class SequencerClock {
+        -long lastTickMs
+        +schedule(Runnable tick, long intervalMs)
+        +stop()
+    }
+
+    class RecordingManager {
+        <<implements PcmListener>>
+        -ReentrantLock codecLock
+        -Quality activeQuality
+        +start(Quality q)
+        +stop()
+        +onPcmSamples(short[] buf, int len)
+    }
+
+    class SettingsStore {
+        -String DB_NAME = "theremin_gloves.db"
+        +save(AppSettings s)
+        +load() AppSettings
+        -ensureSchema(SQLiteDatabase db)
+        -addColumnIfMissing(SQLiteDatabase db, String col, String def)
+    }
+
+    class AppSettings {
+        <<data model>>
+        +float pitchAngleMinDeg
+        +float pitchAngleMaxDeg
+        +float freqMinHz
+        +float freqMaxHz
+        +String toneType
+        +String activeScale
+        +int octaveShift
+        +boolean reverbEnabled
+        +float reverbMix
+        +float sensitivityResponseCurve
+    }
+
+    class RecordingRepository {
+        -String DB_NAME = "recordings.db"
+        +insert(Recording r) long
+        +getAll() List~Recording~
+        +getByFolder(long folderId) List~Recording~
+        +delete(long id)
+        +updateDisplayName(long id, String name)
+    }
+
+    class AppLaunchWarmup {
+        -Thread daemonThread
+        +start(Context ctx)
+        +takeDrumEngine() DrumEngine
+        +takeSettingsStore() SettingsStore
+        +takeRecordingRepository() RecordingRepository
+    }
+
+    class PcmListener {
+        <<interface>>
+        +onPcmSamples(short[] buf, int len)
+    }
+
+    class CalibrationDraft {
+        +float pitchAngleMin
+        +float pitchAngleMax
+        +float freqMinHz
+        +float freqMaxHz
+        +sanitize()
+        +saveTo(AppSettings target)
+        +applyFrom(AppSettings source)
+    }
+
+    ThereminBackgroundAudioService --> ThereminAudioEngine : owns
+    ThereminBackgroundAudioService --> DrumEngine : owns
+    ThereminBackgroundAudioService --> PlayMappingState : owns
+    ThereminBackgroundAudioService --> SettingsStore : reads every 500 ms
+
+    BleSessionManager ..> BleSnapshot : creates (immutable)
+
+    ThereminAudioEngine --> DrumEngine : mixInto() per buffer
+    ThereminAudioEngine --> PcmListener : notifies onPcmSamples()
+    ThereminAudioEngine ..> BleSnapshot : targets set from
+
+    RecordingManager ..|> PcmListener : implements
+
+    PlayMappingState ..> BleSnapshot : reads angles from
+
+    SettingsStore --> AppSettings : loads / saves
+    CalibrationDraft --> AppSettings : saveTo()
+
+    DrumEngine --> SequencerClock : uses
+
+    AppLaunchWarmup ..> DrumEngine : pre-constructs
+    AppLaunchWarmup ..> SettingsStore : pre-constructs
+    AppLaunchWarmup ..> RecordingRepository : pre-constructs
+```
+
+---
+
+### 17.2 UML Sequence Diagram — BLE Packet to Audio Output
+
+End-to-end signal path from glove firmware through BLE, mapping, synthesis, effects, drum mix, and final AudioTrack write. All timing constants are source-verified.
+
+```mermaid
+sequenceDiagram
+    participant G as GloveFirmware
+    participant B as BleSessionManager
+    participant H as UITickHandler
+    participant P as PlayMappingState
+    participant E as ThereminAudioEngine
+    participant D as DrumEngine
+    participant R as RecordingManager
+    participant A as AudioTrack
+
+    G->>B: BLE notify "ACTIVE_DELTA_DEG:30.5"
+    B->>B: parse ASCII packet
+    B->>B: update Glove.activeDeltaDeg
+
+    Note over H: every UI_TICK_MS = 50 ms
+    H->>B: getSnapshot()
+    B-->>H: BleSnapshot (immutable copy)
+    H->>P: recompute(snapshot)
+    P->>P: normalizeClamped(angle, min, max)
+    P->>P: pow(norm, sensitivityCurve)
+    P->>P: freqHz = freqMin + span × curved
+    P->>P: freqHz × 2^octaveShift
+    P-->>H: freqHz=1600, volumeLinear=0.80
+    H->>E: setTargets(1600.0f, 0.80f)
+
+    Note over E: every ~21.3 ms (THREAD_PRIORITY_AUDIO)
+    E->>E: fillBuffer() — hoist all volatiles to finals
+    E->>E: IIR freq smooth: α=FREQ_SMOOTHING=0.003
+    E->>E: snapToScale(): binary search prebuilt MIDI table
+    E->>E: vibrato: freq × (1 + sin(phase) × depth)
+    E->>E: IIR vol smooth: α=ATTACK or RELEASE (0.0046 / 0.0018)
+    E->>E: sample(toneType): additive synthesis (24 recipes)
+    E->>E: × OUTPUT_GAIN=0.14 × mixGain
+    E->>E: applyReverb(): Schroeder comb, g=0.6, L=8192
+    E->>E: applyDelay(): ring buffer, L=32768
+    E->>E: applyDistortion(): tanh(x·gain)/tanh(gain)
+    E->>D: mixInto(monoBuffer, 1024)
+    D-->>E: drum samples added (DRUM_MIX_HEADROOM=0.26)
+    E->>R: onPcmSamples(monoBuffer, 1024)
+    R->>R: tryLock() — encode WAV/AAC if active
+    E->>E: copyMonoToStereo → stereoBuffer[2048]
+    E->>A: write(stereoBuffer, 0, 2048, WRITE_BLOCKING)
+    A-->>Speaker: audio output
+```
+
+---
+
+### 17.3 UML Activity Diagram — Calibration Flow
+
+User journey from cold start through calibration to live play. The `CalibrationDraft` buffers all edits; `saveTo(AppSettings)` commits to SQLite only on explicit save.
+
+```mermaid
+flowchart TD
+    A([App Launch]) --> B{Permissions\ngranted?}
+    B -- No --> C[Request BLUETOOTH_SCAN\nBLUETOOTH_CONNECT\nNEARBY_DEVICES]
+    C --> B
+    B -- Yes --> D[LaunchActivity:\nWarmup pre-constructs\nDrumEngine + SettingsStore]
+    D --> E[HomeActivity:\nAuto-scan for saved MAC addresses]
+    E --> F{Both gloves\nconnected?}
+    F -- No --> G[ConnectGlovesActivity:\nManual scan / connect]
+    G --> F
+    F -- Yes --> H[CalibrationActivity opens]
+    H --> I[PITCH tab:\nPress 'Pitch Neutral'\nto capture neutral roll angle]
+    I --> J[Glove sends 'N' command;\nGlove firmware saves neutral position]
+    J --> K[Switch to VOLUME tab:\nPress 'Volume Neutral']
+    K --> L[Glove sends 'N' command]
+    L --> M[Adjust angle ranges\nfreq range, direction inversion]
+    M --> N{Preview\nrequested?}
+    N -- Yes --> O[beginCalibrationPreview:\nBackground service uses\nCalibrationDraft values live]
+    O --> M
+    N -- No --> P[Press 'Save & Play']
+    P --> Q[CalibrationDraft.sanitize:\nclamp zero-width ranges]
+    Q --> R[saveTo AppSettings:\nSettingsStore.save to SQLite]
+    R --> S[MainActivity: Play screen\nForeground ThereminAudioEngine starts]
+    S --> T([Live theremin playing])
+```
+
+---
+
+### 17.4 UML Component Diagram
+
+Physical and logical component boundaries from hardware to user interface.
+
+```mermaid
+flowchart TB
+    subgraph Hardware["Hardware Layer"]
+        GL1["Pitch Glove\nArduino Nano 33 BLE Sense\nLSM9DS1 IMU"]
+        GL2["Volume Glove\nArduino Nano 33 BLE Sense\nLSM9DS1 IMU"]
+    end
+
+    subgraph BLE["BLE Transport"]
+        PKT["Packet: ACTIVE_DELTA_DEG:&lt;f&gt;\nNEUTRAL_ROLL_DEG:&lt;f&gt;\nDIRECTION:&lt;POS|NEG&gt;"]
+        CMD["Commands: H ping / N neutral / D direction"]
+    end
+
+    subgraph Android["Android Process"]
+        subgraph BLEMgr["BleSessionManager (singleton)"]
+            SCAN["Scanner"]
+            GATT["GATT client (Nordic BLE 2.11)"]
+            WD["Watchdog 1 s tick"]
+            SNAP["BleSnapshot (immutable)"]
+        end
+
+        subgraph Mapping["Mapping Layer"]
+            PMS["PlayMappingState\nangle → freq / vol"]
+        end
+
+        subgraph FG["Foreground Path (MainActivity)"]
+            TAE1["ThereminAudioEngine\n48 kHz / 1024-frame buffer"]
+            DE1["DrumEngine\n14 sounds / 8 patterns"]
+            RM["RecordingManager\nPcmListener"]
+        end
+
+        subgraph SVC["Background Path (ThereminBackgroundAudioService)"]
+            TAE2["ThereminAudioEngine\n(service-owned copy)"]
+            DE2["DrumEngine\n(service-owned copy)"]
+        end
+
+        subgraph Persist["Persistence"]
+            SS["SettingsStore\ntheremin_gloves.db\n24 columns"]
+            RR["RecordingRepository\nrecordings.db"]
+        end
+
+        subgraph UI["UI Layer"]
+            MA["MainActivity\n(Play screen)"]
+            LA["LibraryActivity"]
+            CA["CalibrationActivity"]
+            BA["BeatMakerActivity"]
+        end
+    end
+
+    GL1 -- "BLE GATT notify" --> PKT
+    GL2 -- "BLE GATT notify" --> PKT
+    PKT --> GATT
+    CMD --> GL1
+    CMD --> GL2
+    GATT --> SCAN
+    SCAN --> WD
+    GATT --> SNAP
+    SNAP --> PMS
+    PMS --> TAE1
+    PMS --> TAE2
+    TAE1 --> DE1
+    TAE1 --> RM
+    TAE2 --> DE2
+    RM --> RR
+    SS --> MA
+    SS --> SVC
+    MA --> TAE1
+    LA --> RR
+    CA --> SS
+    BA --> DE1
+```

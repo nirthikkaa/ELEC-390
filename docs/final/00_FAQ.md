@@ -37,7 +37,7 @@ A: No. The app requires two BLE gloves to produce output. If gloves are not conn
 A: Approximately 15–20 MB. The dominant size contributor is `DrumEngine`, which pre-computes 14 drum sounds and 75 piano samples entirely in code at construction time (no `.wav` asset files). The Java bytecode and Android manifest together are negligible by comparison.
 
 **Q: What course requirements does this satisfy?**  
-A: COEN/ELEC 390 requires a working hardware-software system with BLE communication, documented sprints, a full test suite, a live demo, and final written deliverables. Theremin Gloves satisfies the hardware requirement (two custom BLE gloves), the software requirement (34-class Android app), the communication requirement (BLE GATT with custom UUIDs), the testing requirement (51 test rows + 1440+ automated tests), and the documentation requirement (design doc, test doc, user manual, ethics report, computer simulation summary, and AI usage document).
+A: COEN/ELEC 390 requires a working hardware-software system with BLE communication, documented sprints, a full test suite, a live demo, and final written deliverables. Theremin Gloves satisfies the hardware requirement (two custom BLE gloves), the software requirement (34-class Android app), the communication requirement (BLE GATT with custom UUIDs), the testing requirement (51 test rows + 127 automated tests across 15 test files), and the documentation requirement (design doc, test doc, user manual, ethics report, computer simulation summary, and AI usage document).
 
 ---
 
@@ -259,10 +259,14 @@ A: `ItemTouchHelper` is attached to the RecyclerView with a callback that interc
 ## Category E — Testing
 
 **Q: How many tests are there in total?**  
-A: Three test classes in the automated suite:
-- `ThereminUnitTest.java` — 626 JVM unit tests (no Android runtime required): waveform math, tone guards, pattern routing, gain math.
-- `SprintCoreIntegrationTest.java` — 202 instrumented integration tests: settings round-trip, calibration constraints, `PlayMappingState` mapping math, background service flags.
-- `AppFeatureTest.java` — 612 instrumented feature tests: `DrumEngine` lifecycle, custom pattern API, BPM, gain, volume slider math, sequencer restart.
+A: 127 automated `@Test` methods across 15 test files (40 JVM unit tests + 87 instrumented tests) plus 51 scenario-level rows in the test document.
+
+Key test files:
+- `ThereminUnitTest.java` — 39 JVM unit tests (no Android runtime required): waveform math, tone guards, pattern routing, gain math.
+- `AppFeatureTest.java` — 53 instrumented feature tests: `DrumEngine` lifecycle, custom pattern API, BPM, gain, volume slider math, sequencer restart.
+- `SprintCoreIntegrationTest.java` — 6 instrumented integration tests: settings round-trip, calibration constraints, `PlayMappingState` mapping math, background service flags.
+
+Additional instrumented test classes: `HardwareBleRegressionUiTest` (2), `CalibrationRegressionUiTest` (3), `BluetoothPromptUiTest` (1), `BluetoothStateIntegrationTest` (1), `PlayMatrixUiTest` (5), `PlayAudioControlsUiTest` (3), `LibraryUiTest` (4), `RecordingRepositoryIntegrationTest` (4), `SettingsAndNavigationUiTest` (3), `PlayStageModeUiTest` (1).
 
 Plus 51 scenario-level test rows in this test document covering BLE, calibration, audio, recording, library, settings, navigation, and stability.
 

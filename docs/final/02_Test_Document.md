@@ -116,4 +116,23 @@
 - `Pending manual verification`: `0`
 - `Fail`: `0`
 
-All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino Nano 33 BLE Sense gloves prior to the April 15, 2026 final submission. The sprint3 codebase contains an additional 1440+ automated tests across three test classes (`ThereminUnitTest`, `SprintCoreIntegrationTest`, `AppFeatureTest`).
+All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino Nano 33 BLE Sense gloves prior to the April 15, 2026 final submission. The sprint3 codebase contains an additional **127 automated tests** across 15 test files (40 JVM unit tests + 87 instrumented tests):
+
+| File | Tests | Type |
+|------|-------|------|
+| `ThereminUnitTest.java` | 39 | JVM unit |
+| `AppFeatureTest.java` | 53 | Instrumented |
+| `SprintCoreIntegrationTest.java` | 6 | Instrumented |
+| `PlayMatrixUiTest.java` | 5 | Instrumented |
+| `LibraryUiTest.java` | 4 | Instrumented |
+| `RecordingRepositoryIntegrationTest.java` | 4 | Instrumented |
+| `PlayAudioControlsUiTest.java` | 3 | Instrumented |
+| `CalibrationRegressionUiTest.java` | 3 | Instrumented |
+| `SettingsAndNavigationUiTest.java` | 3 | Instrumented |
+| `HardwareBleRegressionUiTest.java` | 2 | Instrumented |
+| `BluetoothPromptUiTest.java` | 1 | Instrumented |
+| `BluetoothStateIntegrationTest.java` | 1 | Instrumented |
+| `PlayStageModeUiTest.java` | 1 | Instrumented |
+| `ExampleInstrumentedTest.java` | 1 | Instrumented |
+| `ExampleUnitTest.java` | 1 | JVM unit |
+| **Total** | **127** | |
