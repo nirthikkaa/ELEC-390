@@ -359,6 +359,106 @@ So louder playing introduces slightly deeper vibrato than very quiet playing.
 - On each tick it reloads persisted settings as needed, reads `BleSnapshot`, applies scale/effects/drum/bass/tone/octave state, computes current frequency/volume targets, and pushes them to the service-owned audio engine.
 - This same loop is also used for calibration preview.
 
+### Tone synthesis recipes
+
+All 11 public tones are computed in `ThereminAudioEngine.sample()` using three
+building blocks:
+
+- **Additive synthesis** — sum of sines at integer multiples of the running phase.
+- **FM / PM synthesis** — carrier `sin(phase + I × sin(phase × R))` where `I` is the
+  modulation index and `R` is the ratio. Depth is often scaled by `volume` or `motion`
+  (a slow sub-LFO derived from `vibratoPhase × 0.60`).
+- **`saturate(value, gain) = tanh(value × gain)`** — symmetric soft-clip used as the
+  final stage on most tones. It tames peaks across summed harmonics and adds subtle
+  warmth without the raspy edge of hard clipping.
+
+| Tone | Technique | Key recipe details |
+|---|---|---|
+| THEREMIN | Additive | 5 harmonics: 1.0, 0.35, 0.18, 0.07, 0.03 — strong 2nd partial gives the classic cello/vocal warmth |
+| AIR_PAD | Detuned additive | Three sines: ×1.000, ×1.002, ×0.998 — microscopic detuning produces slow beating that keeps sustained notes alive |
+| CELLO | FM + additive | 1:1 FM carrier (index 0.10–0.16 modulated by `motion`) plus harmonics 2, 3, 4 — suggests bow pressure |
+| PAD | Detuned additive | Like Air Pad with wider detuning (±0.003) and a 5th partial |
+| CHOIR | PM + additive | Carrier PM'd at ×2 (index 0.10–0.16); low-order harmonics 2–4; no volume scaling |
+| FLUTE | PM + additive | Very shallow PM at ×2 (index ≈ 0.10); tiny 2nd harmonic; near-pure sine character |
+| CLARINET | Additive (odd only) | Harmonics 1, 3, 5, 7, 9 at 1.0, 0.36, 0.19, 0.10, 0.05 — closed-pipe odd-harmonic spectrum |
+| TRIANGLE | Triangle + additive | `(2/π) arcsin(sin(phase))` as triangle core, then adds boosted 3rd, 5th, 7th partials |
+| SAW | Additive | Harmonics 1–6 at 0.72, 0.36, 0.23, 0.16, 0.10, 0.06 — partial roll-off approximates a sawtooth |
+| SQUARE | Additive (odd only) | Harmonics 1, 3, 5, 7, 9 at 0.86, 0.28, 0.15, 0.08, 0.04 — soft square with `saturate(v, 0.96)` |
+| HELICOPTER | Pulse chop | Theremin pitch maps to pulse chop rate 0.75–12 Hz; each pulse is a brief sine burst |
+
+### DrumEngine — sound synthesis
+
+All 14 sounds are pre-rendered at construction into `float[]` PCM arrays at 48 kHz. No `.wav`
+files, no `SoundPool`. Synthesis runs in parallel across up to 4 threads during construction.
+
+| Sound | Duration | Technique |
+|---|---|---|
+| Kick | 400 ms | Pitch-swept harmonic sine. Frequency starts at 255 Hz, decays to ~66 Hz via `exp(−30t)`. Three harmonics (0.70, 0.22, 0.08). Amplitude envelope `exp(−6t)` |
+| Snare | 200 ms | 220 Hz sine body `exp(−18t)` mixed with HPF white noise (1-pole coeff 0.93) at `exp(−14t)`. Body : noise ratio ≈ 0.50 : 0.52 |
+| Closed hi-hat | 70 ms | HPF white noise (coeff 0.97), fast decay `exp(−40t)` — tight metallic click |
+| Open hi-hat | 250 ms | HPF white noise (coeff 0.95), slower decay `exp(−8t)` — washy sustain |
+| Crash cymbal | 650 ms | HPF noise (coeff 0.84) plus weak 210 Hz body sine, long decay `exp(−4.5t)` |
+| Clap | 140 ms | Three staggered noise bursts at t = 0, 5 ms, 10 ms, each at `exp(−38t)`. Peak-normalized to 0.88 |
+| Bass E2 / A2 / D3 / G2 | 550 ms | 4 harmonics (0.55, 0.35, 0.14, 0.05). Natural pitch sag: starts 1.5% flat, rises to nominal via `exp(−15t)`. Sustained decay `exp(−3t)`. 2nd/3rd harmonics boosted for audibility on phone speakers |
+| Hi tom | 420 ms | Pitch-swept sine from 300 Hz, `exp(−t/0.14)` amplitude, pitch decays via `exp(−8t)` |
+| Low tom | 540 ms | Same as hi tom but from 180 Hz with longer 0.18 s decay constant |
+| Rimshot | 50 ms | Simple 1-pole HPF Gaussian noise (coeff 1.0), very fast decay `exp(−60t)` |
+| Shaker | 80 ms | HPF Gaussian noise (coeff 0.85), decay `exp(−30t)` |
+
+The voice pool is lock-free: `voiceSound` and `voicePos` are `AtomicIntegerArray` with 32
+slots. `triggerVoice()` finds the first free slot (pos < 0). `mixInto()` advances each active
+voice sample-by-sample and marks it free when it reaches the end.
+
+### DrumEngine — 8 preset beat patterns
+
+Each pattern is a 6-row × 16-column boolean grid at 16th-note resolution (rows: kick, snare,
+closed hi-hat, open hi-hat, crash, clap). Each pattern has a paired bass pattern selecting among
+E2, A2, D3, and G2.
+
+| # | Name | Character |
+|---|---|---|
+| 0 | Rock | Kick on beats 1 & 3 with pickup; 8th-note closed hat; open hat on &-of-2, &-of-4 |
+| 1 | Funk | Syncopated kick; 16th-note hat throughout; ghost + main snare on 4 |
+| 2 | EDM | Four-on-floor kick; open hat on all upbeats; clap on 2 & 4; crash on beat 1 |
+| 3 | Hip-Hop | Heavy syncopated kick; sparse snare on 2 & 4; 8th-note hat |
+| 4 | Reggae (One-Drop) | Kick on beat 3 only; open hat on & of every beat |
+| 5 | Jazz | Sparse kick comp; snare on &-of-2 and &-of-4; open hat swings on &-of-every-beat |
+| 6 | Trap | Four-on-floor kick; dense 16th-note hat; clap on 2 & 4 (no snare row) |
+| 7 | Latin/Samba | Clave-inspired kick; 16th-note hat; crash on beat 1; open hat on &-of-2, &-of-4 |
+
+`SequencerClock` uses a self-rescheduling single-shot approach: each tick schedules the next
+tick based on `System.currentTimeMillis()` delta, so BPM changes take effect on the next step
+with no restart and no audible glitch.
+
+### DrumEngine — piano synthesis modes
+
+The piano covers 25 chromatic notes, C3 (MIDI 48) through C5 (MIDI 72), pre-rendered at all
+three modes at construction. Maximum 8 simultaneous piano voices; if all busy, the
+furthest-advanced voice is stolen.
+
+| Mode | Attack | Decay shape | Technique | Character |
+|---|---|---|---|---|
+| KEYS | 3 ms linear | `exp(−4.5t)`, 800 ms total | 4 harmonics (0.70, 0.20, 0.07, 0.03) | Warm mallet/marimba |
+| BELLS | 2.5 ms linear | Dual-exp: `0.72×exp(−3.8t) + 0.28×exp(−8t)`, 1250 ms | 4 **inharmonic** partials at ×1, ×2.76, ×5.43, ×8.21 | Bell/metallophone shimmer |
+| ORGAN | 10 ms linear | Near-sustained: `0.82 + 0.18×exp(−2.2t)`, 950 ms | 4 harmonics (0.58, 0.26, 0.11, 0.05) + 5.2 Hz vibrato | Hammond drawbar character |
+
+### DrumEngine — arpeggio patterns
+
+When melody mode is active, the sequencer fires arpeggiated piano chords on scheduled steps.
+Up to 4 simultaneous root MIDI notes can be armed; each root fires the same arpeggio pattern
+independently, producing harmonic chords.
+
+| Index | Name | Semitone intervals from root |
+|---|---|---|
+| 1 | Major up | 0, 4, 7, 12 |
+| 2 | Minor up | 0, 3, 7, 12 |
+| 3 | Pentatonic run | 0, 2, 4, 7, 9, 12 |
+| 4 | Major up & back | 0, 4, 7, 12, 7, 4 |
+
+The arpeggio clock is sample-accurate: `arpNextFireSample` advances against `arpSampleClock`
+(incremented per PCM sample in `mixInto()`) rather than a wall-clock timer, so arpeggio timing
+stays locked to the audio buffer regardless of scheduling jitter.
+
 ## 7. Recording System
 
 ### `RecordingManager`
