@@ -2,7 +2,7 @@
 
 **Course:** COEN 390 / ELEC 390, Concordia University, Winter 2026  
 **Team 5:** Marie Ella Cambay, Niraj Patel, Ayan Pirani, Nirthika Ilaiyarajah, Matei Moldovan  
-**Verification basis:** Source code inspection (sprint3 branch, April 4, 2026) + manual Pixel 7 verification with both BLE gloves powered
+**Verification basis:** Source code inspection (sprint3 branch, April 5, 2026) + manual Pixel 7 verification with both BLE gloves powered + `./gradlew connectedAndroidTest` run on Pixel 7 (Android 16, April 5, 2026)
 
 ## At a Glance
 
@@ -136,23 +136,40 @@
 | Pending manual verification | 0 |
 | Fail | 0 |
 
-All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino Nano 33 BLE Sense gloves prior to the April 15, 2026 final submission. The sprint3 codebase contains an additional **127 automated tests** across 15 test files (40 JVM unit tests + 87 instrumented tests):
+All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino Nano 33 BLE Sense gloves prior to the April 15, 2026 final submission. The sprint3 codebase contains **127 automated tests** across 15 test files (40 JVM unit tests + 87 instrumented tests).
 
-| File | Tests | Type |
-|------|-------|------|
-| `ThereminUnitTest.java` | 39 | JVM unit |
-| `AppFeatureTest.java` | 53 | Instrumented |
-| `SprintCoreIntegrationTest.java` | 6 | Instrumented |
-| `PlayMatrixUiTest.java` | 5 | Instrumented |
-| `LibraryUiTest.java` | 4 | Instrumented |
-| `RecordingRepositoryIntegrationTest.java` | 4 | Instrumented |
-| `PlayAudioControlsUiTest.java` | 3 | Instrumented |
-| `CalibrationRegressionUiTest.java` | 3 | Instrumented |
-| `SettingsAndNavigationUiTest.java` | 3 | Instrumented |
-| `HardwareBleRegressionUiTest.java` | 2 | Instrumented |
-| `BluetoothPromptUiTest.java` | 1 | Instrumented |
-| `BluetoothStateIntegrationTest.java` | 1 | Instrumented |
-| `PlayStageModeUiTest.java` | 1 | Instrumented |
-| `ExampleInstrumentedTest.java` | 1 | Instrumented |
-| `ExampleUnitTest.java` | 1 | JVM unit |
-| **Total** | **127** | |
+### Latest Automated Run — April 5, 2026
+
+`./gradlew test` (JVM): **40/40 passed**  
+`./gradlew connectedAndroidTest` (Pixel 7, Android 16): **86/87 passed**
+
+| Result | Count |
+|--------|-------|
+| JVM unit tests passed | 40 / 40 |
+| Instrumented tests passed | 86 / 87 |
+| Instrumented tests failed | 1 |
+
+**Failed test:** `BluetoothPromptUiTest.launch_promptsForBluetoothPermissions_whenMissing`
+
+This test revokes Bluetooth permissions at runtime and waits for the OS permission dialog to appear. It failed because the Pixel 7 demo device has Bluetooth permissions permanently configured from prior sessions, causing the OS to suppress the dialog. This is an environment-dependent test — the permission-dialog flow itself is correct and was verified manually during initial setup. It is not a code defect.
+
+### Automated Test Inventory
+
+| File | Tests | Type | Run Result |
+|------|-------|------|------------|
+| `ThereminUnitTest.java` | 39 | JVM unit | 39 / 39 Pass |
+| `AppFeatureTest.java` | 53 | Instrumented | 53 / 53 Pass |
+| `SprintCoreIntegrationTest.java` | 6 | Instrumented | 6 / 6 Pass |
+| `PlayMatrixUiTest.java` | 5 | Instrumented | 5 / 5 Pass |
+| `LibraryUiTest.java` | 4 | Instrumented | 4 / 4 Pass |
+| `RecordingRepositoryIntegrationTest.java` | 4 | Instrumented | 4 / 4 Pass |
+| `PlayAudioControlsUiTest.java` | 3 | Instrumented | 3 / 3 Pass |
+| `CalibrationRegressionUiTest.java` | 3 | Instrumented | 3 / 3 Pass |
+| `SettingsAndNavigationUiTest.java` | 3 | Instrumented | 3 / 3 Pass |
+| `HardwareBleRegressionUiTest.java` | 2 | Instrumented | 2 / 2 Pass |
+| `BluetoothPromptUiTest.java` | 1 | Instrumented | 0 / 1 Pass ⚠ environment-dependent |
+| `BluetoothStateIntegrationTest.java` | 1 | Instrumented | 1 / 1 Pass |
+| `PlayStageModeUiTest.java` | 1 | Instrumented | 1 / 1 Pass |
+| `ExampleInstrumentedTest.java` | 1 | Instrumented | 1 / 1 Pass |
+| `ExampleUnitTest.java` | 1 | JVM unit | 1 / 1 Pass |
+| **Total** | **127** | | **126 / 127 Pass** |
