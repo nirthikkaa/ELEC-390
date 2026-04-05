@@ -240,18 +240,18 @@ MainActivity (Play)
 
 ## Documentation
 
-Full submission documentation is in [`docs/final/`](docs/final/):
+Full submission documentation is in [`docs/`](docs/):
 
 | Document | Contents |
 |---|---|
-| [`00_FAQ.md`](docs/final/00_FAQ.md) | 102 Q&A pairs — project, BLE, DSP, architecture, testing, demo |
-| [`01_Design_Document.md`](docs/final/01_Design_Document.md) | Architecture, UML diagrams, class reference, DB schema |
-| [`02_Test_Document.md`](docs/final/02_Test_Document.md) | 51 test rows (all Pass), automated test inventory |
-| [`03_User_Manual.md`](docs/final/03_User_Manual.md) | End-user guide (also available in-app at Settings → User Manual) |
-| [`05_Ethics_Report.md`](docs/final/05_Ethics_Report.md) | Privacy, accessibility, AI usage transparency |
-| [`06_Computer_Simulation_Summary.md`](docs/final/06_Computer_Simulation_Summary.md) | IIR math, latency budget, frequency mapping, reverb analysis |
-| [`08_AI_Usage_Document.md`](docs/final/08_AI_Usage_Document.md) | Component-by-component AI vs. human contribution breakdown |
-| [`12_Final_Product_Backlog.md`](docs/final/12_Final_Product_Backlog.md) | 31 completed + 20 excluded stories |
+| [`00_FAQ.md`](docs/00_FAQ.md) | 102 Q&A pairs — project, BLE, DSP, architecture, testing, demo |
+| [`01_Design_Document.md`](docs/01_Design_Document.md) | Architecture, UML diagrams, class reference, DB schema |
+| [`02_Test_Document.md`](docs/02_Test_Document.md) | 51 test rows (all Pass), automated test inventory |
+| [`03_User_Manual.md`](docs/03_User_Manual.md) | End-user guide (also available in-app at Settings → User Manual) |
+| [`05_Ethics_Report.md`](docs/05_Ethics_Report.md) | Privacy, accessibility, AI usage transparency |
+| [`06_Computer_Simulation_Summary.md`](docs/06_Computer_Simulation_Summary.md) | IIR math, latency budget, frequency mapping, reverb analysis |
+| [`08_AI_Usage_Document.md`](docs/08_AI_Usage_Document.md) | Component-by-component AI vs. human contribution breakdown |
+| [`12_Final_Product_Backlog.md`](docs/12_Final_Product_Backlog.md) | 31 completed + 20 excluded stories |
 
 ---
 
