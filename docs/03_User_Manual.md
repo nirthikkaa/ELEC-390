@@ -39,7 +39,7 @@ Your gloves must broadcast these **exact** names:
 
 ## 2. First Launch
 
-When you open the app for the first time it checks Bluetooth permissions and, if needed, asks you to turn Bluetooth on. After that you land on the main Play screen.
+When you open the app for the first time it checks Bluetooth permissions and, if needed, asks you to turn Bluetooth on. First-time users are routed to the **Setup** (`HomeActivity`) screen so they can connect and calibrate before playing. Returning users usually go straight to **Play**.
 
 The five tabs along the bottom of every screen are:
 
@@ -101,7 +101,7 @@ Calibration tells the app what "neutral" means for each hand. Do this before you
 |-----------|-----|-----|
 | Pitch angle | 0° | 90° |
 | Volume angle | 0° | 90° |
-| Frequency | 20 Hz | 20 kHz |
+| Frequency | 20 Hz | 2,000 Hz |
 
 ### What "neutral" means
 
@@ -231,8 +231,8 @@ Open the **Library** tab to listen to and manage everything you have recorded.
 
 - Tap any recording to play it back.
 - **Search** recordings by name.
-- **Rename** a recording (long-press) or **delete** it (swipe left).
-- **Create folders** and drag recordings into them to stay organised.
+- Use a recording's **three-dot menu** to **rename**, **move**, or **delete** it.
+- **Create folders** and drag a recording onto a folder card to file it quickly.
 - Use the **mini-player** at the bottom to pause, seek, and loop.
 - **Filter** by length or date to find older sessions quickly.
 

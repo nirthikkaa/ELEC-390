@@ -388,8 +388,11 @@ building blocks:
 
 ### DrumEngine — sound synthesis
 
-All 14 sounds are pre-rendered at construction into `float[]` PCM arrays at 48 kHz. No `.wav`
-files, no `SoundPool`. Synthesis runs in parallel across up to 4 threads during construction.
+All 14 sounds are prepared at construction into `float[]` PCM arrays at 48 kHz. The bank is
+hybrid: kick/snare/hi-hats/clap and the four bass notes are loaded from bundled raw resources,
+while crash/toms/rim/shaker and the piano voices are synthesized in code. `SoundPool` is not
+used; all voices are normalized into the same direct-mix PCM pipeline. Rendering and sample-load
+jobs run in parallel across up to 4 threads during construction.
 
 | Sound | Duration | Technique |
 |---|---|---|
@@ -578,7 +581,8 @@ Important nuance:
 Separate Play-only defaults used by `PlayMappingState.restoreDefaults()`:
 - pitch angle range: `0f` to `90f`
 - volume angle range: `0f` to `90f`
-- frequency range: `20f` to `20 000f` (20 kHz; standard ceiling `2 000f` without extended-range setting)
+- frequency range: `20f` to `2 000f` by default; the Settings extended-range toggle raises the
+  usable ceiling to `20 000f`
 
 ## 9. Calibration System
 
@@ -956,7 +960,9 @@ Process-wide static BLE host. Scans, connects, reconnects, runs the watchdog, st
 ---
 
 #### `DrumEngine`
-PCM drum/bass/piano synthesis engine. Precomputes all sound data at construction; no `.wav` assets.
+PCM drum/bass/piano engine. Precomputes all sound data at construction using a hybrid bank of raw
+sample loads plus in-code synthesis; mixes directly into the shared theremin PCM path without
+`SoundPool`.
 
 **Key constants:**
 

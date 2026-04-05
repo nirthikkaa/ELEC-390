@@ -159,6 +159,7 @@ public class MainActivity extends AppCompatActivity {
     // ── Inline Beat Maker panel state ─────────────────────────────────────────
     private ActivityBeatMakerBinding bmBinding;
     private volatile DrumEngine      bmPreviewEngine;
+    private volatile boolean         bmPreviewEngineInitInFlight = false;
     private AudioTrack               bmAudioTrack;
     private Thread                   bmAudioThread;
     private volatile boolean         bmAudioRunning = false;
@@ -536,6 +537,7 @@ public class MainActivity extends AppCompatActivity {
                     binding.rootScroll.setTranslationX(0);
                     bmPanelVisible = true;
                     dismissGridHint();
+                    ensureBmPreviewEngineAsync();
                     // Keep preview output warm without blocking the swipe animation's final frame.
                     ensureBmAudioOutputAsync();
                     // Reload current slot's pattern in case prefs changed
@@ -2152,25 +2154,54 @@ public class MainActivity extends AppCompatActivity {
         bmWireTransportControls();
         bmWireKeyboardControls();
         bmWireSlotButtons();
+    }
+
+    private void ensureBmPreviewEngineAsync() {
+        if (bmPreviewEngine != null || bmPreviewEngineInitInFlight || bmBinding == null
+                || isFinishing() || isDestroyed()) {
+            return;
+        }
+        bmPreviewEngineInitInFlight = true;
 
         new Thread(() -> {
-            DrumEngine engine = new DrumEngine(this);
-            engine.start();
-            bmPreviewEngine = engine;
-            runOnUiThread(() -> {
-                engine.setBpm(bmCurrentBpm);
-                engine.setPianoSynthMode(bmKeyboardSynthMode);
-                bmConfigurePreviewMix(engine);
-                bmApplyBeatMakerMode();
-                bmPushPatternToEngine(); // sets an (initially empty) custom pattern
-                engine.setPaused(previewPausedByTransport);
-            });
+            DrumEngine engine = null;
+            try {
+                // Keep MainActivity launch light; only build the preview engine when the overlay opens.
+                engine = DrumEngine.createWarmup(this);
+                engine.start();
+                DrumEngine prepared = engine;
+                engine = null;
+                runOnUiThread(() -> {
+                    bmPreviewEngineInitInFlight = false;
+                    if (isFinishing() || isDestroyed()) {
+                        prepared.release();
+                        return;
+                    }
+                    bmPreviewEngine = prepared;
+                    prepared.setBpm(bmCurrentBpm);
+                    prepared.setPianoSynthMode(bmKeyboardSynthMode);
+                    bmConfigurePreviewMix(prepared);
+                    bmApplyBeatMakerMode();
+                    bmPushPatternToEngine();
+                    prepared.setPaused(previewPausedByTransport);
+                    if (bmIsPlaying) {
+                        prepared.setEnabled(true);
+                        prepared.setBassEnabled(true);
+                    }
+                });
+            } catch (Exception ignored) {
+                if (engine != null) {
+                    try { engine.release(); } catch (Exception alsoIgnored) {}
+                }
+                runOnUiThread(() -> bmPreviewEngineInitInFlight = false);
+            }
         }, "BmEngineInit").start();
     }
 
     // ── Inline Beat Maker panel ───────────────────────────────────────────────
 
     private void ensureBmAudioOutputAsync() {
+        ensureBmPreviewEngineAsync();
         bmAudioOutputWanted = true;
         synchronized (bmAudioOutputLock) {
             if (bmAudioTrack != null || bmAudioInitInFlight) return;

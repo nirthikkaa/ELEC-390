@@ -8,7 +8,7 @@
 - The current background-audio and calibration-preview path is comfortably under the HD-11 `<80 ms` target.
 - The visible Play screen is still acceptable in typical use, but its strict worst case is higher because `UI_TICK_MS = 50 ms`.
 - The public Play build now exposes a curated 11-tone selector, not the older 9-waveform set.
-- The default Play mapping ranges are intentionally narrower than the persisted calibration defaults so the instrument feels more controllable in a demo setting.
+- The default Play mapping ranges are intentionally narrower than the optional extended 20 kHz ceiling so the instrument feels more controllable in a demo setting.
 
 ## 1. BLE Latency Model
 
@@ -47,11 +47,11 @@ freq = freqMinHz + (freqMaxHz - freqMinHz) * pitchNorm
 The default operating ranges are:
 - pitch angle: `0°` to `90°`
 - volume angle: `0°` to `90°`
-- frequency: `20 Hz` to `20 kHz` (standard ceiling `2 000 Hz`; the Settings extended-range toggle raises it to `20 000 Hz`)
+- frequency: `20 Hz` to `2 000 Hz` by default (the Settings extended-range toggle raises the ceiling to `20 000 Hz`)
 
 **Finding:**
 - the 0°–90° span maps well to natural wrist-rotation; the calibration screen lets users narrow or widen this range
-- the 20 Hz–20 kHz system span covers the full human auditory range; most musical use stays well below 4 kHz
+- the optional 20 Hz–20 kHz extended span covers the full human auditory range, but the default 2 kHz ceiling is easier to control musically in a live demo
 
 ## 3. Waveform / Tone Harmonic Analysis
 

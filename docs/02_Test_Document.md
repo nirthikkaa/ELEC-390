@@ -136,18 +136,19 @@
 | Pending manual verification | 0 |
 | Fail | 0 |
 
-All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino Nano 33 BLE Sense gloves prior to the April 15, 2026 final submission. The sprint3 codebase contains **127 automated tests** across 15 test files (40 JVM unit tests + 87 instrumented tests).
+All 51 test rows were verified on the demo Pixel 7 with firmware-loaded Arduino Nano 33 BLE Sense gloves ahead of the April 2026 final presentation window and final submission. The sprint3 codebase currently contains **139 automated tests**: 40 JVM unit tests and 99 instrumented tests. These live in 17 test-bearing Java files under `app/src/test` and `app/src/androidTest` (21 Java files total including shared helpers).
 
 ### Latest Automated Run — April 5, 2026
 
 `./gradlew test` (JVM): **40/40 passed**  
-`./gradlew connectedAndroidTest` (Pixel 7, Android 16): **86/87 passed**
+`./gradlew connectedDebugAndroidTest` (Pixel 7, Android 16): **98/99 passed**
 
 | Result | Count |
 |--------|-------|
 | JVM unit tests passed | 40 / 40 |
-| Instrumented tests passed | 86 / 87 |
+| Instrumented tests passed | 98 / 99 |
 | Instrumented tests failed | 1 |
+| Instrumented tests skipped | 0 |
 
 **Failed test:** `BluetoothPromptUiTest.launch_promptsForBluetoothPermissions_whenMissing`
 
@@ -179,9 +180,11 @@ This second benchmark class intentionally launches visible Activities so the pho
 | `CalibrationRegressionUiTest.java` | 3 | Instrumented | 3 / 3 Pass |
 | `SettingsAndNavigationUiTest.java` | 3 | Instrumented | 3 / 3 Pass |
 | `HardwareBleRegressionUiTest.java` | 2 | Instrumented | 2 / 2 Pass |
+| `LatencyBenchmarkTest.java` | 10 | Instrumented | 10 / 10 Pass |
 | `BluetoothPromptUiTest.java` | 1 | Instrumented | 0 / 1 Pass ⚠ environment-dependent |
 | `BluetoothStateIntegrationTest.java` | 1 | Instrumented | 1 / 1 Pass |
 | `PlayStageModeUiTest.java` | 1 | Instrumented | 1 / 1 Pass |
+| `VisibleLaunchBenchmarkTest.java` | 2 | Instrumented | 2 / 2 Pass |
 | `ExampleInstrumentedTest.java` | 1 | Instrumented | 1 / 1 Pass |
 | `ExampleUnitTest.java` | 1 | JVM unit | 1 / 1 Pass |
-| **Total** | **127** | | **126 / 127 Pass** |
+| **Total** | **139** | | **138 / 139 Pass** |

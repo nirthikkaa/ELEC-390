@@ -1,134 +1,67 @@
 # Theremin Gloves — Final Submission Checklist
 
-This checklist turns the remaining Phase 4 and Phase 5 work into one place. It is intentionally operational, not narrative.
+This checklist is aligned to the official COEN/ELEC 390 final requirements from `project doc 390 Project Document Jan 2026.pdf` and the current `sprint3` codebase.
 
-## Highest-Risk Remaining Items
+## Official Dates
 
-If the team only has time to focus on a few things first, do these before polish work:
+- **April 7–10, 2026** — final oral presentation and live demo (online), **10–12 minutes**
+- **April 15, 2026** — final submission due
+- **Document packaging rule** — aside from code/app artifacts, milestone, sprint, and final written documents must be submitted as **one comprehensive PDF**; links are not acceptable
 
-1. finish the remaining manual Pixel 7 checks in the test document
-2. rehearse the live demo with the actual gloves and exact demo phone state
-3. export the slide deck and verify it matches the current code, not stale Sprint notes
-4. record the demo video after the live rehearsal path is stable
-5. only then do the final PDF merge and submission packaging
+## Presentation Requirements
 
-## eConcordia Package Checklist
+The final presentation and demo must:
 
-- Mission Statement
-  - Source draft: [04_Mission_Statement.md](04_Mission_Statement.md)
-- Final Product Backlog
-  - Markdown draft: [12_Final_Product_Backlog.md](12_Final_Product_Backlog.md)
-  - Excel spreadsheet still needs manual update outside repo
-- Design Document
-  - Source draft: [01_Design_Document.md](01_Design_Document.md)
-- User Manual
-  - Source draft: [03_User_Manual.md](03_User_Manual.md)
-- Definition of Done
-  - Source draft: [07_Definition_of_Done.md](07_Definition_of_Done.md)
-- Test Document
-  - Source draft: [02_Test_Document.md](02_Test_Document.md)
-  - Still requires final manual Pixel 7 fill-in for pending rows
-- Ethics Report
-  - Source draft: [05_Ethics_Report.md](05_Ethics_Report.md)
-- Computer Simulation Summary
-  - Source draft: [06_Computer_Simulation_Summary.md](06_Computer_Simulation_Summary.md)
-- Demo video
-  - Manual recording/export
-- AI usage document
-  - Submission-pack copy: [08_AI_Usage_Document.md](08_AI_Usage_Document.md)
-  - Canonical source: [docs/AI_Usage_Document.md](AI_Usage_Document.md)
-- Final oral presentation slides PDF
-  - Manual PowerPoint export
-- APK
-  - Build from Gradle
-- Final team blog with sign-offs
-  - Manual spreadsheet update outside repo
-- Expectation of Originality form
-  - Manual signatures outside repo
+- identify the customer
+- explain the value of the product for that customer
+- explain how the product functions, including architecture, communication links, and important signal processing / algorithms
+- include a live final demo with the instructor and Bipin Patel
 
-## Repo Assets Already Prepared
+## Canonical Submission Sources
 
-- Generated content pack: [docs/generated](generated)
-- Final draft pack: [docs/final](final)
-- Presentation speaker notes: [09_Presentation_Notes.md](09_Presentation_Notes.md)
-- Demo runbook and break-test checklist: [10_Demo_Preparation.md](10_Demo_Preparation.md)
+| Required item | Canonical source | Current status |
+|---|---|---|
+| Updated mission statement | [04_Mission_Statement.md](04_Mission_Statement.md) | Markdown source ready; final export still needed |
+| Final product backlog | [12_Final_Product_Backlog.md](12_Final_Product_Backlog.md) + external spreadsheet | Markdown source ready; spreadsheet still needs manual update |
+| Revised design document | [01_Design_Document.md](01_Design_Document.md) | Updated in repo; export still needed |
+| User manual | [03_User_Manual.md](03_User_Manual.md) | Updated in repo; export still needed |
+| Updated Definition of Done | [07_Definition_of_Done.md](07_Definition_of_Done.md) | Source ready; export still needed |
+| Test document | [02_Test_Document.md](02_Test_Document.md) | Updated in repo; latest results are `40/40` JVM and `98/99` instrumented |
+| Ethics report (2 pages) | [05_Ethics_Report.md](05_Ethics_Report.md) | Source ready; verify final length during export |
+| Computer simulation summary (1 page) | [06_Computer_Simulation_Summary.md](06_Computer_Simulation_Summary.md) | Updated in repo; verify final length during export |
+| Demo video (5–7 min, <=2 min intro) | Manual recording | Not done in repo |
+| Generative AI usage + contribution description | [08_AI_Usage_Document.md](08_AI_Usage_Document.md), [AI_Usage_Document.md](AI_Usage_Document.md) | Source exists; final submission copy still needs confirmation |
+| Slides converted to PDF | [09_Presentation_Notes.md](09_Presentation_Notes.md), [10_Demo_Preparation.md](10_Demo_Preparation.md) | Deck export still needed |
+| Product app | Gradle build output | `./gradlew test` passes; APK export still needed |
+| Final team blog with agreement page | External spreadsheet / Drive artifact | Manual external update still needed |
+| Originality form | External course form | Manual signatures still needed |
 
-## Manual Gaps That Still Need Real-World Completion
+## Current Codebase Ground Truth
 
-- Run the remaining manual Pixel 7 checks and replace `Pending manual verification` in the test document.
-- Update the backlog spreadsheet.
-- Update the team blog spreadsheet and collect sign-offs.
-- Build the slide deck and export it to PDF.
-- Record and export the 5-7 minute demo video.
-- Merge the final PDFs into one submission package.
+Use these facts for every exported document and slide:
 
-## Demo Video Steps
+- public Play tone set: **11 tones** (`Theremin`, `Air Pad`, `Cello`, `Pad`, `Choir`, `Flute`, `Clarinet`, `Triangle`, `Saw`, `Square`, `Helicopter`)
+- audio buffer constant: `AUDIO_WRITE_FRAMES = 1024`
+- default frequency range: **20 Hz to 2,000 Hz**
+- extended frequency range setting raises the ceiling to **20,000 Hz**
+- `DrumEngine` uses a **hybrid** bank: bundled raw drum/bass samples plus in-code synthesis
+- `MainActivity` and `ThereminBackgroundAudioService` hand off between **separate engine instances**, not one shared engine object
+- Library uses **menu-based rename/move/delete** plus folder drag-drop, not swipe-to-delete or drag-to-reorder
+- automated coverage is **139 tests total**: 40 JVM + 99 instrumented
 
-- Mirror or capture the Pixel 7 screen.
-- Record the app launch, connection, calibration, play, recording, library, and settings flow.
-- Keep the video between 5 and 7 minutes.
-- Use the live-demo order from [10_Demo_Preparation.md](10_Demo_Preparation.md).
-- Export as MP4.
+## Verification Status
 
-## APK Build
+- `./gradlew test` — **pass**
+- `./gradlew connectedDebugAndroidTest` — **98 / 99 pass**
+- Remaining failing test: `BluetoothPromptUiTest.launch_promptsForBluetoothPermissions_whenMissing`
+- Failure cause: the Pixel 7 already has Bluetooth permissions configured, so Android suppresses the permission dialog and the test cannot force that OS prompt to reappear reliably
 
-Debug build:
+## External Cleanup Still Required
 
-```bash
-./gradlew :app:assembleDebug
-```
-
-Expected output:
-
-- `app/build/outputs/apk/debug/app-debug.apk`
-
-If a release keystore exists and the team decides to use it:
-
-```bash
-./gradlew :app:assembleRelease
-```
-
-## Word/PDF Export Workflow
-
-- Move each Markdown draft into Word or Google Docs.
-- Apply final formatting, page numbers, title pages, and diagrams.
-- Export each document to PDF.
-- Merge all required PDFs into one final submission PDF.
-
-## Suggested Timeline
-
-### April 3
-
-- Review the generated and final draft markdown.
-- Run the full physical-demo rehearsal once.
-- Confirm which phone state will be used for the presentation: first-launch or returning-user.
-
-### April 4
-
-- Draft the PowerPoint slide deck from [09_Presentation_Notes.md](09_Presentation_Notes.md).
-- Draft the design document and user manual into Word.
-
-### April 5
-
-- Run the physical Pixel 7 manual test rows.
-- Complete the test document.
-- Fix any demo-blocking bugs found in rehearsal.
-
-### April 6
-
-- Full-team rehearsal with timing.
-- Rehearse the live demo exactly as written.
-- Rehearse individual contribution answers.
-
-### Presentation Window
-
-- Deliver the presentation and demo.
-- Record notes on any live questions that should be reflected in final documents.
-
-### After Presentation
-
-- Finalize PDFs.
-- Record the demo video.
-- Build the APK.
-- Merge the submission package.
-- Submit on eConcordia before the deadline.
+- Refresh the Google Drive `Sprint 3` folder with exports from the updated repo docs.
+- Remove or replace duplicate Drive user-manual PDFs.
+- Update the Drive `Final Presentation` and `Final Report`; both were stale at audit time.
+- Regenerate the `backup/submission-docs` export pack from the corrected repo sources before using it as a final archive.
+- Update the external backlog spreadsheet and team blog.
+- Record the demo video and export the final deck PDF.
+- Merge the required written documents into one comprehensive PDF for eConcordia.

@@ -3,7 +3,7 @@
 **Course:** COEN 390 / ELEC 390, Concordia University, Winter 2026  
 **Team 5:** Niraj Patel, Matei Moldovan, Nirthika Ilaiyarajah, Ayan Pirani, Marie Ella Cambay
 
-> All answers are source-verified against the sprint3 branch as of April 4, 2026. Every constant, class name, and algorithm reference matches the actual production code.
+> All answers are source-verified against the sprint3 branch as of April 5, 2026. Every constant, class name, and algorithm reference matches the actual production code.
 
 ---
 
@@ -50,16 +50,16 @@ A: The controlling variable is the sync-loop period, not the audio buffer. Both 
 A: The buffer contribution doubles from 21.3 ms to 42.6 ms. Background worst case: 20 + 20 + 42.6 = **82.6 ms** — this exceeds the HD-11 `<80 ms` target by 2.6 ms. Foreground worst case: 20 + 50 + 42.6 = **112.6 ms**. This is exactly why the buffer was reduced from 2048 to 1024 frames in Sprint 3 — halving the buffer's contribution was the single code change that brought the background path comfortably inside the 80 ms target. The trade-off is more frequent `AudioTrack.write()` calls, each covering less time, but the OS overhead per call is acceptable at this size.
 
 **Q: How many tones are supported?**  
-A: 11 user-selectable tones: THEREMIN, AIR_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, SQUARE, and HELICOPTER. Additional tones (SWEET_LEAD, BELL, ORGAN, STRING, OBOE, TRUMPET, VIOLIN, GUITAR, and others) exist internally for backward compatibility but are not exposed in the public picker. The user-selectable set is defined in `SettingsStore.USER_SELECTABLE_TONES[]`.
+A: 11 user-selectable tones: THEREMIN, AIR_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, SQUARE, and HELICOPTER. Additional tones (SWEET_LEAD, BELL, ORGAN, STRING, OBOE, TRUMPET, VIOLIN, GUITAR, and others) exist internally for backward compatibility but are not exposed in the public picker. The user-selectable set is defined in `AppSettings.USER_SELECTABLE_TONES[]` inside `SettingsStore.java`.
 
 **Q: Can the app be used without gloves?**  
 A: No. The app requires two BLE gloves to produce output. If gloves are not connected, `PlayMappingState.isInstrumentReady()` returns false and the audio engine receives `volume = 0`, which mutes output. The Library and Settings screens work without gloves. Recorded performances in the Library play back through `MediaPlayer` independently of glove state.
 
 **Q: How big is the APK?**  
-A: Approximately 15–20 MB. The dominant size contributor is `DrumEngine`, which pre-computes 14 drum sounds and 75 piano samples entirely in code at construction time (no `.wav` asset files). The Java bytecode and Android manifest together are negligible by comparison.
+A: Approximately 15–20 MB. A meaningful part of that footprint now comes from the bundled raw drum/bass resources that `DrumEngine` loads and normalizes at startup. The rest of the beat bank, including crash/toms/rim/shaker voices and the 75-key piano bank, is still generated in code.
 
 **Q: What course requirements does this satisfy?**  
-A: COEN/ELEC 390 requires a working hardware-software system with BLE communication, documented sprints, a full test suite, a live demo, and final written deliverables. Theremin Gloves satisfies the hardware requirement (two custom BLE gloves), the software requirement (34-class Android app), the communication requirement (BLE GATT with custom UUIDs), the testing requirement (51 test rows + 127 automated tests across 15 test files), and the documentation requirement (design doc, test doc, user manual, ethics report, computer simulation summary, and AI usage document).
+A: The final course package requires a working customer-oriented product, a 10–12 minute final presentation plus demo, and a final submission containing the mission statement, final backlog, revised design document, user manual if needed, updated Definition of Done, test document, ethics report, computer simulation summary, demo video, generative-AI usage statement, slides PDF, product app, final team blog, and originality form. Theremin Gloves satisfies the hardware/software requirement (two custom BLE gloves plus Android app), the communication requirement (custom BLE GATT protocol), and the testing/documentation requirement (51 manual scenario rows plus 139 automated tests: 40 JVM and 99 instrumented).
 
 ---
 
@@ -185,13 +185,13 @@ A: `DRUM_MIX_HEADROOM = 0.26f`. When `DrumEngine.mixInto()` adds its voices into
 A: `SequencerClock` uses a self-rescheduling pattern. After executing one tick, it computes the time until the next tick as `delay = max(0, lastTickMs + nextIntervalMs - System.currentTimeMillis())` and schedules the next call `delay` milliseconds from now. Because the computation accounts for actual execution time, accumulated error does not grow — each new reschedule is relative to when the last tick was supposed to fire, not when it actually fired.
 
 **Q: How many drum sounds are pre-computed?**  
-A: 14 drum sounds (kick, snare, closed hi-hat, open hi-hat, crash, clap, bass E2/A2/D3/G2, hi-tom, low-tom, rim, shaker) plus 75 piano samples (25 MIDI keys × 3 synth modes: KEYS/BELLS/ORGAN). All are synthesized as `float[]` PCM arrays in the `DrumEngine` constructor — no `.wav` files, no `SoundPool`, no asset loading. This keeps the APK asset-free while giving full control over gain, pitch, and timbre of each sound.
+A: 14 drum sounds (kick, snare, closed hi-hat, open hi-hat, crash, clap, bass E2/A2/D3/G2, hi-tom, low-tom, rim, shaker) plus 75 piano samples (25 MIDI keys × 3 synth modes: KEYS/BELLS/ORGAN). `DrumEngine` prepares them all as `float[]` PCM arrays during construction, but the bank is hybrid: kick/snare/hi-hats/clap and the four bass notes are loaded from bundled raw resources, while crash/toms/rim/shaker and the piano tones are synthesized in code. The engine still avoids `SoundPool` and mixes everything inside the theremin PCM pipeline.
 
 **Q: How is the high-pass filter in drum sounds implemented?**  
 A: A single-pole recursive high-pass filter: `float hp = raw - prev * coeff`, where `prev` is the last input sample and `coeff` controls the cutoff. Higher coefficient → higher cutoff frequency → thinner, more metallic sound. Values in code: crash = 0.84 (warmest), snare = 0.93, open hi-hat = 0.95, closed hi-hat = 0.97 (thinnest). This one-multiply-per-sample filter is computationally trivial yet produces recognizably realistic metallic drum timbres.
 
 **Q: Why not use Android's SoundPool for drum sounds?**  
-A: `SoundPool` is designed to play pre-recorded `.wav`/`.ogg` files loaded from the APK assets folder. Using it would require shipping raw audio assets (increasing APK size), would prevent programmatic control over individual sample gain and pitch, and would add asynchronous load latency. `DrumEngine`'s synthesis approach produces all sounds from scratch in < 100 ms at startup, needs zero assets, gives precise control over every parameter, and integrates directly into the theremin's existing `short[]` PCM pipeline.
+A: Even with the current hybrid sample bank, `SoundPool` is still the wrong abstraction. `DrumEngine` needs every drum/bass/piano voice as a normalized `float[]` so it can schedule beats sample-accurately, apply shared headroom, and mix directly into the theremin engine's mono PCM buffer. A separate `SoundPool` playback path would add asynchronous load/play behavior and would break that single-engine mixing model.
 
 ---
 
@@ -250,7 +250,7 @@ A: `PlayMappingState` contains only pure mapping logic — angle-to-frequency an
 A: `CalibrationActivity` never writes to `SettingsStore` until the user taps Save. Instead: (1) persisted settings are loaded into a mutable `CalibrationDraft` object; (2) the user adjusts sliders and presses Neutral buttons, which update the draft; (3) `ThereminBackgroundAudioService.beginCalibrationPreview(context, previewSettings)` creates a temporary settings override in the service that makes glove movement audible during calibration; (4) only when Save is pressed does `draft.saveTo(settings)` write to `SettingsStore`. This means the user can cancel calibration at any time without corrupting saved settings.
 
 **Q: Why is there a CalibrationDraft.sanitize() method?**  
-A: `normalizeClamped()` in `PlayMappingState` divides by `(maxAngle − minAngle)`. If `minAngle >= maxAngle`, this is a division by zero or a degenerate mapping. `sanitize()` enforces `maxAngle > minAngle + step` (where `step` = 0.5° for angles, 1 Hz for frequencies) by clamping and re-ordering the bounds. It also clamps individual values to their physical range (−90° to +90° for angles, 20 Hz to 20 kHz for frequency). Without sanitize, a user who drags a slider to an inverted range would produce silent or stuck audio.
+A: `normalizeClamped()` in `PlayMappingState` divides by `(maxAngle − minAngle)`. If `minAngle >= maxAngle`, this is a division by zero or a degenerate mapping. `sanitize()` enforces `maxAngle > minAngle + step` (where `step` = 0.5° for angles, 1 Hz for frequencies) by clamping and re-ordering the bounds. It also clamps individual values to their physical range (−90° to +90° for angles, 20 Hz to 2,000 Hz by default, or 20 Hz to 20,000 Hz when extended range is enabled). Without sanitize, a user who drags a slider to an inverted range would produce silent or stuck audio.
 
 **Q: How is the onboarding hint system implemented?**  
 A: Three SharedPrefs boolean flags (`hint_connect_done`, `hint_play_done`, `calibrationGuideLearned`) gate three sequential hints:
@@ -273,15 +273,16 @@ A: A 16-step drum sequencer editor. It contains: a `StepGridView` (13 rows × 16
 **Q: What are the two SQLite databases?**  
 A: (1) `theremin_gloves.db` — owned by `SettingsStore`. Contains a single table `app_settings` with one row (`id = 1`) holding 24 columns of theremin/calibration/effects settings. (2) `recordings.db` — owned by `RecordingRepository`. Contains two tables: `folders (id, name, created_at_ms)` and `recordings (id, file_path, display_name, duration_ms, created_at_ms, folder_id, quality)`.
 
-**Q: How does drag-to-reorder work in LibraryActivity?**  
-A: `ItemTouchHelper` is attached to the RecyclerView with a callback that intercepts drag-start and drop events. `RecordingListAdapter` supports two item types: `TYPE_FOLDER` and `TYPE_RECORDING`. When a recording is dragged over a folder card, the adapter detects the type mismatch and moves the recording into that folder rather than reordering it. When a recording is dragged over another recording, it reorders in-place. After a drop, `RecordingRepository.moveRecording()` or the order is updated in the in-memory list.
+**Q: How does drag-to-folder work in LibraryActivity?**
+
+A: There is no general drag-to-reorder implementation. Instead, `RecordingListAdapter` starts a platform drag-and-drop operation when the user holds a recording row and drags it. Folder cards accept that drop payload, and `LibraryActivity.onRecordingDroppedOnFolder(...)` calls `RecordingRepository.moveRecording()` to place the recording in the chosen folder. Single-recording and multi-select moves are also available through menu dialogs.
 
 ---
 
 ## Category E — Testing
 
 **Q: How many tests are there in total?**  
-A: 127 automated `@Test` methods across 15 test files (40 JVM unit tests + 87 instrumented tests) plus 51 scenario-level rows in the test document.
+A: 139 automated `@Test` methods (40 JVM unit tests + 99 instrumented tests) plus 51 scenario-level rows in the test document. The test source sets contain 21 Java files total; 17 of those files contain executable test methods and the remainder are shared helpers.
 
 Key test files:
 - `ThereminUnitTest.java` — 39 JVM unit tests (no Android runtime required): waveform math, tone guards, pattern routing, gain math.
@@ -341,7 +342,7 @@ A: HD-8 (battery percentage display) — the Arduino Nano 33 BLE Sense does not 
 A: BLE dual-glove scanning, connection, and auto-reconnect. Full calibration flow (neutral capture, angle/frequency range tuning, Save & Play). `ThereminAudioEngine` with `AudioTrack`, pitch/volume synthesis, visualizer. `PlayMappingState` with angle-to-frequency mapping. Per-glove direction control. `SettingsStore` SQLite persistence. `LaunchActivity`, `HomeActivity`, `ConnectGlovesActivity`, `CalibrationActivity`, `SettingsActivity`.
 
 **Q: What was delivered in Sprint 2?**  
-A: `RecordingManager` with PCM tap → WAV and AAC-LC output. `RecordingRepository` SQLite metadata. `LibraryActivity` with full playback, search, rename, delete, folders, drag-to-reorder, mini-player. `ToneKnobView` rotary selector. The public tone picker grew from 9 to 10 tones in Sprint 2. (Sprint 3 re-added SQUARE for the current total of 11.)
+A: `RecordingManager` with PCM tap → WAV and AAC-LC output. `RecordingRepository` SQLite metadata. `LibraryActivity` with full playback, search, rename/delete flows, folders, move-to-folder actions, and a mini-player. `ToneKnobView` rotary selector. The public tone picker grew from 9 to 10 tones in Sprint 2. (Sprint 3 re-added SQUARE for the current total of 11.)
 
 **Q: What was delivered in Sprint 3?**  
 A: `DrumEngine` (14 sounds, 8 patterns, 16-step sequencer, piano synth, arpeggio). `BeatMakerActivity` sequencer editor. Audio effects pipeline (reverb/Schroeder comb, delay/ring buffer, distortion/tanh). Scale lock (CHROMATIC, MAJOR, MINOR, PENTATONIC). Octave shift (±2 octaves). Sensitivity presets (0.25–2.50 curve). Performance mode optimizations. Onboarding hint system (glowing buttons). Square tone re-added to public picker (11 tones total). Background audio foreground service refinements.

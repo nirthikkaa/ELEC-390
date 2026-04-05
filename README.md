@@ -51,14 +51,14 @@ The result is a fully wireless, latency-optimized instrument that plays music fr
 
 ### Beat Maker
 - **8 preset drum patterns** — Rock, Funk, EDM, Hip-Hop, Reggae, Jazz, Trap, Latin/Samba
-- **14 PCM-synthesised drum sounds** — no `.wav` assets, no SoundPool, no files
+- **14 PCM drum voices** — mixed bank of bundled raw drum/bass samples plus in-code synthesis, mixed directly into the shared PCM engine (no `SoundPool`)
 - **Piano sequencer** — 25 keys (C3–C5), 3 synth timbres
 - **Drift-free `SequencerClock`** — self-rescheduling via `System.currentTimeMillis()` delta
 
 ### Recording and Library
 - **PCM tap recording** — captures the exact synthesised output (drums + effects), not microphone audio
 - **4 quality levels** — Lossless WAV · High AAC 320 k · Medium AAC 192 k · Low AAC 128 k
-- **Library** — search, rename, folders, drag-to-reorder, mini-player, loop mode
+- **Library** — search, rename/delete, folders, move-to-folder, mini-player, playback modes
 
 ### BLE Stack
 - **Auto-reconnect** — 1.5 s delay, cached MAC skips full scan on second connect
@@ -209,9 +209,9 @@ MainActivity (Play)
 
 ## Testing
 
-- **127 automated `@Test` methods** across 15 test files
+- **139 automated `@Test` methods**
   - 40 JVM unit tests — waveform math, tone guards, pattern routing, drum gain math
-  - 87 instrumented tests — BLE regression, calibration, Play UI, Library, recording, settings
+  - 99 instrumented tests — BLE regression, calibration, Play UI, Library, recording, settings, latency/launch benchmarks
 - **51 scenario-level test rows** verified on Pixel 7 with live BLE gloves
 
 ---

@@ -25,7 +25,7 @@ If time gets tight or the phone behaves unpredictably, prioritize proving those 
 - The guide sequence is `Pitch Neutral` -> `VOLUME` tab -> `Volume Neutral` -> `Calibration complete` -> `Save & Play`.
 - `Stage View` is the user-facing label for the cleaner performance-mode layout on Play.
 - The current public tone cycle contains 11 tones: Theremin, Air Pad, Cello, Pad, Choir, Flute, Clarinet, Triangle, Saw, Square, Helicopter.
-- Default ranges: pitch `0°` to `90°`, volume `0°` to `90°`, and frequency `20 Hz` to `20 kHz`.
+- Default ranges: pitch `0°` to `90°`, volume `0°` to `90°`, and frequency `20 Hz` to `2,000 Hz` unless Extended Frequency Range is enabled.
 
 ## Recommended Demo Phone State
 
