@@ -301,7 +301,7 @@ A: HD-8 (battery percentage display) — the Arduino Nano 33 BLE Sense does not 
 A: BLE dual-glove scanning, connection, and auto-reconnect. Full calibration flow (neutral capture, angle/frequency range tuning, Save & Play). `ThereminAudioEngine` with `AudioTrack`, pitch/volume synthesis, visualizer. `PlayMappingState` with angle-to-frequency mapping. Per-glove direction control. `SettingsStore` SQLite persistence. `LaunchActivity`, `HomeActivity`, `ConnectGlovesActivity`, `CalibrationActivity`, `SettingsActivity`.
 
 **Q: What was delivered in Sprint 2?**  
-A: `RecordingManager` with PCM tap → WAV and AAC-LC output. `RecordingRepository` SQLite metadata. `LibraryActivity` with full playback, search, rename, delete, folders, drag-to-reorder, mini-player. 10 waveform tones. `ToneKnobView` rotary selector. Upgrade from 9 to 10 tones in the public picker.
+A: `RecordingManager` with PCM tap → WAV and AAC-LC output. `RecordingRepository` SQLite metadata. `LibraryActivity` with full playback, search, rename, delete, folders, drag-to-reorder, mini-player. `ToneKnobView` rotary selector. The public tone picker grew from 9 to 10 tones in Sprint 2. (Sprint 3 re-added SQUARE for the current total of 11.)
 
 **Q: What was delivered in Sprint 3?**  
 A: `DrumEngine` (14 sounds, 8 patterns, 16-step sequencer, piano synth, arpeggio). `BeatMakerActivity` sequencer editor. Audio effects pipeline (reverb/Schroeder comb, delay/ring buffer, distortion/tanh). Scale lock (CHROMATIC, MAJOR, MINOR, PENTATONIC). Octave shift (±2 octaves). Sensitivity presets (0.25–2.50 curve). Performance mode optimizations. Onboarding hint system (glowing buttons). Square tone re-added to public picker (11 tones total). Background audio foreground service refinements.

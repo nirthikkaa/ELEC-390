@@ -61,20 +61,22 @@ Finding:
 - the current default ranges are aggressive but practical for a demo-oriented theremin experience
 
 ## 3. Waveform / Tone Harmonic Analysis
-The current public build exposes 10 user-selectable tones, not the older 9-waveform set. Harmonic inspection of the synthesis code in `ThereminAudioEngine.sample(...)` shows:
+The current public build exposes **11 user-selectable tones** (SQUARE was re-added to `USER_SELECTABLE_TONES[]` in the sprint3 branch). Harmonic inspection of the synthesis code in `ThereminAudioEngine.sample(...)` shows:
 - `THEREMIN`: harmonic stack with strong second partial for classic vocal/cello theremin color
 - `AIR_PAD` and `PAD`: detuned layered partials for width and slow beating
 - `CELLO`: low-order bowed-string style harmonic emphasis
 - `CHOIR`: low-order vocal-pad harmonic structure with shallow phase modulation
 - `FLUTE`: near-sine spectrum with minimal shimmer
-- `CLARINET`: odd-harmonic closed-pipe structure
+- `CLARINET`: odd-harmonic closed-pipe structure (odd harmonics only — closed cylindrical bore)
 - `TRIANGLE`: triangle-derived spectrum with reinforced odd partials
-- `SAW`: additive all-harmonic structure limited to the first few partials
-- `HELICOPTER`: pulse-like rhythmic rotor effect whose hit rate follows scaled frequency
+- `SAW`: additive all-harmonic structure limited to the first six partials
+- `SQUARE`: odd-harmonic stack (1, 3, 5, 7…); hollow quality; re-added in sprint3
+- `HELICOPTER`: pulse-like rhythmic rotor effect whose hit rate follows scaled frequency (0.75–12 Hz)
 
 Finding:
 - the code intentionally favors restrained additive or phase-modulated spectra over raw discontinuous waveforms, which reduces harshness and alias-like roughness on phone speakers
 - the current public tone set is curated for usability rather than for preserving every legacy tone ever implemented
+- SQUARE and HELICOPTER are the most sonically distinctive tones and are particularly useful for demonstration purposes
 
 ## 4. Scale Quantization Accuracy
 Scale lock is implemented in `ThereminAudioEngine.snapToScale(...)` using:
