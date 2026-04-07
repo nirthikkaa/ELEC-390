@@ -28,7 +28,7 @@ public class UserManualActivity extends AppCompatActivity {
             "2. Open Connect → tap Connect All if they don't auto-connect.\n" +
             "3. Open Cal → tap Pitch Neutral, then Volume Neutral, then Save & Play.\n" +
             "4. Open Play → press the Play button.\n" +
-            "5. Tilt your pitch glove to change pitch; tilt your volume glove to change loudness.\n\n" +
+            "5. Tilt your right pitch glove to change pitch; tilt your left volume glove to change loudness.\n\n" +
             "Tip: Calibration is the most important step — it tells the app what your natural " +
             "resting wrist position is. Do it first and redo it any time the feel seems off."
         },
@@ -39,8 +39,8 @@ public class UserManualActivity extends AppCompatActivity {
             "• Two Theremin Gloves powered on and within range.\n" +
             "• Bluetooth enabled on your phone.\n\n" +
             "Your gloves must use these exact names:\n\n" +
-            "• Pitch glove:  ThereminGlove\n" +
-            "• Volume glove: ThereminGloveVol\n\n" +
+            "• Right pitch glove:  ThereminGlove\n" +
+            "• Left volume glove: ThereminGloveVol\n\n" +
             "Tip: Power the gloves on before opening the Connect screen — " +
             "the app starts scanning as soon as you open that tab."
         },
@@ -72,6 +72,8 @@ public class UserManualActivity extends AppCompatActivity {
             "• Power the glove off, wait 5 seconds, then power it back on.\n" +
             "• Move the glove within 2–3 metres of your phone.\n" +
             "• Tap Connect All again.\n\n" +
+            "The Connect screen marks the pitch glove with an R badge for your right hand " +
+            "and the volume glove with an L badge for your left hand.\n\n" +
             "The app remembers your gloves — after the first connection it reconnects " +
             "automatically whenever a glove is powered on nearby."
         },
@@ -81,10 +83,10 @@ public class UserManualActivity extends AppCompatActivity {
             "Do this before your first performance and any time the feel seems off.\n\n" +
             "Steps:\n\n" +
             "1. Go to the Cal tab and stay on the Pitch tab.\n" +
-            "2. Hold your pitch hand in a relaxed, natural resting position.\n" +
+            "2. Hold your right pitch hand in a relaxed, natural resting position.\n" +
             "3. Tap Pitch Neutral — the app locks in that wrist angle as your zero point.\n" +
             "4. Switch to the Volume tab.\n" +
-            "5. Hold your volume hand in a relaxed, natural resting position.\n" +
+            "5. Hold your left volume hand in a relaxed, natural resting position.\n" +
             "6. Tap Volume Neutral.\n" +
             "7. Adjust the min/max sliders to narrow or widen your gesture range if needed.\n" +
             "8. Tap Save & Play when you are happy.\n\n" +
@@ -96,8 +98,8 @@ public class UserManualActivity extends AppCompatActivity {
             "5. PLAYING THE THEREMIN",
             "Open the Play tab and press the Play button to start sound.\n\n" +
             "Your gesture controls:\n\n" +
-            "• Pitch glove — tilt your wrist to raise or lower the pitch.\n" +
-            "• Volume glove — tilt your wrist to make the sound louder or softer.\n" +
+            "• Right pitch glove — tilt your wrist to raise or lower the pitch.\n" +
+            "• Left volume glove — tilt your wrist to make the sound louder or softer.\n" +
             "• Both gloves must be connected — if either drops, audio mutes automatically.\n\n" +
             "What you see on screen:\n\n" +
             "• Current frequency and volume readout.\n" +
@@ -185,7 +187,7 @@ public class UserManualActivity extends AppCompatActivity {
             "Key options and what they do:\n\n" +
             "• Background audio — keeps sound going when you leave the Play screen.\n" +
             "• Extended frequency range — raises the top pitch from 2,000 Hz to 20,000 Hz.\n" +
-            "• Invert pitch/volume direction — flips which wrist direction raises pitch or volume.\n" +
+            "• Invert pitch/volume direction — flips which wrist direction raises right-hand pitch or left-hand volume.\n" +
             "• Show Calibration Guide Again — re-enables the step-by-step calibration walkthrough.\n" +
             "• Rename dialog after recording — prompts you to name each recording when you stop.\n" +
             "• Recording quality — WAV (lossless) or AAC at High / Medium / Low.\n" +
@@ -204,7 +206,7 @@ public class UserManualActivity extends AppCompatActivity {
             "Glove won't connect:\n\n" +
             "• Check that Bluetooth is on.\n" +
             "• Power-cycle the glove (off, wait a few seconds, back on).\n" +
-            "• Confirm the glove name: ThereminGlove or ThereminGloveVol exactly.\n" +
+            "• Confirm the glove name: ThereminGlove for the right pitch glove or ThereminGloveVol for the left volume glove.\n" +
             "• Move the glove within 2–3 metres of the phone and tap Connect All.\n\n" +
             "Pitch or volume feels off:\n\n" +
             "• Recalibrate — open Cal, capture both neutral positions again, tap Save & Play.\n" +

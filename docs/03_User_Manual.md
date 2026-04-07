@@ -12,7 +12,7 @@ New here? Follow these five steps and you'll be playing in under two minutes:
 2. Open **Connect** and tap **Connect All** if they don't auto-connect.
 3. Open **Cal**, tap **Pitch Neutral**, then **Volume Neutral**, then **Save & Play**.
 4. Open **Play** and press the centre **Play** button.
-5. Tilt your pitch glove to change pitch; tilt your volume glove to change loudness.
+5. Tilt your right pitch glove to change pitch; tilt your left volume glove to change loudness.
 
 > **Tip:** Calibration is the most important step — it teaches the app your natural resting wrist position. Do it first, and redo it any time the feel seems off.
 
@@ -30,8 +30,8 @@ Your gloves must broadcast these **exact** names:
 
 | Glove | Expected name |
 |-------|---------------|
-| Pitch | `ThereminGlove` |
-| Volume | `ThereminGloveVol` |
+| Right pitch glove | `ThereminGlove` |
+| Left volume glove | `ThereminGloveVol` |
 
 > **Tip:** Power on the gloves *before* opening the Connect screen — the app starts scanning automatically when you open that tab.
 
@@ -76,6 +76,8 @@ Open the **Connect** tab. The app usually connects automatically — if it doesn
 3. Move the glove within 2–3 metres of your phone.
 4. Tap **Connect All** again.
 
+The Connect screen marks the pitch glove with an **R** badge for your right hand and the volume glove with an **L** badge for your left hand.
+
 The app remembers your gloves after the first connection — it reconnects automatically whenever a glove is powered on nearby.
 
 ---
@@ -87,10 +89,10 @@ Calibration tells the app what "neutral" means for each hand. Do this before you
 ### Step-by-step
 
 1. Go to the **Cal** tab and make sure you are on the **Pitch** tab.
-2. Hold your pitch hand in a relaxed, natural resting position.
+2. Hold your right pitch hand in a relaxed, natural resting position.
 3. Tap **Pitch Neutral** — the app records that wrist angle as your zero point.
 4. Switch to the **Volume** tab.
-5. Hold your volume hand in a relaxed, natural resting position.
+5. Hold your left volume hand in a relaxed, natural resting position.
 6. Tap **Volume Neutral**.
 7. Adjust the min/max sliders to narrow or widen your gesture range if needed.
 8. Tap **Save & Play** when you are happy with the settings.
@@ -119,8 +121,8 @@ Open the **Play** tab and press the **Play** button to start sound.
 
 | Glove | Gesture | Effect |
 |-------|---------|--------|
-| Pitch | Tilt wrist up/down | Raises or lowers pitch |
-| Volume | Tilt wrist up/down | Makes sound louder or softer |
+| Right pitch glove | Tilt wrist up/down | Raises or lowers pitch |
+| Left volume glove | Tilt wrist up/down | Makes sound louder or softer |
 
 Both gloves must be connected. If either disconnects, audio mutes automatically until it reconnects.
 
@@ -275,7 +277,7 @@ Tap the **Settings** tab to customise the app.
 
 1. Check that Bluetooth is on.
 2. Power-cycle the glove (off → wait 5 seconds → on).
-3. Confirm the glove name is exactly `ThereminGlove` or `ThereminGloveVol`.
+3. Confirm the glove name is exactly `ThereminGlove` for the right pitch glove or `ThereminGloveVol` for the left volume glove.
 4. Move the glove within 2–3 metres of the phone and tap **Connect All**.
 
 ### Pitch or volume feels off

@@ -17,10 +17,10 @@ HD : Hardware
 ID : App
 Story ID | Story Title | Card | Story Points | Sprint | Status | Conversation | Confirmation
 HD - 1 | Connection of both gloves | As a performer, I want to connect both gloves to the app so that pitch and volume work wirelessly. | 8 | Sprint 1 | Completed | Android app connects via BLE to two IMU gloves simultaneously. | Both gloves appear in scan list within 5 seconds.
-Android app connects via BLE to two IMU gloves simultaneously. | User can connect to left and right gloves individually.
+Android app connects via BLE to two IMU gloves simultaneously. | User can connect to the left volume and right pitch gloves individually.
 Continuous IMU notifications must be received. | IMU values update continuously for ≥ 2 minutes.
 Connection state must be exposed to UI. | No app crash during connect/disconnect cycles.
-ID - 1 | Connection UI | As a performer, I want a clear connection screen so that setup is quick and simple. | 3 | Sprint 1 | Completed | UI must clearly show status of left and right gloves. | Status labels show: Not Connected / Connecting / Connected.
+ID - 1 | Connection UI | As a performer, I want a clear connection screen so that setup is quick and simple. | 3 | Sprint 1 | Completed | UI must clearly show status of the left volume and right pitch gloves. | Status labels show: Not Connected / Connecting / Connected.
 User interaction must be minimal (1–4 taps). | Connect/disconnect buttons work for each glove.
 Visual feedback required during connection process. | “Ready” state appears only when both gloves connected.
 HD - 2 | Auto Reconnect | As a performer, I want the app to reconnect after disconnects so that the demo is reliable. | 5 | Sprint 1 | Completed | BLE disconnections are expected during testing. | Disconnect detected within 3 seconds.
@@ -37,10 +37,10 @@ Connection remains active.
 HD - 4 | Real-Time Audio Feedback | As a performer, I want the app to produce sound after setup so that I know the system is ready to play. | 8 | Sprint 1 | Completed | The application must initialize an audio engine capable of continuous playback. | Sound starts after calibration finishes.
 Sound is triggered after successful calibration. | Sound stops when gloves disconnect.
 Gesture mapping not included yet. | Playback remains stable during the demo.
-HD - 5 | Pitch Control (Right Glove) | As a performer, I want my right glove gestures to control pitch so that I can play melodies. | 8 | Sprint 1 | Completed | Core MVP: right glove controls pitch | Pitch increases/decreases with right-hand movement
+HD - 5 | Pitch Control (Right Glove) | As a performer, I want my right pitch glove gestures to control pitch so that I can play melodies. | 8 | Sprint 1 | Completed | Core MVP: right pitch glove controls pitch | Pitch increases/decreases with right-hand movement
 Pitch range is large enough to play a melody
 Pitch is stable when hand is steady
-HD - 6 | Volume Control (Left Glove) | As a performer, I want my left glove gestures to control volume so that I can play expressively. | 5 | Sprint 1 | Completed | Core MVP: left glove controls volume | Volume changes smoothly with left-hand movement
+HD - 6 | Volume Control (Left Glove) | As a performer, I want my left volume glove gestures to control volume so that I can play expressively. | 5 | Sprint 1 | Completed | Core MVP: left volume glove controls volume | Volume changes smoothly with left-hand movement
 Minimum volume = silence
 App detects spikes/out of range values and are ignored
 HD - 7 | Smoothing / Filtering | As a performer, I want stable sensor filtering so that sound is not jittery. | 8 | Sprint 1 | Completed | A key assumption is that sensor fusion/orientation estimation can be filtered to feel stable enough for musical control. | Sound output does not jitter when hands are steady
@@ -264,7 +264,7 @@ HD - 1 | HD - 1.4 | Implement connect flow for Glove B | Implement the connectio
 HD - 1 | HD - 1.5 | Validate dual-stream stability | Validate dual-glove stability by running a continuous test where both gloves remain connected and responsive for at least two minutes. This will be performed through internal testing while monitoring update frequency and connection logs. | 3 | Completed | Done
 HD - 1 | HD - 1.6 | Add basic connection logging | Add basic connection logging to record connect, disconnect, and update events so issues can be diagnosed during development and demo preparation. Logging will be implemented using Android debug logs or an internal debug console. | 3 | Completed | Done
 HD - 1 | HD - 1.7 | Integrate connection state with UI | Add basic connection logging to record connect, disconnect, and update events so issues can be diagnosed during development and demo preparation. Logging will be implemented using Android debug logs or an internal debug console. | 3 | Completed | Done
-ID - 1 | ID - 1.1 | Design connection screen layout | Design the connection screen layout with clear panels for left and right gloves, including labels, buttons, and visual status indicators so users understand the setup process. This will be implemented using Android layout components or Compose UI. | 3 | Completed | Done
+ID - 1 | ID - 1.1 | Design connection screen layout | Design the connection screen layout with clear panels for the left volume and right pitch gloves, including labels, buttons, and visual status indicators so users understand the setup process. This will be implemented using Android layout components or Compose UI. | 3 | Completed | Done
 ID - 1 | ID - 1.2 | Implement status states | Implement visual connection states that display Not Connected, Connecting, and Connected using colour changes or icons so users receive clear feedback. This will be achieved by observing connection state updates from the connection logic. | 4 | Completed | Done
 ID - 1 | ID - 1.3 | Add connect/disconnect actions | Implement visual connection states that display Not Connected, Connecting, and Connected using colour changes or icons so users receive clear feedback. This will be achieved by observing connection state updates from the connection logic. | 4 | Completed | Done
 ID - 1 | ID - 1.4 | Add setup success transition | Add a ready-state transition that displays a “Ready” indicator once both gloves are connected and allows navigation to calibration. This will be implemented by checking combined connection status and updating the interface accordingly. | 2 | Completed | Done
@@ -283,11 +283,11 @@ HD - 4 | HD - 4.2 | Connect mapped values to audio output | Implement the Androi
 HD - 4 | HD - 4.3 | Mute audio when instrument is not ready | Ensure the app mutes sound when Bluetooth is off or when both gloves are not connected so the instrument behaves safely and predictably. | 2 | Completed | Done
 HD - 4 | HD - 4.4 | Validate Playback stability | Ensure the app mutes sound when Bluetooth is off or when both gloves are not connected so the instrument behaves safely and predictably. | 3 | Completed | Done
 HD-5 | HD-5.1 | Compute glove angle from IMU data | Read accelerometer data from the glove firmware and compute roll angle values that can be used for pitch control. | 3 | Completed | Done
-HD-5 | HD-5.2 | Apply neutral reference to pitch glove | Capture and store the neutral pitch-hand position so pitch control is based on movement relative to a baseline. | 2 | Completed | Done
-HD-5 | HD-5.3 | Map right glove movement to frequency | Convert right glove active delta angle into pitch frequency values within the configured range. | 3 | Completed | Done
+HD-5 | HD-5.2 | Apply neutral reference to right pitch glove | Capture and store the neutral right pitch-hand position so pitch control is based on movement relative to a baseline. | 2 | Completed | Done
+HD-5 | HD-5.3 | Map right pitch glove movement to frequency | Convert right pitch glove active delta angle into pitch frequency values within the configured range. | 3 | Completed | Done
 HD-5 | HD-5.4 | Validate pitch stability | Test pitch behavior to confirm the tone changes smoothly and stays stable when the hand is steady. | 2 | Completed | Done
-HD-6 | HD-6.1 | Apply neutral reference to volume glove | Capture and store the neutral volume-hand position so volume control is based on movement relative to a baseline. | 2 | Completed | Done
-HD-6 | HD-6.2 | Map left glove movement to volume | Convert left glove active delta angle into normalized volume values from silence to maximum intensity. | 3 | Completed | Done
+HD-6 | HD-6.1 | Apply neutral reference to left volume glove | Capture and store the neutral left volume-hand position so volume control is based on movement relative to a baseline. | 2 | Completed | Done
+HD-6 | HD-6.2 | Map left volume glove movement to volume | Convert left volume glove active delta angle into normalized volume values from silence to maximum intensity. | 3 | Completed | Done
 HD-6 | HD-6.3 | Validate smooth volume response | Test volume behavior to confirm loudness changes smoothly and reaches silence reliably. | 2 | Completed | Done
 HD-7 | HD-7.1 | Implement IMU smoothing filter | Apply exponential smoothing to IMU roll values in the glove firmware to reduce jitter during performance. | 3 | Completed | Done
 HD-7 | HD-7.2 | Add deadzone around neutral | Ignore very small movements near the neutral position so sensor noise does not create random pitch or volume changes. | 2 | Completed | Done
@@ -407,10 +407,10 @@ HD : Hardware
 ID : App
 Story ID | Story Title | Card | Story Points | Sprint | Status | Conversation | Confirmation
 HD - 1 | Connection of both gloves | As a performer, I want to connect both gloves to the app so that pitch and volume work wirelessly. | 8 | Sprint 1 | Completed | Android app connects via BLE to two IMU gloves simultaneously. | Both gloves appear in scan list within 5 seconds.
-Android app connects via BLE to two IMU gloves simultaneously. | User can connect to left and right gloves individually.
+Android app connects via BLE to two IMU gloves simultaneously. | User can connect to the left volume and right pitch gloves individually.
 Continuous IMU notifications must be received. | IMU values update continuously for ≥ 2 minutes.
 Connection state must be exposed to UI. | No app crash during connect/disconnect cycles.
-ID - 1 | Connection UI | As a performer, I want a clear connection screen so that setup is quick and simple. | 3 | Sprint 1 | Completed | UI must clearly show status of left and right gloves. | Status labels show: Not Connected / Connecting / Connected.
+ID - 1 | Connection UI | As a performer, I want a clear connection screen so that setup is quick and simple. | 3 | Sprint 1 | Completed | UI must clearly show status of the left volume and right pitch gloves. | Status labels show: Not Connected / Connecting / Connected.
 User interaction must be minimal (1–4 taps). | Connect/disconnect buttons work for each glove.
 Visual feedback required during connection process. | “Ready” state appears only when both gloves connected.
 HD - 2 | Auto Reconnect | As a performer, I want the app to reconnect after disconnects so that the demo is reliable. | 5 | Sprint 1 | Completed | BLE disconnections are expected during testing. | Disconnect detected within 3 seconds.
@@ -427,10 +427,10 @@ Connection remains active.
 HD - 4 | Real-Time Audio Feedback | As a performer, I want the app to produce sound after setup so that I know the system is ready to play. | 8 | Sprint 1 | Completed | The application must initialize an audio engine capable of continuous playback. | Sound starts after calibration finishes.
 Sound is triggered after successful calibration. | Sound stops when gloves disconnect.
 Gesture mapping not included yet. | Playback remains stable during the demo.
-HD - 5 | Pitch Control (Right Glove) | As a performer, I want my right glove gestures to control pitch so that I can play melodies. | 8 | Sprint 1 | Completed | Core MVP: right glove controls pitch | Pitch increases/decreases with right-hand movement
+HD - 5 | Pitch Control (Right Glove) | As a performer, I want my right pitch glove gestures to control pitch so that I can play melodies. | 8 | Sprint 1 | Completed | Core MVP: right pitch glove controls pitch | Pitch increases/decreases with right-hand movement
 Pitch range is large enough to play a melody
 Pitch is stable when hand is steady
-HD - 6 | Volume Control (Left Glove) | As a performer, I want my left glove gestures to control volume so that I can play expressively. | 5 | Sprint 1 | Completed | Core MVP: left glove controls volume | Volume changes smoothly with left-hand movement
+HD - 6 | Volume Control (Left Glove) | As a performer, I want my left volume glove gestures to control volume so that I can play expressively. | 5 | Sprint 1 | Completed | Core MVP: left volume glove controls volume | Volume changes smoothly with left-hand movement
 Minimum volume = silence
 App detects spikes/out of range values and are ignored
 HD - 7 | Smoothing / Filtering | As a performer, I want stable sensor filtering so that sound is not jittery. | 8 | Sprint 1 | Completed | A key assumption is that sensor fusion/orientation estimation can be filtered to feel stable enough for musical control. | Sound output does not jitter when hands are steady

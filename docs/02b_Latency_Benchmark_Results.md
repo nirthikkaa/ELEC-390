@@ -21,7 +21,7 @@
 - `LatencyBenchmarkTest` is a headless instrumentation benchmark. It does not launch `LaunchActivity`, `HomeActivity`, or `MainActivity`.
 - Most `LatencyBenchmarkTest` methods instantiate the audio, mapping, or persistence classes directly using the target app context.
 - A short audible sound can occur during the audio-engine cases even though no app screen appears on the phone.
-- The BLE interval case only records data if both gloves are connected and the pitch glove is moved during the sampling window.
+- The BLE interval case only records data if both gloves are connected and the right pitch glove is moved during the sampling window.
 - `VisibleLaunchBenchmarkTest` is the opposite: it intentionally launches visible Activities so the phone clearly shows the app opening during the run.
 
 ## Run Summary

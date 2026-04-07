@@ -18,7 +18,7 @@ The entire Arduino Nano 33 BLE Sense firmware was written by Niraj Patel without
 - IMU sensor fusion and roll angle computation from the onboard accelerometer/gyroscope
 - ACTIVE_DELTA_DEG and NEUTRAL_ROLL_DEG calculation relative to the calibrated neutral position
 - BLE peripheral setup: custom service UUID, TX and RX characteristic definitions, notification callbacks
-- Glove naming convention (ThereminGlove / ThereminGloveVol)
+- Glove naming convention (`ThereminGlove` for the right pitch glove / `ThereminGloveVol` for the left volume glove)
 - Command handling (H handshake, N capture neutral, D toggle direction)
 - All packet formatting sent over BLE to the phone
 
@@ -26,7 +26,7 @@ The entire Arduino Nano 33 BLE Sense firmware was written by Niraj Patel without
 The core BLE implementation on the Android side was written by Niraj Patel in Sprint 1 without any AI assistance. This includes:
 - BleSessionManager architecture: static singleton design, the two-Glove instance model
 - Initial BLE scanning logic using BluetoothLeScanner and ScanCallback
-- Device filtering by name (ThereminGlove / ThereminGloveVol)
+- Device filtering by name (`ThereminGlove` for the right pitch glove / `ThereminGloveVol` for the left volume glove)
 - Basic GATT connection flow and notification subscription
 - BleSnapshot immutable value object pattern for thread-safe UI reads
 - ThereminGloveBleManager wrapping the Nordic BLE library

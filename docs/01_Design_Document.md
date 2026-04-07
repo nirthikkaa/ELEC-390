@@ -26,8 +26,8 @@ This document is intentionally current-build specific. If an older Sprint note c
 
 ```mermaid
 flowchart LR
-    A[Pitch Glove<br/>ThereminGlove<br/>Arduino Nano 33 BLE Sense]
-    B[Volume Glove<br/>ThereminGloveVol<br/>Arduino Nano 33 BLE Sense]
+    A[Right Pitch Glove<br/>ThereminGlove<br/>Arduino Nano 33 BLE Sense]
+    B[Left Volume Glove<br/>ThereminGloveVol<br/>Arduino Nano 33 BLE Sense]
     C[BleSessionManager]
     D[BleSnapshot]
     E[MainActivity]
@@ -77,7 +77,7 @@ flowchart LR
 ```
 
 ## 1. System Overview
-Theremin Gloves is an Android application that turns two BLE-connected Arduino Nano 33 BLE Sense gloves into a wireless gesture instrument. The pitch glove (`ThereminGlove`) streams wrist-angle telemetry that becomes frequency, the volume glove (`ThereminGloveVol`) streams wrist-angle telemetry that becomes amplitude, and the phone synthesizes audio locally in real time through `AudioTrack`. The product targets music students, hobbyist musicians, creators, and demo-oriented performers who want an expressive electronic instrument without physical contact, external synth hardware, or cloud services.
+Theremin Gloves is an Android application that turns two BLE-connected Arduino Nano 33 BLE Sense gloves into a wireless gesture instrument. The right pitch glove (`ThereminGlove`) streams wrist-angle telemetry that becomes frequency, the left volume glove (`ThereminGloveVol`) streams wrist-angle telemetry that becomes amplitude, and the phone synthesizes audio locally in real time through `AudioTrack`. The product targets music students, hobbyist musicians, creators, and demo-oriented performers who want an expressive electronic instrument without physical contact, external synth hardware, or cloud services.
 
 ## 2. System Architecture
 
@@ -155,10 +155,10 @@ The app does not currently share one literal `ThereminAudioEngine` instance betw
 - The app does not recompute roll from raw accelerometer/gyroscope samples. It consumes the preprocessed telemetry emitted by the glove firmware.
 
 ### Two-glove setup
-- Pitch glove BLE name: `ThereminGlove`
-- Volume glove BLE name: `ThereminGloveVol`
-- The pitch glove controls frequency.
-- The volume glove controls amplitude.
+- Right pitch glove BLE name: `ThereminGlove`
+- Left volume glove BLE name: `ThereminGloveVol`
+- The right pitch glove controls frequency.
+- The left volume glove controls amplitude.
 
 ### BLE service and characteristics
 - Custom service UUID: `12345678-1234-1234-1234-1234567890ab`
@@ -242,7 +242,7 @@ static BLEStringCharacteristic gRxChar(kRxUuid, BLERead | BLEWrite,  32);
 Initial values written at firmware boot: TX characteristic gets `"BOOT"`, RX characteristic gets `"ready"`.
 
 ### Same UUIDs for both gloves — differentiated by name only
-Both `ThereminGlove` and `ThereminGloveVol` advertise the identical service UUID and TX/RX characteristic UUIDs. They are distinguished solely by their BLE advertised local name. `BleSessionManager` opens two independent GATT sessions keyed by MAC address, so UUID collisions between the two sessions are not an issue — the Android GATT stack routes callbacks by device address, not by UUID.
+The right pitch glove (`ThereminGlove`) and left volume glove (`ThereminGloveVol`) advertise the identical service UUID and TX/RX characteristic UUIDs. They are distinguished solely by their BLE advertised local name. `BleSessionManager` opens two independent GATT sessions keyed by MAC address, so UUID collisions between the two sessions are not an issue — the Android GATT stack routes callbacks by device address, not by UUID.
 
 ## 5. IMU Processing and Gesture Mapping
 
@@ -267,7 +267,7 @@ freq = clamp(freq * 2^octaveShift, 20, 20000)
 ```
 
 Additional guards:
-- if the pitch glove has no angle, frequency falls back to `freqMinHz`
+- if the right pitch glove has no angle, frequency falls back to `freqMinHz`
 - if the instrument is not ready, volume is forced to zero
 
 ### Volume mapping in `PlayMappingState`
@@ -282,7 +282,7 @@ volume = 0 + (1 - 0) * volNorm
 ```
 
 Then:
-- if the volume glove has no angle, volume becomes `0`
+- if the left volume glove has no angle, volume becomes `0`
 - if Bluetooth is off or one glove is missing, `audioTargetVolumeLinear = 0`
 
 ### Smoothing in `ThereminAudioEngine`
@@ -659,8 +659,8 @@ The diagram below augments Section 2 with explicit packet format labels, method 
 ```mermaid
 flowchart TD
     subgraph Hardware["Hardware Layer"]
-        PG["Pitch Glove\nArduino Nano 33 BLE Sense\nBLE name: ThereminGlove\nLSM9DS1 IMU → wrist roll angle"]
-        VG["Volume Glove\nArduino Nano 33 BLE Sense\nBLE name: ThereminGloveVol\nLSM9DS1 IMU → wrist roll angle"]
+        PG["Right Pitch Glove\nArduino Nano 33 BLE Sense\nBLE name: ThereminGlove\nLSM9DS1 IMU → wrist roll angle"]
+        VG["Left Volume Glove\nArduino Nano 33 BLE Sense\nBLE name: ThereminGloveVol\nLSM9DS1 IMU → wrist roll angle"]
     end
 
     subgraph BLE["BLE Transport Layer (Nordic BLE 2.11.0)"]
@@ -771,7 +771,7 @@ stateDiagram-v2
 ```
 
 **Notes:**
-- Both the Pitch glove and Volume glove have independent state machine instances.
+- Both the right pitch glove and left volume glove have independent state machine instances.
 - `BleSnapshot.isPitchConnected()` returns true only in the `READY` or `ACTIVE` states.
 - MAC addresses cached from the `READY` state enable the RECONNECTING→CONNECTING fast path (avoids full 12 s scan).
 
@@ -935,8 +935,8 @@ Process-wide static BLE host. Scans, connects, reconnects, runs the watchdog, st
 
 | Constant | Value |
 |---|---|
-| `PITCH_NAME` | `"ThereminGlove"` |
-| `VOLUME_NAME` | `"ThereminGloveVol"` |
+| `PITCH_NAME` | `"ThereminGlove"` (right pitch glove) |
+| `VOLUME_NAME` | `"ThereminGloveVol"` (left volume glove) |
 | `SCAN_TIMEOUT_MS` | 12 000 ms |
 | `CONNECT_TIMEOUT_MS` | 12 000 ms |
 | `AUTO_RECONNECT_DELAY_MS` | 1 500 ms |
@@ -952,7 +952,7 @@ Process-wide static BLE host. Scans, connects, reconnects, runs the watchdog, st
 | `initialize(Context)` | Stores app context, restores cached MACs, starts watchdog |
 | `maybeStartAutoConnect()` | Starts BLE scan if not already scanning and gloves missing |
 | `getSnapshot()` | Returns a new immutable `BleSnapshot` from current static state |
-| `requestCaptureNeutral(boolean)` | Sends `N` command to pitch or volume glove |
+| `requestCaptureNeutral(boolean)` | Sends `N` command to the right pitch glove or left volume glove |
 | `handleNotification(Glove, String)` | Parses `ACTIVE_DELTA_DEG`, `NEUTRAL_ROLL_DEG`, `DIRECTION` packets |
 | `refreshTruth()` | Watchdog body: checks timeouts, pings, forces reconnects |
 | `hasRequiredPermissions(Context)` | API 31+: `BLUETOOTH_SCAN`+`BLUETOOTH_CONNECT`; API <31: `ACCESS_FINE_LOCATION` |
@@ -1553,8 +1553,8 @@ Physical and logical component boundaries from hardware to user interface.
 ```mermaid
 flowchart TB
     subgraph Hardware["Hardware Layer"]
-        GL1["Pitch Glove\nArduino Nano 33 BLE Sense\nLSM9DS1 IMU"]
-        GL2["Volume Glove\nArduino Nano 33 BLE Sense\nLSM9DS1 IMU"]
+        GL1["Right Pitch Glove\nArduino Nano 33 BLE Sense\nLSM9DS1 IMU"]
+        GL2["Left Volume Glove\nArduino Nano 33 BLE Sense\nLSM9DS1 IMU"]
     end
 
     subgraph BLE["BLE Transport"]

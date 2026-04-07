@@ -93,7 +93,7 @@ The team acknowledges the current accessibility limitation honestly: Theremin Gl
 
 Three concrete technical directions are proposed for future work, each of which the current architecture could accommodate without a full rewrite:
 
-1. **Single-glove mode**: Use only the pitch glove for frequency control, and replace the volume glove with the phone's built-in accelerometer (measuring tilt). `PlayMappingState.recompute()` already accepts a `BleSnapshot`; a synthetic snapshot constructed from phone sensor data could replace the volume glove's contribution without changing the audio pipeline.
+1. **Single-glove mode**: Use only the right pitch glove for frequency control, and replace the left volume glove with the phone's built-in accelerometer (measuring tilt). `PlayMappingState.recompute()` already accepts a `BleSnapshot`; a synthetic snapshot constructed from phone sensor data could replace the left volume glove's contribution without changing the audio pipeline.
 
 2. **On-screen touch slider fallback**: Add a vertical `SeekBar` in `MainActivity` that directly sets `ThereminAudioEngine.setTargets(freq, volumeFromSlider)`. This would allow users without gloves to use the full synth engine from a touchscreen, removing the hardware dependency entirely for volume (and potentially pitch via a second slider).
 

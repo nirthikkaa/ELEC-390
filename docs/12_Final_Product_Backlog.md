@@ -17,8 +17,8 @@ Stories completed across all three sprints.
 | HD-3 | Calibration System | Sprint 1 | 8 | Calibration completes in under 30 s; neutral position captured on glove; saved angles persist. |
 | ID-2 | Recalibration Reset | Sprint 1 | 5 | Recalibrate button available on calibration screen; recalibration runs without disconnecting gloves. |
 | HD-4 | Real-Time Audio Feedback | Sprint 1 | 8 | Audio starts after calibration; audio mutes when gloves disconnect; playback stable. |
-| HD-5 | Pitch Control (Right Glove) | Sprint 1 | 8 | Right glove controls pitch; pitch range covers a playable melody; pitch stable when hand is steady. |
-| HD-6 | Volume Control (Left Glove) | Sprint 1 | 5 | Left glove controls volume; minimum position = silence; smooth ramp. |
+| HD-5 | Pitch Control (Right Glove) | Sprint 1 | 8 | Right pitch glove controls pitch; pitch range covers a playable melody; pitch stable when hand is steady. |
+| HD-6 | Volume Control (Left Glove) | Sprint 1 | 5 | Left volume glove controls volume; minimum position = silence; smooth ramp. |
 | HD-7 | Smoothing / Filtering | Sprint 1 | 8 | `FREQ_SMOOTHING`, `ATTACK_SMOOTHING`, `RELEASE_SMOOTHING` suppress jitter without perceptible lag. |
 | ID-3 | Pitch & Volume Range Settings | Sprint 1 | 3 | Pitch/volume angle and frequency ranges adjustable in Calibration and Settings; settings persist. |
 | ID-12 | Gesture Visualization | Sprint 1 | 3 | Live waveform visualizer on play screen reacts to frequency and volume in real time. |

@@ -35,7 +35,7 @@ A: Music students, hobbyist musicians, experimental performers, and electronics 
 A: A theremin maps a continuous analogue gesture — hand position — to frequency and volume continuously with no discrete keys or buttons. That maps naturally to IMU wrist-angle data, which is also continuous. A standard synthesizer app would require buttons or sliders on screen, undermining the "play without touching" premise. The theremin metaphor also has well-understood musical heritage and makes the demo immediately legible to an audience.
 
 **Q: What hardware is required?**  
-A: Two Arduino Nano 33 BLE Sense boards, each mounted in a glove with USB power bank, running custom firmware that streams wrist-roll angle over BLE. One Android phone running API 31 or higher. No other hardware is needed — no audio interface, no MIDI controller, no server.
+A: Two Arduino Nano 33 BLE Sense boards, each mounted in a glove with USB power bank, running custom firmware that streams wrist-roll angle over BLE: the right pitch glove and the left volume glove. One Android phone running API 31 or higher. No other hardware is needed — no audio interface, no MIDI controller, no server.
 
 **Q: What Android version is required and why?**  
 A: API 31 (Android 12) is the minimum SDK. Android 12 introduced `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT` as separate, fine-grained BLE permissions. The app relies on these new permissions and the `neverForLocation` flag on `BLUETOOTH_SCAN` so it does not need to request location permission just to scan. API 31 is the lowest version where the complete dual-permission BLE model is available.
@@ -53,7 +53,7 @@ A: The buffer contribution doubles from 21.3 ms to 42.6 ms. Background worst cas
 A: 11 user-selectable tones: THEREMIN, AIR_PAD, CELLO, PAD, CHOIR, FLUTE, CLARINET, TRIANGLE, SAW, SQUARE, and HELICOPTER. Additional tones (SWEET_LEAD, BELL, ORGAN, STRING, OBOE, TRUMPET, VIOLIN, GUITAR, and others) exist internally for backward compatibility but are not exposed in the public picker. The user-selectable set is defined in `AppSettings.USER_SELECTABLE_TONES[]` inside `SettingsStore.java`.
 
 **Q: Can the app be used without gloves?**  
-A: No. The app requires two BLE gloves to produce output. If gloves are not connected, `PlayMappingState.isInstrumentReady()` returns false and the audio engine receives `volume = 0`, which mutes output. The Library and Settings screens work without gloves. Recorded performances in the Library play back through `MediaPlayer` independently of glove state.
+A: No. The app requires the right pitch glove and left volume glove to produce output. If gloves are not connected, `PlayMappingState.isInstrumentReady()` returns false and the audio engine receives `volume = 0`, which mutes output. The Library and Settings screens work without gloves. Recorded performances in the Library play back through `MediaPlayer` independently of glove state.
 
 **Q: How big is the APK?**  
 A: Approximately 15–20 MB. A meaningful part of that footprint now comes from the bundled raw drum/bass resources that `DrumEngine` loads and normalizes at startup. The rest of the beat bank, including crash/toms/rim/shaker voices and the 75-key piano bank, is still generated in code.
@@ -87,7 +87,7 @@ A: Three single-character commands sent over the RX write characteristic:
 - `D` — toggle direction. Inverts the direction of the roll-to-control mapping on the glove side.
 
 **Q: How are the two gloves distinguished?**  
-A: By their BLE advertisement name. `BleSessionManager` scans for exactly two names: `ThereminGlove` (pitch glove, right hand) and `ThereminGloveVol` (volume glove, left hand). The scan callback matches discovered devices against these names and routes them to the correct `Glove` wrapper object inside the session manager.
+A: By their BLE advertisement name. `BleSessionManager` scans for exactly two names: `ThereminGlove` (right pitch glove) and `ThereminGloveVol` (left volume glove). The scan callback matches discovered devices against these names and routes them to the correct `Glove` wrapper object inside the session manager.
 
 **Q: What BLE library is used and why Nordic?**  
 A: Nordic Semiconductor's `no.nordicsemi.android:ble:2.11.0`. Raw Android `BluetoothGatt` is notorious for race conditions, state-machine inconsistencies across OEM implementations, and undocumented behaviour on reconnects. Nordic's `BleManager` abstraction provides: serialized operation queues (preventing simultaneous writes), structured `onReady()` / `onDeviceDisconnected()` callbacks, built-in `retry(3, 250)` for transient connection failures, and a tested API surface. The trade-off is a third-party dependency, but the gain in reliability on diverse Android hardware is well justified.
@@ -453,7 +453,7 @@ A: Eight segments in approximately 8 minutes:
 1. (0:00–0:45) App launch → privacy acceptance → Bluetooth permissions granted.
 2. (0:45–1:30) Connect screen → both gloves connect via auto-connect.
 3. (1:30–2:30) Calibration → Pitch Neutral → Volume Neutral → adjust sliders → Save & Play.
-4. (2:30–4:00) Play screen → theremin → demonstrate pitch control (right glove) and volume control (left glove).
+4. (2:30–4:00) Play screen → theremin → demonstrate pitch control (right pitch glove) and volume control (left volume glove).
 5. (4:00–5:00) Tone switching via ToneKnobView → cycle through 3–4 tones → demonstrate HELICOPTER.
 6. (5:00–6:00) Sprint 3 features → scale lock (PENTATONIC) → octave shift → reverb/delay → Beat Maker pattern.
 7. (6:00–7:00) Recording → press Record → play for 30 seconds → stop → see in Library.
@@ -469,7 +469,7 @@ A: `LaunchActivity` calls `BleSessionManager.requestEnableBluetoothPrompt()` whi
 A: `ThereminVisualizerView` displays the most recent 180-sample downsampled slice of the mono PCM render buffer from `ThereminAudioEngine.getVisualizerSnapshot()`. At 48 000 Hz with 1024 frames per buffer, each visualizer update shows approximately `180 / 48000 × 1024 ≈ 3.84 ms` of audio waveform. The UI refreshes at `UI_TICK_MS = 50 ms` — approximately 20 frames per second. It shows the actual synthesized waveform shape of the current tone.
 
 **Q: How do you demonstrate scale lock live?**  
-A: Enable PENTATONIC from the active scale dropdown in the Play screen. Slowly sweep the pitch glove across its full range. Every note produced is a member of the pentatonic scale — there are no "wrong" notes possible. Compare with CHROMATIC mode (all 12 semitones) to show the contrast. The transition between scale modes is instantaneous and glitch-free because `snapToScale()` is called per sample.
+A: Enable PENTATONIC from the active scale dropdown in the Play screen. Slowly sweep the right pitch glove across its full range. Every note produced is a member of the pentatonic scale — there are no "wrong" notes possible. Compare with CHROMATIC mode (all 12 semitones) to show the contrast. The transition between scale modes is instantaneous and glitch-free because `snapToScale()` is called per sample.
 
 **Q: How do you demonstrate octave shift?**  
 A: With both gloves connected and audio playing, press the +1 or +2 octave button. For the same wrist angle, the pitch doubles (or quadruples). The frequency display confirms the shift. Press −1/−2 to show downward shift. The mapping is `freq = mappedFreq × 2^octaveShift`, clamped to [20 Hz, 20 000 Hz].
@@ -484,7 +484,7 @@ A: `RecordingRepository` stores the file path in `recordings.db`. If the file wa
 A: Connect both gloves. Deliberately power off one glove (remove from power bank or switch off). Wait for the Connect screen to show "Disconnected." Then power the glove back on. Within approximately 5–10 seconds, the watchdog detects the advertisement, connects, and the UI transitions back to "Connected." Mention `AUTO_RECONNECT_DELAY_MS = 1500 ms` and `SCAN_TIMEOUT_MS = 12 000 ms` as the relevant constants.
 
 **Q: What is the minimum hardware required for the demo?**  
-A: One Google Pixel 7 (or equivalent Android 12+ device) running the debug APK. Two Arduino Nano 33 BLE Sense boards mounted in gloves with power (USB power bank or rechargeable battery), running the glove firmware (advertises `ThereminGlove` and `ThereminGloveVol`). Headphones or a Bluetooth speaker are optional but improve audio quality for the audience.
+A: One Google Pixel 7 (or equivalent Android 12+ device) running the debug APK. Two Arduino Nano 33 BLE Sense boards mounted in gloves with power (USB power bank or rechargeable battery), running the glove firmware (`ThereminGlove` for the right pitch glove and `ThereminGloveVol` for the left volume glove). Headphones or a Bluetooth speaker are optional but improve audio quality for the audience.
 
 ---
 
@@ -508,7 +508,7 @@ A: After `audioTrack.play()`, some Android devices stall their internal PCM queu
 A: The BLE connection interval is the time between consecutive BLE data-exchange events between the phone and the glove. The nRF52840 (inside the Arduino Nano 33 BLE Sense) defaults to a 7.5–20 ms connection interval. Each `ACTIVE_DELTA_DEG` notification is sent at most once per interval, so fresh IMU data arrives at the phone every 7.5–20 ms at best. This is the first (and uncontrollable) stage of the latency pipeline. The Android side cannot reduce it below the hardware default — it is negotiated during connection establishment by Nordic's `BleManager` and the nRF52840 firmware. It contributes the `BLE(≤20 ms)` term in every latency budget calculation.
 
 **Q: What is the IIR filter time constant for frequency smoothing, and what does it mean in practice?**  
-A: The filter is a first-order exponential moving average: `smoothFreq += (target − smoothFreq) × FREQ_SMOOTHING`, where `FREQ_SMOOTHING = 0.003`. The time constant in samples is τ = −1 / ln(1 − 0.003) = −1 / ln(0.997) ≈ **333 samples ≈ 6.94 ms at 48 kHz**. In practice: after a sudden pitch change (e.g., right glove snaps from 440 Hz to 880 Hz), the smoothed frequency reaches 63% of the new value in ~6.9 ms and 99% (within 1%) in ~5τ ≈ 34.7 ms (~1.6 audio buffers). This is fast enough to track deliberate gestures but slow enough to suppress click-inducing phase discontinuities from sensor noise spikes.
+A: The filter is a first-order exponential moving average: `smoothFreq += (target − smoothFreq) × FREQ_SMOOTHING`, where `FREQ_SMOOTHING = 0.003`. The time constant in samples is τ = −1 / ln(1 − 0.003) = −1 / ln(0.997) ≈ **333 samples ≈ 6.94 ms at 48 kHz**. In practice: after a sudden pitch change (e.g., right pitch glove snaps from 440 Hz to 880 Hz), the smoothed frequency reaches 63% of the new value in ~6.9 ms and 99% (within 1%) in ~5τ ≈ 34.7 ms (~1.6 audio buffers). This is fast enough to track deliberate gestures but slow enough to suppress click-inducing phase discontinuities from sensor noise spikes.
 
 **Q: Why does `snapToScale()` cache its last result, and how effective is that cache?**  
 A: `snapToScale()` maintains two fields: `snapCacheIn` (last input frequency) and `snapCacheOut` (last snapped result). On entry, if `smoothFreqHz == snapCacheIn`, it returns `snapCacheOut` immediately — no binary search needed. Because `FREQ_SMOOTHING = 0.003`, the smoothed frequency changes by at most 0.3% per sample. Over one 1024-sample buffer (~21 ms), frequency shifts by at most a few Hz at typical playing pitches. A scale-note boundary crossing requires a step of ~6% (one semitone). The cache therefore hits for most samples in a buffer, and misses only near a note boundary. The binary search itself is O(log N) = 7 comparisons over the 128-note chromatic table, but the cache reduces average comparisons to well under 1 per sample. Cache hit rate exceeds 99% under continuous play.

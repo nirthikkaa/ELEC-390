@@ -63,12 +63,13 @@ Recommended path:
 - Wait for both gloves to show connected.
 
 Say:
-- "The right glove controls pitch and the left glove controls volume."
+- "The right pitch glove controls pitch and the left volume glove controls volume."
 - "The app uses BLE and tracks the two gloves independently, so it can reconnect only the missing glove if needed."
 - "We can connect both at once or control each glove individually from this screen."
 
 Show if stable:
 - The big status card.
+- The right Pitch card with its R badge and the left Volume card with its L badge.
 - The individual `Connect Pitch Glove` / `Connect Volume Glove` buttons.
 
 Fallback if one glove is missing:
@@ -99,8 +100,8 @@ Important note:
 
 Action:
 - In `Play`, press the center `Play` button if audio is not already active.
-- Move the pitch glove slowly upward and downward.
-- Move the volume glove to fade in and out.
+- Move the right pitch glove slowly upward and downward.
+- Move the left volume glove to fade in and out.
 - Point to the live visualizer and the live metric cards.
 
 Say:

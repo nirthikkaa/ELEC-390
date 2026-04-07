@@ -181,9 +181,10 @@
                 android:layout_marginTop="10dp"
                 android:baselineAligned="false"
                 android:measureWithLargestChild="true"
+                android:layoutDirection="rtl"
                 android:orientation="horizontal">
 
-                <!-- Pitch glove card -->
+                <!-- Pitch glove card (right side) -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
@@ -196,6 +197,7 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layoutDirection="ltr"
                         android:orientation="vertical">
 
                         <!-- Header -->
@@ -225,6 +227,18 @@
                                 android:letterSpacing="0.2"
                                 android:textStyle="bold"
                                 android:fontFamily="monospace" />
+
+                            <TextView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:background="@drawable/bg_glove_side_badge_pitch"
+                                android:contentDescription="Right hand pitch glove"
+                                android:fontFamily="monospace"
+                                android:gravity="center"
+                                android:text="R"
+                                android:textColor="#7FC0FF"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
                         </LinearLayout>
 
                         <LinearLayout
@@ -331,7 +345,7 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Volume glove card -->
+                <!-- Volume glove card (left side) -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
@@ -345,6 +359,7 @@
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layoutDirection="ltr"
                         android:orientation="vertical">
 
                         <!-- Header -->
@@ -374,6 +389,18 @@
                                 android:letterSpacing="0.2"
                                 android:textStyle="bold"
                                 android:fontFamily="monospace" />
+
+                            <TextView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:background="@drawable/bg_glove_side_badge_volume"
+                                android:contentDescription="Left hand volume glove"
+                                android:fontFamily="monospace"
+                                android:gravity="center"
+                                android:text="L"
+                                android:textColor="#FF8ED1"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
                         </LinearLayout>
 
                         <LinearLayout

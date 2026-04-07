@@ -286,7 +286,7 @@ public class ConnectGlovesActivity extends AppCompatActivity {
         } else if (snapshot.isAnyGloveConnecting()) {
             setReady("Connecting gloves", "Keep the gloves awake and close to the phone for a few seconds.");
         } else {
-            setReady("Connection ready", "Connect either glove on its own, or connect both together.");
+            setReady("Connection ready", "Connect the right pitch glove, the left volume glove, or both together.");
         }
     }
 
