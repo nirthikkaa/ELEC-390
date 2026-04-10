@@ -22,6 +22,7 @@ final class AppLaunchWarmup {
     private static final Object LOCK = new Object();
 
     private static boolean started;
+    private static Thread warmThread;
     private static SettingsStore warmedSettingsStore;
     private static AppSettings warmedSettingsSnapshot;
     private static RecordingRepository warmedRecordingRepository;
@@ -38,7 +39,7 @@ final class AppLaunchWarmup {
         }
 
         // Warm the expensive Play dependencies off the main thread during app launch.
-        Thread warmThread = new Thread(() -> {
+        Thread thread = new Thread(() -> {
             // Warmup should help Play, never compete with launch enough to stall or crash it.
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
             try {
@@ -54,10 +55,17 @@ final class AppLaunchWarmup {
                 }
             } catch (Throwable ignored) {
                 // MainActivity can always fall back to cold construction if warmup misses or fails.
+            } finally {
+                synchronized (LOCK) {
+                    if (warmThread == Thread.currentThread()) warmThread = null;
+                }
             }
         }, "AppLaunchWarmup");
-        warmThread.setDaemon(true);
-        warmThread.start();
+        thread.setDaemon(true);
+        synchronized (LOCK) {
+            warmThread = thread;
+        }
+        thread.start();
     }
 
     static SettingsStore takeSettingsStore() {
@@ -85,6 +93,31 @@ final class AppLaunchWarmup {
     }
 
     static DrumEngine takeDrumEngine() {
+        synchronized (LOCK) {
+            DrumEngine drumEngine = warmedDrumEngine;
+            warmedDrumEngine = null;
+            return drumEngine;
+        }
+    }
+
+    static DrumEngine awaitDrumEngine() {
+        Thread threadToJoin;
+        synchronized (LOCK) {
+            if (warmedDrumEngine != null) {
+                DrumEngine drumEngine = warmedDrumEngine;
+                warmedDrumEngine = null;
+                return drumEngine;
+            }
+            threadToJoin = warmThread;
+        }
+        if (threadToJoin != null && threadToJoin != Thread.currentThread()) {
+            try {
+                threadToJoin.join();
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
         synchronized (LOCK) {
             DrumEngine drumEngine = warmedDrumEngine;
             warmedDrumEngine = null;

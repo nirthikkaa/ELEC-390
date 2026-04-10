@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {
     // Foreground-owned drum engine. When playback is handed to the background service,
     // that service uses its own DrumEngine instance.
     private DrumEngine drumEngine;
+    private volatile boolean foregroundDrumEngineInitInFlight;
     private SettingsStore settingsRepo;
     private RecordingManager recordingManager;
     private RecordingRepository recordingRepository;
@@ -231,12 +232,12 @@ public class MainActivity extends AppCompatActivity {
         preloadedPlaySettings = AppLaunchWarmup.takeSettingsSnapshot();
         recordingRepository = AppLaunchWarmup.takeRecordingRepository();
         drumEngine = AppLaunchWarmup.takeDrumEngine();
-        if (drumEngine == null) {
-            // Fall back safely when Play opens before the background warmup finishes.
-            drumEngine = new DrumEngine(this);
+        if (drumEngine != null) {
+            attachForegroundDrumEngine(drumEngine);
+        } else {
+            audioEngine.setDrumEngine(null);
+            ensureForegroundDrumEngineAsync();
         }
-        drumEngine.start();
-        audioEngine.setDrumEngine(drumEngine);
         recordingManager = new RecordingManager(this);
         recordingManager.setAudioEngine(audioEngine);
         setupRecordingCallbacks();
@@ -636,6 +637,7 @@ public class MainActivity extends AppCompatActivity {
         cancelQuickStartConnectTimeout();
         stopGridHintPulse();
         stopRecordBlink();
+        foregroundDrumEngineInitInFlight = false;
         if (recordingManager != null) recordingManager.release();
         // Release the foreground drum engine and the inline Beat Maker preview engine.
         if (drumEngine != null) { drumEngine.release(); drumEngine = null; }
@@ -654,6 +656,45 @@ public class MainActivity extends AppCompatActivity {
         requestAudioBackFromBackgroundService();
         refreshPlayUiState();
         maybeStartGridHintPulse();
+    }
+
+    private void ensureForegroundDrumEngineAsync() {
+        if (drumEngine != null || foregroundDrumEngineInitInFlight) return;
+        foregroundDrumEngineInitInFlight = true;
+
+        new Thread(() -> {
+            DrumEngine prepared = AppLaunchWarmup.awaitDrumEngine();
+            if (prepared == null) {
+                prepared = DrumEngine.createWarmup(getApplicationContext());
+            }
+            prepared.start();
+            DrumEngine ready = prepared;
+            runOnUiThread(() -> {
+                foregroundDrumEngineInitInFlight = false;
+                if (isFinishing() || isDestroyed()) {
+                    ready.release();
+                    return;
+                }
+                attachForegroundDrumEngine(ready);
+            });
+        }, "PlayDrumInit").start();
+    }
+
+    private void attachForegroundDrumEngine(DrumEngine engine) {
+        if (engine == null) return;
+        DrumEngine previous = drumEngine;
+        drumEngine = engine;
+        engine.start();
+        audioEngine.setDrumEngine(engine);
+        if (previous != null && previous != engine) previous.release();
+
+        // Mirror the current in-memory/UI state without rewriting persisted prefs during startup.
+        engine.setBpm(drumBpm);
+        engine.setPianoSynthMode(pianoSynthMode);
+        engine.setDrumGain(binding.sbBeatVol.getValue() / 100f);
+        if (activeMelodyNotes.isEmpty() || pianoModeIdx <= 0) return;
+        int[] arp = DrumEngine.ARPEGGIO_PATTERNS[pianoModeIdx];
+        for (int midi : activeMelodyNotes) engine.addMelodyRoot(midi, arp);
     }
 
     private void refreshPlayUiState() {
