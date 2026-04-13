@@ -22,6 +22,10 @@
 
 This document is intentionally current-build specific. If an older Sprint note conflicts with this file, the current code and this audited draft take precedence.
 
+**Design rationale and references.**
+- The summary table is included so the document exposes the main architectural elements, responsibilities, and constraints in a form that can be reviewed quickly; that is consistent with architecture-description practice in ISO/IEC/IEEE 42010 [R1].
+- The portrait-locked layout should be understood as a phone-first prototype tradeoff that keeps controls stable during performance, not as a general Android best practice; modern adaptive guidance would normally prefer broader orientation support [R18].
+
 ## Architecture Diagram
 
 ```mermaid
@@ -58,6 +62,9 @@ flowchart LR
     E --> O --> P
 ```
 
+**Design rationale and references.**
+- The architecture diagram is included because a structural view is needed to show ownership boundaries between BLE, mapping, audio, recording, and playback; ISO/IEC/IEEE 42010 explicitly treats these views as part of the architecture description itself [R1].
+
 ## Activity Flow Diagram
 
 ```mermaid
@@ -76,8 +83,23 @@ flowchart LR
     G --> I[UserManualActivity]
 ```
 
+**Design rationale and references.**
+- The activity flow diagram is included because a navigation and state-flow view complements the structural view: one explains what the system is made of, while the other explains how users move between setup, calibration, performance, and media-management states [R1].
+
+## Application Screen Flow
+
+![Figure 1. Screenshot-based screen-flow diagram showing the principal Android screens and the main progression from launch to setup, connection, calibration, play, beat editing, library access, settings, and the in-app user manual.](android_application_screen_flow.png)
+
+**Design rationale and references.**
+- This figure is included to show the implemented Android screens using real captured UI states rather than speculative mockups, which makes the document more traceable to the shipped prototype [R1].
+- The figure is intentionally arranged as a simplified screen-flow diagram rather than a polished visual design board, because the goal of the design document is to communicate screen coverage, navigation, and feature placement clearly [R1].
+
 ## 1. System Overview
 Theremin Gloves is an Android application that turns two BLE-connected Arduino Nano 33 BLE Sense gloves into a wireless gesture instrument. The right pitch glove (`ThereminGlove`) streams wrist-angle telemetry that becomes frequency, the left volume glove (`ThereminGloveVol`) streams wrist-angle telemetry that becomes amplitude, and the phone synthesizes audio locally in real time through `AudioTrack`. The product targets music students, hobbyist musicians, creators, and demo-oriented performers who want an expressive electronic instrument without physical contact, external synth hardware, or cloud services.
+
+**Design rationale and references.**
+- The product is designed around local, on-device synthesis rather than cloud audio because low-latency musical interaction depends on minimizing transport uncertainty and scheduling variability; both Android audio guidance and DMI literature support this decision [R7][R8][R10][R11].
+- The emphasis on students, hobbyists, and demonstration-oriented performers reflects a deliberate balance between immediate learnability and longer-term expressiveness, which is a recurring goal in digital-musical-instrument design [R10].
 
 ## 2. System Architecture
 
@@ -93,6 +115,11 @@ This section moves from screens to shared classes to the live data path so a rev
 - `SettingsActivity`: settings screen. It toggles background audio, extended frequency range, pitch/volume direction, rename-dialog behavior, recording quality, calibration-guide visibility, and sensitivity response curve.
 - `BeatMakerActivity`: dedicated 16-step sequencer editor. It uses `StepGridView`, `PianoKeyboardView`, and a local preview `AudioTrack` to edit drum/bass/piano patterns without going through the theremin audio engine.
 - `UserManualActivity`: in-app user manual. Opened from Settings, it displays all 11 manual sections as scrollable cards with hardcoded content — no external file reads or network requests. The content mirrors `docs/03_User_Manual.md`.
+
+**Design rationale and references.**
+- The Activity split keeps setup, calibration, performance, beat editing, media browsing, and settings in separate workflows so the latency-critical Play path is not entangled with non-real-time UI logic [R1][R7][R9].
+- `LaunchActivity` absorbs warm-up cost and permission triage before the user reaches Play, which is appropriate because Android audio guidance distinguishes warm-up latency from steady-state latency [R5][R7].
+- Keeping the manual inside the app preserves offline availability and keeps user help in the same operational context as the instrument itself [R1].
 
 ### Non-Activity classes and their roles
 - `BleSessionManager`: process-wide BLE host. It scans, connects, reconnects, runs the watchdog, stores cached glove MAC addresses, parses telemetry packets, exposes immutable `BleSnapshot` state, and handles Bluetooth permission/prompt flows.
@@ -124,6 +151,10 @@ This section moves from screens to shared classes to the live data path so a rev
 - `InsetAwareScrollView`: inset-aware scroll container that adds system-bar padding automatically.
 - `Instrument` and `SynthInstrument`: lightweight PCM instrument abstractions retained for synth/sample wrappers inside the beat system.
 
+**Design rationale and references.**
+- The non-Activity classes are the real architectural units that own BLE transport, control mapping, synthesis, capture, persistence, and reusable interaction widgets; calling them out separately matches the intent of an architecture description, which is to expose system elements and their relationships rather than only screen names [R1].
+- The split between `BleSessionManager`, `PlayMappingState`, `ThereminAudioEngine`, `RecordingManager`, and `RecordingRepository` is a separation-of-concerns decision that keeps the live interactive path understandable and testable [R1][R9].
+
 ### Data flow: Arduino glove to audio output
 1. Each glove’s Arduino Nano 33 BLE Sense computes orientation from its IMU and advertises a custom BLE service.
 2. The glove firmware sends ASCII packets such as `ACTIVE_DELTA_DEG:<float>`, `NEUTRAL_ROLL_DEG:<float>`, and `DIRECTION:<text>` over the TX notify characteristic.
@@ -137,8 +168,16 @@ This section moves from screens to shared classes to the live data path so a rev
 
 The practical separation is clean: BLE owns live telemetry, mapping owns control conversion, the audio engine owns synthesis, and the repository owns persisted metadata.
 
+**Design rationale and references.**
+- The packet-to-audio path is documented explicitly because action-to-sound latency is additive across communication links, scheduling boundaries, buffers, and synthesis stages; this is a central point in musical-latency literature [R11].
+- The immutable `BleSnapshot` boundary reduces race-condition risk between transport updates, UI reads, and audio-target updates [R8][R9].
+- The PCM tap is part of the live data path because the product records rendered synth output rather than room sound or microphone input [R14].
+
 ### Static singleton pattern in `BleSessionManager`
 `BleSessionManager` is implemented as a process-wide static singleton: all mutable BLE state lives in static fields, all public entry points are static, and a static main-thread `Handler MAIN` serializes BLE operations. This design is used because BLE connectivity must survive screen changes cleanly. `HomeActivity`, `ConnectGlovesActivity`, `CalibrationActivity`, `MainActivity`, and `LaunchActivity` all need the same live connection state, recent telemetry, cached device addresses, and watchdog behavior. A process-wide singleton avoids duplicate scanners, duplicate GATT sessions, conflicting reconnect timers, and the need to rehydrate BLE state every time the user changes screens.
+
+**Design rationale and references.**
+- Android BLE background guidance makes clear that scan, connect, reconnect, and connection persistence are distinct lifecycle concerns; centralizing them in one process-wide owner is therefore easier to reason about than distributing them across screens [R4].
 
 ### How `MainActivity` and `ThereminBackgroundAudioService` handle audio ownership
 The app does not currently share one literal `ThereminAudioEngine` instance between `MainActivity` and `ThereminBackgroundAudioService`. Instead:
@@ -147,6 +186,10 @@ The app does not currently share one literal `ThereminAudioEngine` instance betw
 - `MainActivity` mirrors scale/effects/drum/bass/tone state into the service through static service setters such as `setActiveScale(...)`, `setReverbEnabled(...)`, `setToneTypeNow(...)`, `setRecordingManager(...)`, `startIfNeeded(...)`, and `stopIfRunning(...)`.
 - This means the user experiences a playback handoff, but the implementation is a foreground-engine/service-engine ownership swap rather than two screens sharing one common object reference.
 
+**Design rationale and references.**
+- Android expects background playback to be owned by a service rather than by an Activity, so the foreground/service split matches platform playback guidance [R9].
+- Using separate foreground and service engine instances respects the different lifecycle owners involved and avoids trying to keep one mutable real-time engine alive across both UI and background-service lifecycles [R4][R9].
+
 ## 3. Hardware
 
 ### Arduino platform and sensors
@@ -154,26 +197,42 @@ The app does not currently share one literal `ThereminAudioEngine` instance betw
 - The relevant sensor path is the on-board IMU. The Android code assumes the glove firmware converts IMU data into a roll-derived control signal before transmission.
 - The app does not recompute roll from raw accelerometer/gyroscope samples. It consumes the preprocessed telemetry emitted by the glove firmware.
 
+**Design rationale and references.**
+- The Arduino Nano 33 BLE Sense is an appropriate platform because it combines BLE connectivity with onboard inertial sensing, which is exactly what the product requires for a wearable motion controller [R2].
+- Preprocessing orientation on the glove side reduces Android-side complexity and lets the mobile app receive compact control-ready values rather than full raw IMU streams [R2][R12].
+
 ### Two-glove setup
 - Right pitch glove BLE name: `ThereminGlove`
 - Left volume glove BLE name: `ThereminGloveVol`
 - The right pitch glove controls frequency.
 - The left volume glove controls amplitude.
 
+**Design rationale and references.**
+- Splitting pitch and volume across two gloves preserves two independent continuous control dimensions instead of forcing a single-hand mode switch; this is consistent with DMI guidance that gesture-to-sound relationships should remain legible to the performer [R10].
+
 ### BLE service and characteristics
 - Custom service UUID: `12345678-1234-1234-1234-1234567890ab`
 - TX notify characteristic UUID: `12345678-1234-1234-1234-1234567890ac`
 - RX write characteristic UUID: `12345678-1234-1234-1234-1234567890ad`
+
+**Design rationale and references.**
+- Custom GATT services and characteristics are the normal BLE mechanism for application-specific payloads, so the use of custom UUIDs is appropriate here [R3].
 
 ### Glove-to-phone packet formats parsed by Android
 - `ACTIVE_DELTA_DEG:<float>`: current roll delta used for live pitch/volume mapping.
 - `NEUTRAL_ROLL_DEG:<float>`: current neutral baseline captured by the glove.
 - `DIRECTION:<text>`: current direction mode reported by the glove after a direction sync/toggle.
 
+**Design rationale and references.**
+- The packet format is compact and human-readable because BLE characteristics are designed for small attribute payloads, and readable payloads simplify integrated hardware/software debugging [R3].
+
 ### Phone-to-glove commands sent by Android
 - `H`: handshake / refresh request.
 - `N`: capture the current wrist orientation as the new neutral position.
 - `D`: toggle the glove’s direction mode.
+
+**Design rationale and references.**
+- The three-command surface is intentionally small: handshake, neutral capture, and direction toggle are the minimum control operations needed to support connection management and calibration without introducing unnecessary protocol complexity [R3][R12].
 
 ## 4. BLE Communication Layer
 
@@ -184,6 +243,10 @@ The app does not currently share one literal `ThereminAudioEngine` instance betw
 - Reconnecting: if a glove drops unexpectedly, `drop(...)` clears live connection state and schedules `AUTO_RECONNECT_DELAY_MS` reconnect logic. Cached MAC addresses let reconnect attempts skip a full name-based scan when possible.
 - Watchdog: the main-thread watchdog runs every `WATCHDOG_PERIOD_MS`. It refreshes truth, checks connect timeouts, checks telemetry age, pings silent gloves, and forces reconnects when the connection looks alive but no telemetry is arriving.
 
+**Design rationale and references.**
+- The BLE layer is explicitly organized as scan, connect, monitor, and reconnect because Android’s BLE background guidance treats those as separate operational concerns [R4].
+- The watchdog exists because a gestural instrument must treat stale telemetry as a product failure even if the underlying GATT connection has not formally disconnected [R4][R11].
+
 ### Exact BLE timing constants from code
 - `SCAN_TIMEOUT_MS = 12_000L`
 - `CONNECT_TIMEOUT_MS = 12_000L`
@@ -193,6 +256,9 @@ The app does not currently share one literal `ThereminAudioEngine` instance betw
 - `STALE_RECONNECT_MS = 20_000L`
 - `WATCHDOG_PERIOD_MS = 1_000L`
 
+**Design rationale and references.**
+- These constants are intentionally measured in hundreds or thousands of milliseconds because the transport is BLE on a mobile OS rather than a hard real-time fieldbus; they balance responsiveness against false reconnects during transient radio stalls [R3][R4].
+
 ### Silent disconnect detection
 The app distinguishes a true Android GATT disconnect from a silent telemetry stall:
 - Every received telemetry packet updates `glove.lastTelemetryMs`.
@@ -201,11 +267,17 @@ The app distinguishes a true Android GATT disconnect from a silent telemetry sta
 - If telemetry age exceeds `STALE_RECONNECT_MS = 20_000 ms`, the app treats the session as dead, drops the glove, and schedules reconnect.
 - Separate logic also aborts a connect attempt if `connectAttemptStartMs` exceeds `CONNECT_TIMEOUT_MS = 12_000 ms`.
 
+**Design rationale and references.**
+- This logic exists because "connected but silent" is musically equivalent to failure in a live controller; telemetry freshness matters as much as connection-state callbacks [R4][R11].
+
 ### Android 12+ permission handling
 - Android 12 and higher: `BLUETOOTH_SCAN` and `BLUETOOTH_CONNECT`
 - Android 11 and lower: `ACCESS_FINE_LOCATION`
 - The permission helpers are centralized in `BleSessionManager.hasRequiredPermissions(...)`, `requestRequiredPermissions(...)`, and `wereAllPermissionsGranted(...)`.
 - `LaunchActivity`, `HomeActivity`, `ConnectGlovesActivity`, and `MainActivity` all call these helpers instead of duplicating version-specific permission logic.
+
+**Design rationale and references.**
+- Centralizing the permission logic is appropriate because Android 12+ introduces BLE runtime permissions that differ from the pre-Android-12 model, and duplicating that branching logic across screens would be error-prone [R5].
 
 ### Nordic BLE library version and rationale
 - Dependency: `no.nordicsemi.android:ble:2.11.0`
@@ -213,13 +285,22 @@ The app distinguishes a true Android GATT disconnect from a silent telemetry sta
 - Why this is beneficial here: it provides queued connection/notification/write operations, cleaner state callbacks, built-in retry/timeout helpers, and a smaller surface area for Android GATT race conditions than hand-written raw `BluetoothGatt` code.
 - The project uses Nordic features: `retry(3, 250)`, structured notification enabling via `enableNotifications(txCharacteristic).enqueue()`, and centralized failure callbacks via `BleManagerCallbacks`.
 
+**Design rationale and references.**
+- Nordic’s BLE library is appropriate here because it explicitly provides queued BLE operations, retries, and GATT-utility helpers that reduce common reliability problems in manual `BluetoothGatt` implementations [R6].
+
 ### Why `useAutoConnect(false)` — custom reconnect instead of Android’s built-in
 The connection builder in `ThereminGloveBleManager.connectTo(...)` explicitly sets `.useAutoConnect(false)`. Android’s built-in auto-connect (`BluetoothDevice.connectGatt(context, true, callback)`) caches device addresses in the OS and attempts reconnection indefinitely, but it is well-documented to get stuck: cached entries go stale, GATT state machines enter unrecoverable states, and callbacks are sometimes never delivered. The result can be a phantom "Connecting…" state that only a Bluetooth power-cycle can escape.
 
 Using `useAutoConnect(false)` keeps every GATT session explicit. When a glove drops, `BleSessionManager.drop(...)` calls `close()` on the old manager, allocates a fresh `ThereminGloveBleManager`, and starts a new explicit connection — either directly to the cached MAC address (skipping a full scan) or by re-scanning for the device name. This produces reliable, diagnosable reconnect behavior and is why the watchdog exists: it drives all reconnect decisions rather than delegating them to the OS.
 
+**Design rationale and references.**
+- Android’s BLE guidance distinguishes direct connections from auto-connect behavior; keeping reconnect policy in app code makes timing and failure handling more deterministic for a performance-oriented device [R4].
+
 ### No BLE bonding — unauthenticated connections only
 The `Callbacks` class inside `ThereminGloveBleManager` leaves `onBondingRequired`, `onBonded`, and `onBondingFailed` as empty no-ops. Glove connections are unauthenticated: no PIN, no passkey, no bond database entry. The custom UUIDs and BLE device names serve as implicit gates without adding pairing complexity. Users never see a system pairing dialog.
+
+**Design rationale and references.**
+- Skipping bonding is defensible in the current product scope because the gloves do not carry identity, payment, or health data, while pairing dialogs would add setup friction to a demonstration instrument [R3].
 
 ### Firmware-side BLE: `ArduinoBLE` library and 32-byte characteristic limit
 The glove firmware (`arduino/ble.cpp`) uses the Arduino `ArduinoBLE` library (`#include <ArduinoBLE.h>`), which is unrelated to the Nordic Android library. The two libraries interoperate via the standard GATT protocol — Nordic on the phone side, ArduinoBLE on the Arduino side.
@@ -241,13 +322,22 @@ static BLEStringCharacteristic gRxChar(kRxUuid, BLERead | BLEWrite,  32);
 
 Initial values written at firmware boot: TX characteristic gets `"BOOT"`, RX characteristic gets `"ready"`.
 
+**Design rationale and references.**
+- The short ASCII protocol keeps messages well within the declared characteristic-size limit of the current firmware and avoids extra packet-framing complexity on both the Arduino and Android sides [R2][R3].
+
 ### Same UUIDs for both gloves — differentiated by name only
 The right pitch glove (`ThereminGlove`) and left volume glove (`ThereminGloveVol`) advertise the identical service UUID and TX/RX characteristic UUIDs. They are distinguished solely by their BLE advertised local name. `BleSessionManager` opens two independent GATT sessions keyed by MAC address, so UUID collisions between the two sessions are not an issue — the Android GATT stack routes callbacks by device address, not by UUID.
+
+**Design rationale and references.**
+- Reusing one GATT schema for both gloves keeps the firmware and Android parser symmetric while still allowing the app to assign musical role by advertised device identity [R3].
 
 ## 5. IMU Processing and Gesture Mapping
 
 ### How `ACTIVE_DELTA_DEG` relates to `NEUTRAL_ROLL_DEG`
 The Android app treats `ACTIVE_DELTA_DEG` as already relative to the glove’s neutral position. In other words, the glove firmware captures a neutral roll angle as `NEUTRAL_ROLL_DEG`, then sends a live delta that is measured relative to that neutral reference. The Android side does not recompute that subtraction from raw IMU values; it simply parses the already-relative delta and maps it to sound.
+
+**Design rationale and references.**
+- Relative-to-neutral mapping is appropriate for wearables because wrist pose, glove fit, and performer stance vary from user to user; user-conducted IMU calibration is therefore more robust than assuming one fixed absolute orientation [R12].
 
 ### Frequency mapping in `PlayMappingState`
 `PlayMappingState.recompute(...)` uses:
@@ -270,6 +360,10 @@ Additional guards:
 - if the right pitch glove has no angle, frequency falls back to `freqMinHz`
 - if the instrument is not ready, volume is forced to zero
 
+**Design rationale and references.**
+- Linear normalization from calibrated angle span to frequency span keeps the control law explainable and adjustable, which is important for a gesture instrument intended to be learnable by non-experts [R10][R12].
+- The default `20 Hz` to `2000 Hz` range captures a musically useful span without forcing beginners immediately into the full audible band, while octave shift and extended-range settings preserve headroom for advanced use [R7][R10].
+
 ### Volume mapping in `PlayMappingState`
 `PlayMappingState.recompute(...)` uses:
 
@@ -285,6 +379,9 @@ Then:
 - if the left volume glove has no angle, volume becomes `0`
 - if Bluetooth is off or one glove is missing, `audioTargetVolumeLinear = 0`
 
+**Design rationale and references.**
+- Mapping amplitude from a normalized `0–1` value is the simplest continuous-volume model, and muting when the instrument is not ready is a safer response than allowing uncontrolled output [R10][R11].
+
 ### Smoothing in `ThereminAudioEngine`
 - `FREQ_SMOOTHING = 0.0030f`
 - `ATTACK_SMOOTHING = 0.0046f`
@@ -295,6 +392,10 @@ Implementation details:
 - `smoothVolumeLinear += (target - smoothVolumeLinear) * attackOrReleaseFactor`
 - Attack and release use different constants so notes fade in faster than they fade out.
 
+**Design rationale and references.**
+- Smoothing is necessary because continuous sensor-driven instruments are highly sensitive to step discontinuities, zipper noise, and jitter; stability matters alongside raw latency [R10][R11].
+- Separate attack and release constants preserve responsiveness while reducing abrupt dropouts caused by minor hand tremors [R11][R13].
+
 ### Why there is no explicit dead zone
 There is no dedicated Java-side dead-zone constant in the current Play mapping path. Instead, three existing mechanisms already suppress micro-jitter:
 - calibration lets the user choose a meaningful angle span
@@ -302,6 +403,9 @@ There is no dedicated Java-side dead-zone constant in the current Play mapping p
 - `ThereminAudioEngine` smooths both pitch and volume continuously
 
 That means the app currently solves the “tiny hand tremor” problem with calibration plus smoothing rather than a hard dead-band clamp.
+
+**Design rationale and references.**
+- Omitting a hard dead zone preserves continuity, which is important for theremin-like control where small intended motions can be musically expressive; calibration plus smoothing is therefore a better fit than a hard clamp in the current design [R12][R13].
 
 ## 6. Audio Engine
 
@@ -317,6 +421,11 @@ The engine builds a low-latency `AudioTrack` with:
 - usage: `USAGE_GAME`
 - content type: `CONTENT_TYPE_SONIFICATION`
 - low-latency performance mode on Android O+
+
+**Design rationale and references.**
+- Streaming `AudioTrack` is appropriate because the app generates audio continuously in real time rather than playing fixed clips [R9].
+- `48 kHz` aligns with Android’s common native device rate for low-latency output, and the `1024`-frame buffer is a compromise between lower latency and underrun risk [R7][R8][R9].
+- `USAGE_GAME` and `CONTENT_TYPE_SONIFICATION` are consistent with an interactive synthesized-audio workload [R9].
 
 ### Current public tone set
 The current Play build exposes **11 user-selectable tones**, not the older 9-waveform list that earlier documents referenced:
@@ -334,6 +443,10 @@ The current Play build exposes **11 user-selectable tones**, not the older 9-wav
 
 Hidden legacy tone strings such as `PULSE`, `ORGAN`, `STRING`, `BELL`, `DRUM_KIT`, `TRUMPET`, and others are still supported internally for backward compatibility, but they are not in the public tone picker.
 
+**Design rationale and references.**
+- The public tone set mixes synthesis primitives with recognizable instrument-like presets so the app remains approachable while still exposing musically distinct timbres [R10].
+- `CLARINET` is modeled around an odd-harmonic closed-pipe spectrum, while `FLUTE` is intentionally closer to a near-pure tone; the `SAW`, `SQUARE`, and `TRIANGLE` presets follow canonical Fourier-series harmonic families [R19][R20][R21][R22][R23].
+
 ### Vibrato
 - Rate: `VIBRATO_RATE_HZ = 4.2f`
 - Minimum depth: `MIN_VIBRATO_DEPTH = 0.0003f`
@@ -347,17 +460,26 @@ depth = MIN_VIBRATO_DEPTH + (MAX_VIBRATO_DEPTH - MIN_VIBRATO_DEPTH) * mix
 
 So louder playing introduces slightly deeper vibrato than very quiet playing.
 
+**Design rationale and references.**
+- A vibrato rate around `4–7 Hz` is consistent with music-acoustics literature, and scaling depth with louder playing keeps the effect subtle at low amplitude while allowing more expressive sustain at higher amplitude [R24].
+
 ### PCM tap and `RecordingManager`
 - `ThereminAudioEngine` defines the `PcmListener` interface.
 - `RecordingManager` implements `ThereminAudioEngine.PcmListener`.
 - The engine calls `listener.onPcmSamples(monoBuffer, monoBuffer.length)` before the mono buffer is duplicated into stereo for `AudioTrack`.
 - Because the tap is pre-stereo and post-drum-mix, recordings capture the exact synthesized output rather than microphone audio.
 
+**Design rationale and references.**
+- Capturing the rendered PCM stream preserves the exact generated signal and avoids room acoustics, speaker coloration, and microphone-placement variability [R14].
+
 ### Background service and 20 ms sync loop
 - `ThereminBackgroundAudioService` owns a service-side `ThereminAudioEngine` and `DrumEngine`.
 - Its worker thread sleeps for `SYNC_TICK_MS = 20`.
 - On each tick it reloads persisted settings as needed, reads `BleSnapshot`, applies scale/effects/drum/bass/tone/octave state, computes current frequency/volume targets, and pushes them to the service-owned audio engine.
 - This same loop is also used for calibration preview.
+
+**Design rationale and references.**
+- The service-side sync loop exists because background playback must remain functional outside the foreground UI lifecycle, and a `20 ms` service tick is much closer to interactive musical control than the `50 ms` foreground UI cadence [R9][R11][R13].
 
 ### Tone synthesis recipes
 
@@ -386,6 +508,10 @@ building blocks:
 | SQUARE | Additive (odd only) | Harmonics 1, 3, 5, 7, 9 at 0.86, 0.28, 0.15, 0.08, 0.04 — soft square with `saturate(v, 0.96)` |
 | HELICOPTER | Pulse chop | Theremin pitch maps to pulse chop rate 0.75–12 Hz; each pulse is a brief sine burst |
 
+**Design rationale and references.**
+- The synthesis recipes are documented because tone design is part of the product identity, not merely an implementation detail.
+- The use of additive, FM/PM, and soft-clipping stages provides recognizable timbral families at modest CPU cost on a phone, while canonical waveform presets remain grounded in established acoustic or Fourier models [R19][R20][R21][R22][R23].
+
 ### DrumEngine — sound synthesis
 
 All 14 sounds are prepared at construction into `float[]` PCM arrays at 48 kHz. The bank is
@@ -412,6 +538,10 @@ The voice pool is lock-free: `voiceSound` and `voicePos` are `AtomicIntegerArray
 slots. `triggerVoice()` finds the first free slot (pos < 0). `mixInto()` advances each active
 voice sample-by-sample and marks it free when it reaches the end.
 
+**Design rationale and references.**
+- Precomputing PCM assets and mixing them directly into the engine buffer avoids expensive work on the real-time playback path, which is consistent with Android low-latency audio guidance [R8].
+- The hybrid bank improves sonic variety without requiring a fully sample-based instrument library [R8][R10].
+
 ### DrumEngine — 8 preset beat patterns
 
 Each pattern is a 6-row × 16-column boolean grid at 16th-note resolution (rows: kick, snare,
@@ -433,6 +563,9 @@ E2, A2, D3, and G2.
 tick based on `System.currentTimeMillis()` delta, so BPM changes take effect on the next step
 with no restart and no audible glitch.
 
+**Design rationale and references.**
+- Preset beat patterns support quick learnability, while 16-step sequencing matches common loop-based rhythm interaction and is easy to visualize for users [R10].
+
 ### DrumEngine — piano synthesis modes
 
 The piano covers 25 chromatic notes, C3 (MIDI 48) through C5 (MIDI 72), pre-rendered at all
@@ -444,6 +577,9 @@ furthest-advanced voice is stolen.
 | KEYS | 3 ms linear | `exp(−4.5t)`, 800 ms total | 4 harmonics (0.70, 0.20, 0.07, 0.03) | Warm mallet/marimba |
 | BELLS | 2.5 ms linear | Dual-exp: `0.72×exp(−3.8t) + 0.28×exp(−8t)`, 1250 ms | 4 **inharmonic** partials at ×1, ×2.76, ×5.43, ×8.21 | Bell/metallophone shimmer |
 | ORGAN | 10 ms linear | Near-sustained: `0.82 + 0.18×exp(−2.2t)`, 950 ms | 4 harmonics (0.58, 0.26, 0.11, 0.05) + 5.2 Hz vibrato | Hammond drawbar character |
+
+**Design rationale and references.**
+- The piano modes widen the melodic palette without requiring a separate full keyboard engine, while fixed note range and voice limits keep CPU and memory use bounded on a phone [R8][R10].
 
 ### DrumEngine — arpeggio patterns
 
@@ -462,6 +598,9 @@ The arpeggio clock is sample-accurate: `arpNextFireSample` advances against `arp
 (incremented per PCM sample in `mixInto()`) rather than a wall-clock timer, so arpeggio timing
 stays locked to the audio buffer regardless of scheduling jitter.
 
+**Design rationale and references.**
+- Driving arpeggios from the audio sample clock rather than a wall-clock timer reduces timing jitter, which is important for perceived rhythmic quality in musical systems [R11].
+
 ## 7. Recording System
 
 ### `RecordingManager`
@@ -470,11 +609,17 @@ stays locked to the audio buffer regardless of scheduling jitter.
 - File output: mono input is duplicated into stereo for saved files
 - Storage guard: `MIN_FREE_BYTES = 10 * 1024 * 1024`
 
+**Design rationale and references.**
+- The recording path is built around the render buffer because it guarantees signal fidelity and avoids the feedback and ambient-noise problems of microphone capture [R14].
+
 ### Quality modes
 - `LOSSLESS`: WAV, PCM 16-bit, 48 kHz, stereo, no codec
 - `HIGH`: AAC-LC, 320 kbps, 48 kHz, stereo (`.m4a`)
 - `MEDIUM`: AAC-LC, 192 kbps, 48 kHz, stereo (`.m4a`)
 - `LOW`: AAC-LC, 128 kbps, 48 kHz, stereo (`.m4a`)
+
+**Design rationale and references.**
+- Offering both WAV and AAC-LC gives users an explicit quality-versus-storage tradeoff using Android-supported output formats [R14].
 
 ### `RecordingRepository` schema and file location
 - Database file: `recordings.db`
@@ -484,6 +629,9 @@ stays locked to the audio buffer regardless of scheduling jitter.
 - App-private primary recording files: `getFilesDir()/recordings/`
 - Optional exported user-visible copies: `Music/Theremin Gloves Recordings` via `RecordingExportManager`
 - Important nuance: `recordings.db` stores the app-private original file path. The optional exported copy is a convenience duplicate, not a separately persisted repository record.
+
+**Design rationale and references.**
+- Keeping a local metadata database plus app-private canonical files is appropriate for an offline-first media feature, while optional export preserves user access without making the public copy the source of truth [R14][R15].
 
 ### `LibraryActivity` features
 - load all saved recordings from `RecordingRepository`
@@ -500,12 +648,19 @@ stays locked to the audio buffer regardless of scheduling jitter.
 - custom duration filter
 - custom date-range filter
 
+**Design rationale and references.**
+- The Library is designed as a real media-management screen rather than a temporary playback list because once capture is supported, retrieval and organization become part of the product itself [R1].
+- `MediaPlayer` is sufficient for file playback on this screen because the Library path is not the low-latency synthesis path [R9][R25].
+
 ## 8. Settings and Persistence
 
 ### `SettingsStore`
 - Database name: `theremin_gloves.db`
 - Table name: `app_settings`
 - Storage model: one row with `id = 1`
+
+**Design rationale and references.**
+- A single-row settings table is appropriate because the app has one active instrument configuration per install rather than a multi-user or multi-profile model [R15].
 
 ### `app_settings` columns
 - `id`
@@ -533,10 +688,16 @@ stays locked to the audio buffer regardless of scheduling jitter.
 - `sensitivity_level`
 - `sensitivity_curve`
 
+**Design rationale and references.**
+- Grouping theremin, effects, calibration, and scale settings in one row keeps the values that are loaded together at startup and playback handoff physically together in persistence [R15].
+
 ### Migration strategy
 - `SettingsStore` uses `ensureSchema(db)` plus `addColumnIfMissing(...)`
 - It does not rely on destructive migrations
 - A process-wide `schemaVerifiedForProcess` flag avoids repeating `PRAGMA table_info(...)` and `ALTER TABLE` checks on every screen load
+
+**Design rationale and references.**
+- The additive migration strategy is defensible because SQLite supports inexpensive `ADD COLUMN` schema evolution for small stable tables without requiring destructive rewrites [R16].
 
 ### SharedPreferences flags
 - Preferences file `theremin_prefs`
@@ -546,6 +707,9 @@ stays locked to the audio buffer regardless of scheduling jitter.
   - `show_rename_dialog_on_stop`
 - Preferences file `calibration_ui_prefs`
   - `calibration_guide_learned`
+
+**Design rationale and references.**
+- `SharedPreferences` is appropriate for a small number of lightweight UI flags, while the larger structured configuration stays in SQLite [R17].
 
 ### `AppSettings` fields and default values
 These are the persisted theremin/calibration defaults loaded into a fresh `AppSettings` object and used by `SettingsStore` plus `CalibrationDraft`. They are not the narrower Play-screen reset defaults used by `PlayMappingState.restoreDefaults()`.
@@ -584,6 +748,9 @@ Separate Play-only defaults used by `PlayMappingState.restoreDefaults()`:
 - frequency range: `20f` to `2 000f` by default; the Settings extended-range toggle raises the
   usable ceiling to `20 000f`
 
+**Design rationale and references.**
+- The defaults are conservative and beginner-friendly, while the extended-range option preserves headroom for advanced experimentation [R10][R12].
+
 ## 9. Calibration System
 
 ### `CalibrationDraft` pattern
@@ -595,12 +762,18 @@ Separate Play-only defaults used by `PlayMappingState.restoreDefaults()`:
 
 This avoids partial writes and makes Reload/Defaults behavior straightforward.
 
+**Design rationale and references.**
+- The draft pattern separates editing state from committed state, which is good practice for user calibration because partial or mistaken values should remain reversible until explicit save [R12].
+
 ### `beginCalibrationPreview(...)` / `endCalibrationPreview()` flow
 1. `CalibrationActivity.syncCalibrationPreview()` builds an `AppSettings` snapshot representing the current unsaved draft.
 2. It calls `ThereminBackgroundAudioService.beginCalibrationPreview(context, previewSettings)`.
 3. The service stores that preview object in `calibrationPreviewSettings`.
 4. On each 20 ms service tick, `pushTargets(...)` uses `calibrationPreviewSettings` instead of the saved settings row.
 5. When calibration is stopped, saved, or the screen leaves the foreground, `ThereminBackgroundAudioService.endCalibrationPreview()` clears the preview override.
+
+**Design rationale and references.**
+- Preview-before-save is important because calibration quality is perceptual: the user needs to hear and feel the mapping before committing it [R12].
 
 ### How neutral position is captured and stored
 Neutral capture is a BLE/device-side operation:
@@ -613,6 +786,9 @@ Neutral capture is a BLE/device-side operation:
 
 Important nuance: the neutral roll angle is not written into `SettingsStore`. The persisted calibration row stores pitch/volume/frequency ranges and tone settings; the live neutral reference itself lives in the glove/session state.
 
+**Design rationale and references.**
+- Keeping neutral capture on the glove side is appropriate because the glove owns the IMU frame of reference; the Android side stores mapping policy, while the live neutral baseline remains device/session state [R2][R12].
+
 ## 10. End-to-End Latency Analysis
 
 ### Fixed values from the current code
@@ -620,6 +796,9 @@ Important nuance: the neutral roll angle is not written into `SettingsStore`. Th
 - Background-service sync loop: `SYNC_TICK_MS = 20 ms`
 - Foreground Play refresh loop: `UI_TICK_MS = 50 ms`
 - Audio buffer: `AUDIO_WRITE_FRAMES / SAMPLE_RATE = 1024 / 48000 = 0.02133 s = 21.33 ms`
+
+**Design rationale and references.**
+- These values are listed explicitly because end-to-end musical latency is the sum of transport, scheduling, and output-buffer stages rather than only the synthesis cost [R11].
 
 ### Background/calibration path latency
 This is the path used by `ThereminBackgroundAudioService` and calibration preview:
@@ -633,6 +812,9 @@ Worst case = 20 ms + 20 ms + 21.33 ms
            = ~61.33 ms
 ```
 
+**Design rationale and references.**
+- The background/calibration path is stronger because the `20 ms` service cadence is materially closer to interactive-audio guidance than the `50 ms` UI cadence used on the foreground Play screen [R7][R8][R11].
+
 ### Foreground Play path latency
 On the visible Play screen, `MainActivity.refreshUiFast()` runs every `UI_TICK_MS = 50 ms`, so the control-update cadence is currently looser than the service cadence:
 
@@ -645,10 +827,17 @@ Worst case = 20 ms + 50 ms + 21.33 ms
            = ~91.33 ms
 ```
 
-### Comparison against HD-11 (< 80 ms)
+**Design rationale and references.**
+- The current foreground path is limited more by UI refresh cadence than by the audio buffer itself, which identifies the next optimization target clearly [R7][R11].
+
+### Comparison against the current project ceiling (`< 80 ms`)
+- The `80 ms` figure should be treated as a practical prototype ceiling, not as the perceptual ideal for musical interaction.
 - Background/calibration path: comfortably under 80 ms even in the worst case.
 - Foreground Play path: typical behavior is still under 80 ms, but a strict worst-case bound based on the current `UI_TICK_MS = 50 ms` exceeds 80 ms.
 - This is why older documents that assumed `AUDIO_WRITE_SAMPLES = 2048` are now outdated: the current audio buffer is smaller (`1024` frames), but the real foreground limit is now the Play-screen refresh loop, not the service loop.
+
+**Design rationale and references.**
+- Research does not support calling `80 ms` an ideal target. A better framing is: `<= 10–20 ms` as the musician-facing ideal, `20–30 ms` JND as a looser tolerance for some continuous theremin-like control, and `< 80 ms` as a practical prototype ceiling for the current project [R7][R10][R11][R13].
 
 ---
 
@@ -736,6 +925,9 @@ flowchart TD
     SP --> TBAS
 ```
 
+**Design rationale and references.**
+- The expanded architecture diagram exists because a high-level box diagram is not enough for review: timing loops, ownership boundaries, and packet directions are architecturally important in a real-time mobile instrument [R1][R11].
+
 ---
 
 ## 12. BLE State Machine Diagram
@@ -775,6 +967,9 @@ stateDiagram-v2
 - `BleSnapshot.isPitchConnected()` returns true only in the `READY` or `ACTIVE` states.
 - MAC addresses cached from the `READY` state enable the RECONNECTING→CONNECTING fast path (avoids full 12 s scan).
 
+**Design rationale and references.**
+- A state machine is included because BLE behavior is temporal and failure-driven; prose alone is weak for communicating reconnect logic and stale-session handling [R1][R4].
+
 ---
 
 ## 13. Thread Model
@@ -799,6 +994,9 @@ The app uses four distinct threads. Understanding their priorities and interacti
 | `DrumEngine` voice pool | `AtomicIntegerArray` | Array element CAS operations are needed because multiple indices can be written simultaneously. A single volatile is not sufficient for array elements. |
 | `RecordingManager` codec state | `ReentrantLock.tryLock()` | Non-blocking — audio thread drops buffer rather than stalling if finalization is in progress. |
 | `BleSnapshot` | Immutable value object | Created atomically from static fields; no lock needed on the read side. |
+
+**Design rationale and references.**
+- The thread model is documented because real-time audio, BLE UI refresh, and background playback are concurrency-sensitive subsystems; non-blocking behavior on the audio path is a first-order design requirement, not an implementation footnote [R8][R9][R11].
 
 ---
 
@@ -882,11 +1080,17 @@ The following ASCII flow traces the exact execution sequence inside `ThereminAud
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+**Design rationale and references.**
+- The per-buffer pipeline is included because latency, jitter, and recording fidelity are ultimately determined at buffer granularity; this is the level where timing and side taps become concrete [R9][R11].
+
 ---
 
 ## 15. Function-Level Class Reference
 
 All 34 Java source files in `app/src/main/java/com/example/thereminglovestest2/`.
+
+**Design rationale and references.**
+- The function-level class reference is included for traceability so reviewers can verify that the architecture description matches the implemented codebase rather than an earlier design snapshot [R1].
 
 ---
 
@@ -1268,197 +1472,201 @@ recordings.db
 
 **Migration strategy:** `SettingsStore.addColumnIfMissing(db, table, col, type, default)` is called in `onOpen()` for every column that was added after version 1. Columns are never dropped or renamed. The `schemaVerifiedForProcess` flag prevents re-running schema checks on every screen load within one app session.
 
+**Design rationale and references.**
+- The schema diagram is included because persistence is part of the system architecture, not just a storage detail. This is especially important here because the project uses a lightweight raw-SQLite layer rather than Room-generated schema metadata [R1][R15][R16].
+
 ---
 
 ## 17. UML Diagrams
 
+**Design rationale and references.**
+- The UML views are included because they provide standardized static, behavioral, and component-level perspectives that complement the prose architecture description [R1].
+
 ### 17.1 UML Class Diagram
 
-Core classes, key members, and inter-class relationships. All fields and return types are source-verified against the sprint3 codebase.
+Core classes, representative members, and inter-class relationships. Member names and dependencies are source-verified against the sprint3 codebase.
 
 ```mermaid
 classDiagram
     class ThereminAudioEngine {
-        +int SAMPLE_RATE = 48000
-        +int AUDIO_WRITE_FRAMES = 1024
-        +float OUTPUT_GAIN = 0.14
-        -volatile float targetFreqHz
-        -volatile float targetVolumeLinear
-        -volatile String toneType
-        -volatile String activeScale
-        -DrumEngine drumEngine
-        -PcmListener pcmListener
+        +SAMPLE_RATE : int
+        +AUDIO_WRITE_FRAMES : int
+        +OUTPUT_GAIN : float
+        -targetFreqHz : float
+        -targetVolumeLinear : float
+        -toneType : String
+        -activeScale : String
+        -drumEngine : DrumEngine
+        -pcmListener : PcmListener
         +start()
         +stop()
-        +setTargets(float freqHz, float vol)
-        +setToneType(String tone)
-        +setDrumEngine(DrumEngine de)
-        +setPcmListener(PcmListener l)
-        +getVisualizerSnapshot() short[]
+        +setTargets(freqHz, volumeLinear)
+        +setToneType(tone)
+        +setDrumEngine(engine)
+        +setPcmListener(listener)
+        +getVisualizerSnapshot()
         -fillBuffer()
-        -sample(String tone, float phase, float freq) float
-        -snapToScale(float freq) float
-        -applyReverb(float x) float
-        -applyDelay(float x) float
-        -applyDistortion(float x) float
+        -sample(tone, phase, freq)
+        -snapToScale(freq)
+        -applyReverb(sample)
+        -applyDelay(sample)
+        -applyDistortion(sample)
     }
 
     class ThereminBackgroundAudioService {
-        +int SYNC_TICK_MS = 20
-        +int SETTINGS_REFRESH_MS = 500
-        -ThereminAudioEngine engine
-        -DrumEngine drumEngine
-        -PlayMappingState mappingState
-        +onStartCommand(Intent, int, int) int
+        +SYNC_TICK_MS : int
+        +SETTINGS_REFRESH_MS : int
+        -engine : ThereminAudioEngine
+        -drumEngine : DrumEngine
+        -mappingState : PlayMappingState
+        +onStartCommand(intent, flags, startId)
         +onDestroy()
         -syncLoop()
         -pushTargets()
     }
 
     class BleSessionManager {
-        +long SCAN_TIMEOUT_MS = 12000
-        +long AUTO_RECONNECT_DELAY_MS = 1500
-        +long PING_AFTER_MS = 3000
-        +long STALE_WARNING_MS = 4500
-        +long STALE_RECONNECT_MS = 20000
-        -Glove pitchGlove
-        -Glove volumeGlove
+        +SCAN_TIMEOUT_MS : long
+        +AUTO_RECONNECT_DELAY_MS : long
+        +PING_AFTER_MS : long
+        +STALE_WARNING_MS : long
+        +STALE_RECONNECT_MS : long
+        -pitchGlove : Glove
+        -volumeGlove : Glove
         +getSnapshot() BleSnapshot
-        +requestScan(Context)
+        +requestScan(context)
         +requestDisconnect()
         -watchdog()
     }
 
     class BleSnapshot {
-        <<value object>>
-        +float pitchDeltaDeg
-        +float volumeDeltaDeg
-        +boolean isPitchConnected
-        +boolean isVolumeConnected
-        +float pitchNeutralDeg
-        +float volumeNeutralDeg
+        +pitchDeltaDeg : float
+        +volumeDeltaDeg : float
+        +isPitchConnected : boolean
+        +isVolumeConnected : boolean
+        +pitchNeutralDeg : float
+        +volumeNeutralDeg : float
     }
 
     class PlayMappingState {
-        -float pitchAngleMin
-        -float pitchAngleMax
-        -float freqMinHz
-        -float freqMaxHz
-        -float sensitivityResponseCurve
-        -int octaveShift
+        -pitchAngleMin : float
+        -pitchAngleMax : float
+        -freqMinHz : float
+        -freqMaxHz : float
+        -sensitivityResponseCurve : float
+        -octaveShift : int
         +recompute(BleSnapshot snapshot)
         +getFrequencyHz() float
         +getVolumeLinear() float
-        -normalizeClamped(float v, float lo, float hi) float
+        -normalizeClamped(value, low, high)
     }
 
     class DrumEngine {
-        +int MAX_VOICES = 32
-        +int NUM_SOUNDS = 14
-        +float DRUM_MIX_HEADROOM = 0.26
-        +float PIANO_MIX_HEADROOM = 0.22
-        -SequencerClock clock
-        -float[][] sounds
-        +mixInto(short[] buf, int frames)
-        +setBpm(float bpm)
-        +setPattern(int track, int step, boolean on)
+        +MAX_VOICES : int
+        +NUM_SOUNDS : int
+        +DRUM_MIX_HEADROOM : float
+        +PIANO_MIX_HEADROOM : float
+        -clock : SequencerClock
+        -sounds : float[][]
+        +mixInto(buffer, frames)
+        +setBpm(bpm)
+        +setPattern(track, step, enabled)
         +start()
         +stop()
     }
 
     class SequencerClock {
-        -long lastTickMs
-        +schedule(Runnable tick, long intervalMs)
+        -lastTickMs : long
+        +schedule(tick, intervalMs)
         +stop()
     }
 
     class RecordingManager {
-        <<implements PcmListener>>
-        -ReentrantLock codecLock
-        -Quality activeQuality
-        +start(Quality q)
+        -codecLock : ReentrantLock
+        -activeQuality : Quality
+        +start(quality)
         +stop()
-        +onPcmSamples(short[] buf, int len)
+        +onPcmSamples(buffer, length)
     }
 
     class SettingsStore {
-        -String DB_NAME = "theremin_gloves.db"
-        +save(AppSettings s)
+        -DB_NAME : String
+        +save(settings)
         +load() AppSettings
-        -ensureSchema(SQLiteDatabase db)
-        -addColumnIfMissing(SQLiteDatabase db, String col, String def)
+        -ensureSchema(database)
+        -addColumnIfMissing(database, column, definition)
     }
 
     class AppSettings {
-        <<data model>>
-        +float pitchAngleMinDeg
-        +float pitchAngleMaxDeg
-        +float freqMinHz
-        +float freqMaxHz
-        +String toneType
-        +String activeScale
-        +int octaveShift
-        +boolean reverbEnabled
-        +float reverbMix
-        +float sensitivityResponseCurve
+        +pitchAngleMinDeg : float
+        +pitchAngleMaxDeg : float
+        +freqMinHz : float
+        +freqMaxHz : float
+        +toneType : String
+        +activeScale : String
+        +octaveShift : int
+        +reverbEnabled : boolean
+        +reverbMix : float
+        +sensitivityResponseCurve : float
     }
 
     class RecordingRepository {
-        -String DB_NAME = "recordings.db"
-        +insert(Recording r) long
-        +getAll() List~Recording~
-        +getByFolder(long folderId) List~Recording~
-        +delete(long id)
-        +updateDisplayName(long id, String name)
+        -DB_NAME : String
+        +insert(recording)
+        +getAll()
+        +getByFolder(folderId)
+        +delete(recordingId)
+        +updateDisplayName(recordingId, name)
     }
 
     class AppLaunchWarmup {
-        -Thread daemonThread
-        +start(Context ctx)
+        -daemonThread : Thread
+        +start(context)
         +takeDrumEngine() DrumEngine
         +takeSettingsStore() SettingsStore
         +takeRecordingRepository() RecordingRepository
     }
 
     class PcmListener {
-        <<interface>>
-        +onPcmSamples(short[] buf, int len)
+        +onPcmSamples(buffer, length)
     }
 
     class CalibrationDraft {
-        +float pitchAngleMin
-        +float pitchAngleMax
-        +float freqMinHz
-        +float freqMaxHz
+        +pitchAngleMin : float
+        +pitchAngleMax : float
+        +freqMinHz : float
+        +freqMaxHz : float
         +sanitize()
-        +saveTo(AppSettings target)
-        +applyFrom(AppSettings source)
+        +saveTo(target)
+        +applyFrom(source)
     }
 
     ThereminBackgroundAudioService --> ThereminAudioEngine : owns
     ThereminBackgroundAudioService --> DrumEngine : owns
     ThereminBackgroundAudioService --> PlayMappingState : owns
-    ThereminBackgroundAudioService --> SettingsStore : reads every 500 ms
+    ThereminBackgroundAudioService ..> SettingsStore : reads settings
 
-    BleSessionManager ..> BleSnapshot : creates (immutable)
+    BleSessionManager ..> BleSnapshot : creates snapshot
 
-    ThereminAudioEngine --> DrumEngine : mixInto() per buffer
-    ThereminAudioEngine --> PcmListener : notifies onPcmSamples()
-    ThereminAudioEngine ..> BleSnapshot : targets set from
+    ThereminAudioEngine --> DrumEngine : mixes drum audio
+    ThereminAudioEngine --> PcmListener : emits PCM tap
 
     RecordingManager ..|> PcmListener : implements
 
-    PlayMappingState ..> BleSnapshot : reads angles from
+    PlayMappingState ..> BleSnapshot : reads live angles
 
-    SettingsStore --> AppSettings : loads / saves
-    CalibrationDraft --> AppSettings : saveTo()
+    SettingsStore --> AppSettings : loads and saves
+    CalibrationDraft --> AppSettings : commits values
 
     DrumEngine --> SequencerClock : uses
 
-    AppLaunchWarmup ..> DrumEngine : pre-constructs
-    AppLaunchWarmup ..> SettingsStore : pre-constructs
-    AppLaunchWarmup ..> RecordingRepository : pre-constructs
+    AppLaunchWarmup ..> DrumEngine : preconstructs
+    AppLaunchWarmup ..> SettingsStore : preconstructs
+    AppLaunchWarmup ..> RecordingRepository : preconstructs
 ```
+
+**Design rationale and references.**
+- The class diagram exists to expose the main static relationships between BLE, mapping, synthesis, persistence, and warm-up infrastructure in a standardized visual form [R1].
 
 ---
 
@@ -1512,6 +1720,9 @@ sequenceDiagram
     A-->>Speaker: audio output
 ```
 
+**Design rationale and references.**
+- The sequence diagram is included because the core claim of the product is real-time gesture-to-sound translation; a sequence view makes causality and timing boundaries explicit [R1][R11].
+
 ---
 
 ### 17.3 UML Activity Diagram — Calibration Flow
@@ -1543,6 +1754,9 @@ flowchart TD
     R --> S[MainActivity: Play screen\nForeground ThereminAudioEngine starts]
     S --> T([Live theremin playing])
 ```
+
+**Design rationale and references.**
+- The activity diagram is included because calibration is one of the most stateful user-facing workflows in the app and includes preview, device-side neutral capture, validation, and persistence [R1][R12].
 
 ---
 
@@ -1620,3 +1834,34 @@ flowchart TB
     CA --> SS
     BA --> DE1
 ```
+
+**Design rationale and references.**
+- The component diagram is included because the project spans hardware, firmware, BLE transport, Android services, UI, and storage; a component view makes deployment-scale relationships clearer than a class view alone [R1].
+
+## References
+
+**[R1]** ISO/IEC/IEEE 42010 architecture overview. https://www.iso-architecture.org/ieee-1471/ads/  
+**[R2]** Arduino Nano 33 BLE Sense Rev2 documentation. https://docs.arduino.cc/hardware/nano-33-ble-sense-rev2/  
+**[R3]** Android Developers, BLE overview. https://developer.android.com/develop/connectivity/bluetooth/ble/ble-overview  
+**[R4]** Android Developers, communicate with BLE devices in the background. https://developer.android.com/develop/connectivity/bluetooth/ble/background  
+**[R5]** Android Developers, Bluetooth permissions. https://developer.android.com/develop/connectivity/bluetooth/bt-permissions  
+**[R6]** Nordic Semiconductor, Android BLE Library. https://github.com/nordicsemi/Android-BLE-Library  
+**[R7]** Android Developers, audio latency guidance. https://developer.android.com/ndk/guides/audio/audio-latency  
+**[R8]** Android Developers, low latency audio on Android / Oboe guidance. https://developer.android.com/games/sdk/oboe/low-latency-audio  
+**[R9]** Android Developers, `AudioTrack`, `AudioAttributes`, and background playback guidance. https://developer.android.com/reference/android/media/AudioTrack ; https://developer.android.com/reference/android/media/AudioAttributes ; https://developer.android.com/media/media3/session/background-playback  
+**[R10]** Wessel, D., and Wright, M. "Problems and Prospects for Intimate Musical Control of Computers," 2002. https://cnmat.berkeley.edu/publications/problems-and-prospects-intimate-musical-control-computers-0  
+**[R11]** McPherson, A., Jack, R., and Moro, G. "Action-Sound Latency: Are Our Tools Fast Enough?" NIME 2016. https://nime.org/proc/mcpherson2016/  
+**[R12]** Review of user-conducted IMU calibration methods. https://www.sciencedirect.com/science/article/abs/pii/S0263224123015658  
+**[R13]** Mäki-Patola, T., and Hämäläinen, P. latency tolerance for gesture-controlled continuous sound instruments. https://users.aalto.fi/~hamalap5/publications/icmcarticlefinal10.pdf  
+**[R14]** Android Developers, supported media formats. https://developer.android.com/media/platform/supported-formats  
+**[R15]** Android Developers, Room persistence guidance. https://developer.android.com/training/data-storage/room/  
+**[R16]** SQLite `ALTER TABLE` guidance. https://www.sqlite.org/lang_altertable.html  
+**[R17]** Android Developers, SharedPreferences guidance. https://developer.android.com/training/data-storage/shared-preferences  
+**[R18]** Android Developers, adaptive orientation and resizability guidance. https://developer.android.com/develop/ui/compose/layouts/adaptive/app-orientation-aspect-ratio-resizability  
+**[R19]** Clarinet acoustics, University of New South Wales. https://www.phys.unsw.edu.au/jw/clarinetacoustics.html  
+**[R20]** Flute acoustics, University of New South Wales. https://www.phys.unsw.edu.au/jw/fluteacoustics.html  
+**[R21]** Sawtooth-wave Fourier series. https://mathworld.wolfram.com/FourierSeriesSawtoothWave.html  
+**[R22]** Square-wave Fourier series. https://mathworld.wolfram.com/FourierSeriesSquareWave.html  
+**[R23]** Triangle-wave Fourier series. https://mathworld.wolfram.com/FourierSeriesTriangleWave.html  
+**[R24]** Typical vibrato-rate review. https://pmc.ncbi.nlm.nih.gov/articles/PMC9510150/  
+**[R25]** Android Developers, `MediaPlayer` reference. https://developer.android.com/reference/android/media/MediaPlayer  

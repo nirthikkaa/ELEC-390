@@ -29,7 +29,7 @@ Two Arduino Nano 33 BLE Sense gloves stream wrist-angle telemetry over BLE. `Ble
 
 | Document | Description |
 |----------|-------------|
-| [Design Document](01_Design_Document.md) | Full architecture — subsystems, constants, data flow |
+| [Design Document](01_Design_Document.md) | Full design document with architecture, rationale, citations, and references |
 | [Test Document](02_Test_Document.md) | 51-row test matrix covering BLE, audio, recording, settings |
 | [User Manual](03_User_Manual.md) | End-user walkthrough, screen-by-screen |
 | [Mission Statement](04_Mission_Statement.md) | Product positioning and target users |

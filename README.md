@@ -245,7 +245,7 @@ Full submission documentation is in [`docs/`](docs/):
 | Document | Contents |
 |---|---|
 | [`00_FAQ.md`](docs/00_FAQ.md) | 102 Q&A pairs — project, BLE, DSP, architecture, testing, demo |
-| [`01_Design_Document.md`](docs/01_Design_Document.md) | Architecture, UML diagrams, class reference, DB schema |
+| [`01_Design_Document.md`](docs/01_Design_Document.md) | Full design document with architecture, rationale, citations, UML diagrams, class reference, and DB schema |
 | [`02_Test_Document.md`](docs/02_Test_Document.md) | 51 test rows (all Pass), automated test inventory |
 | [`03_User_Manual.md`](docs/03_User_Manual.md) | End-user guide (also available in-app at Settings → User Manual) |
 | [`05_Ethics_Report.md`](docs/05_Ethics_Report.md) | Privacy, accessibility, AI usage transparency |

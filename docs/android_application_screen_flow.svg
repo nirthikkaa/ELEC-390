@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="1240" viewBox="0 0 1760 1240">
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .title { font: 700 34px sans-serif; fill: #111111; }
+      .subtitle { font: 18px sans-serif; fill: #555555; }
+      .label { font: 700 20px sans-serif; fill: #111111; }
+      .caption { font: 16px sans-serif; fill: #555555; }
+      .frame { fill: #ffffff; stroke: #222222; stroke-width: 2.5; rx: 20; ry: 20; }
+      .arrow { stroke: #333333; stroke-width: 4; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto">
+      <polygon points="0,0 12,5 0,10" fill="#333333"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect class="bg" width="100%" height="100%"/>
+  <text x="60" y="70" class="title">Theremin Gloves Screen Flow</text>
+  <text x="60" y="102" class="subtitle">Screenshots captured from the running Android app and arranged as a navigation/reference diagram.</text>
+
+  <g transform="translate(60,150)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="01_launch.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Launch</text>
+  </g>
+
+  <g transform="translate(330,150)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="02_home.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Setup</text>
+  </g>
+
+  <g transform="translate(600,150)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="03_connect.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Connect Gloves</text>
+  </g>
+
+  <g transform="translate(870,150)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="04_calibration.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Calibration</text>
+  </g>
+
+  <g transform="translate(1140,150)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="05_play.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Play</text>
+  </g>
+
+  <g transform="translate(190,690)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="07_library.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Library</text>
+  </g>
+
+  <g transform="translate(530,690)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="06_beat_maker.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Beat Maker</text>
+  </g>
+
+  <g transform="translate(870,690)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="08_settings.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">Settings</text>
+  </g>
+
+  <g transform="translate(1210,690)">
+    <rect class="frame" width="180" height="360" filter="url(#shadow)"/>
+    <image href="09_user_manual.png" x="10" y="10" width="160" height="340" preserveAspectRatio="xMidYMid slice"/>
+    <text x="90" y="390" text-anchor="middle" class="label">User Manual</text>
+  </g>
+
+  <path class="arrow" d="M240 330 H330"/>
+  <path class="arrow" d="M510 330 H600"/>
+  <path class="arrow" d="M780 330 H870"/>
+  <path class="arrow" d="M1050 330 H1140"/>
+
+  <path class="arrow" d="M1190 510 V560 H620 V690"/>
+  <path class="arrow" d="M1190 510 V590 H280 V690"/>
+  <path class="arrow" d="M1190 510 V620 H960 V690"/>
+  <path class="arrow" d="M1050 870 H1210"/>
+
+  <text x="60" y="1165" class="caption">Figure. Core Android screens captured from the app and arranged to show the main setup, play, editing, library, and settings flow.</text>
+</svg>
