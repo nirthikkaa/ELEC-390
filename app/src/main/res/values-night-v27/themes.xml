@@ -1,7 +1,5 @@
 <resources>
 
-    <style name="Base.Theme.ThereminGlovestest2" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:windowLightNavigationBar">false</item>
-    </style>
+    <style name="Base.Theme.ThereminGlovestest2" parent="Theme.Material3.Dark.NoActionBar" />
 
 </resources>

@@ -52,6 +52,8 @@ public class ThereminBackgroundAudioService extends Service {
     private static volatile float   bgDistortionGain    = 3.0f;
     private static volatile boolean bgDrumEnabled          = false;
     private static volatile boolean bgBassEnabled          = false;
+    private static volatile float   bgDrumGain             = 1.0f;
+    private static volatile float   bgPianoVolume          = 1.0f;
     private static volatile float   bgSensitivityResponseCurve = 1.0f;
 
     public static boolean isServiceActive()  { return serviceActive; }
@@ -151,8 +153,14 @@ public class ThereminBackgroundAudioService extends Service {
         if (d != null) d.setBpm(bpm);
     }
     public static void setDrumGain(float gain) {
+        bgDrumGain = Math.max(0f, Math.min(2f, gain));
         DrumEngine d = getDrumEngine();
-        if (d != null) d.setDrumGain(gain);
+        if (d != null) d.setDrumGain(bgDrumGain);
+    }
+    public static void setPianoVolume(float gain) {
+        bgPianoVolume = Math.max(0f, gain);
+        DrumEngine d = getDrumEngine();
+        if (d != null) d.setPianoVolume(bgPianoVolume);
     }
     public static void setClapTone(float tone) {
         DrumEngine d = getDrumEngine();
@@ -196,6 +204,8 @@ public class ThereminBackgroundAudioService extends Service {
         audioEngine = new ThereminAudioEngine();
         drumEngine = new DrumEngine(getApplicationContext());
         drumEngine.start();
+        drumEngine.setDrumGain(bgDrumGain);
+        drumEngine.setPianoVolume(bgPianoVolume);
         audioEngine.setDrumEngine(drumEngine);
         createNotificationChannelIfNeeded();
     }

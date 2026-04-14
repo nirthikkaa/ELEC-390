@@ -89,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_PERFORMANCE_MODE_ACTIVE = "performance_mode_active";
     private static final String KEY_QUICK_START_FALLBACK_CHECKED = "quick_start_fallback_checked";
     private static final int COLOR_GRID_HINT = 0xFF00FF9D;
+    private static final float PLAY_PREVIEW_PIANO_BASE_GAIN = 0.52f;
 
     // Mirror the curated public tone list so the Play knob only exposes the supported subset.
     private static final String[] TONE_CYCLE = AppSettings.USER_SELECTABLE_TONES.clone();
@@ -691,7 +692,7 @@ public class MainActivity extends AppCompatActivity {
         // Mirror the current in-memory/UI state without rewriting persisted prefs during startup.
         engine.setBpm(drumBpm);
         engine.setPianoSynthMode(pianoSynthMode);
-        engine.setDrumGain(binding.sbBeatVol.getValue() / 100f);
+        applyBeatMix(currentBeatGain());
         if (activeMelodyNotes.isEmpty() || pianoModeIdx <= 0) return;
         int[] arp = DrumEngine.ARPEGGIO_PATTERNS[pianoModeIdx];
         for (int midi : activeMelodyNotes) engine.addMelodyRoot(midi, arp);
@@ -1353,10 +1354,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyBeatVol() {
-        float beatGain = binding.sbBeatVol.getValue() / 100f;
+        applyBeatMix(currentBeatGain());
+    }
+
+    private float currentBeatGain() {
+        return binding == null ? 1f : binding.sbBeatVol.getValue() / 100f;
+    }
+
+    private void applyBeatMix(float beatGain) {
         DrumEngine fg = audioEngine != null ? audioEngine.getDrumEngine() : null;
-        if (fg != null) fg.setDrumGain(beatGain);
+        if (fg != null) {
+            fg.setDrumGain(beatGain);
+            fg.setPianoVolume(beatGain);
+        }
         ThereminBackgroundAudioService.setDrumGain(beatGain);
+        ThereminBackgroundAudioService.setPianoVolume(beatGain);
+        if (bmPreviewEngine != null) {
+            bmPreviewEngine.setDrumGain(beatGain);
+            bmPreviewEngine.setPianoVolume(PLAY_PREVIEW_PIANO_BASE_GAIN * beatGain);
+        }
     }
 
     private void saveEffectSettings() {
@@ -2550,7 +2566,8 @@ public class MainActivity extends AppCompatActivity {
         engine.setTrackVolume(DrumEngine.SND_TOM_LOW, 0.54f);
         engine.setTrackVolume(DrumEngine.SND_RIM,     0.50f);
         engine.setTrackVolume(DrumEngine.SND_SHAKER,  0.42f);
-        engine.setPianoVolume(0.52f);
+        engine.setDrumGain(currentBeatGain());
+        engine.setPianoVolume(PLAY_PREVIEW_PIANO_BASE_GAIN * currentBeatGain());
     }
 
     private void setPreviewTransportPaused(boolean paused) {
